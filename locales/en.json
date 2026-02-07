@@ -1,5 +1,15 @@
 
 {
+  "auth.download_gate.title": "Sign in to download",
+  "auth.download_gate.description": "Sign in with Google (or create an account) to download and view your purchase history.",
+  "auth.sign_in_google": "Sign in with Google",
+  "auth.cancel": "Cancel",
+  "auth.sign_out": "Sign out",
+  "auth.loading": "Loading...",
+  "mypage.sign_in_required": "My page",
+  "mypage.sign_in_required_description": "Sign in to see your download and purchase history.",
+  "mypage.download_history": "Download & purchase history",
+  "mypage.no_history": "No history yet.",
   "header.title": "AI Mastering Agent",
   "footer.copyright": "© {year} AI Mastering Solutions. All rights reserved.",
   "section.step1.title": "Upload Track",

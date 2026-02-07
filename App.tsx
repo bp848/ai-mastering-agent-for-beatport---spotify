@@ -12,10 +12,16 @@ import ChecklistView from './components/ChecklistView';
 import EmailView from './components/EmailView';
 import SNSView from './components/SNSView';
 import { BrandIcon, Spinner } from './components/Icons';
-import Console from './components/Console';
 import { LanguageProvider, useTranslation } from './contexts/LanguageContext';
 import { PlatformProvider, usePlatform } from './contexts/PlatformContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import DownloadGateModal from './components/DownloadGateModal';
+import ResultsModal from './components/ResultsModal';
+import MyPageView from './components/MyPageView';
+import { recordDownload } from './services/downloadHistory';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const AppContent: React.FC = () => {
   const [section, setSection] = useState<PlatformSection>('mastering');
@@ -32,8 +38,15 @@ const AppContent: React.FC = () => {
 
   const [pyodideStatus, setPyodideStatus] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
+  const [showDownloadGate, setShowDownloadGate] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const { t, language } = useTranslation();
   const { addTrack } = usePlatform();
+  const { session, signInWithGoogle } = useAuth();
+
+  useEffect(() => {
+    if (session && showDownloadGate) setShowDownloadGate(false);
+  }, [session, showDownloadGate]);
 
   const addLog = useCallback((message: string) => {
     const locale = language === 'ja' ? 'ja-JP' : 'en-US';
@@ -85,6 +98,7 @@ const AppContent: React.FC = () => {
       const params = await getMasteringSuggestions(result, target, language);
       setMasteringParams(params);
       addLog(t('log.gemini.success'));
+      setShowResultsModal(true);
     } catch (err) {
       const errorKey = err instanceof Error ? err.message : 'error.audio.analysis';
       setError(t(errorKey, { default: t('error.audio.analysis') }));
@@ -104,21 +118,27 @@ const AppContent: React.FC = () => {
 
   const handleDownload = useCallback(async () => {
     if (!masteringParams || !audioBuffer || !audioFile) return;
+    if (!session?.user) {
+      setShowDownloadGate(true);
+      return;
+    }
     try {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
       const url = URL.createObjectURL(masteredBlob);
+      const fileName = `${audioFile.name.replace(/\.[^/.]+$/, "")}_${masteringTarget}_mastered.wav`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${audioFile.name.replace(/\.[^/.]+$/, "")}_${masteringTarget}_mastered.wav`;
+      a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
+      await recordDownload(session.user.id, audioFile.name, masteringTarget);
     } catch (e) {
       setError(t('error.download.fail'));
     } finally {
       setIsExporting(false);
     }
-  }, [masteringParams, audioBuffer, audioFile, masteringTarget, t]);
+  }, [masteringParams, audioBuffer, audioFile, masteringTarget, t, session?.user]);
 
   const openSaveToLibrary = useCallback(() => {
     const baseName = audioFile?.name?.replace(/\.[^/.]+$/, '') ?? 'Untitled';
@@ -141,150 +161,142 @@ const AppContent: React.FC = () => {
     });
     setShowSaveToLibrary(false);
     setSaveToLibraryForm({ title: '', artist: '', album: '', genre: 'Techno', isrc: '', releaseDate: '' });
+    setShowResultsModal(false);
     setSection('library');
   }, [audioFile, masteringTarget, addTrack, saveToLibraryForm]);
 
+  const step = !audioFile ? 1 : isProcessing ? 2 : 3;
+  const stepLabels = [
+    language === 'ja' ? 'アップロード' : 'Upload',
+    language === 'ja' ? '分析' : 'Analyze',
+    language === 'ja' ? 'ダウンロード' : 'Download',
+  ];
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-gray-300 font-sans p-4 sm:p-6 lg:p-10 selection:bg-emerald-500/30">
-      <div className="max-w-6xl mx-auto">
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-6 border-b border-white/5">
-          <div className="flex items-center gap-4">
-            <BrandIcon />
-            <div className="flex flex-col">
-              <h1 className="text-xl font-black text-white uppercase tracking-tighter leading-none">Mastering Agent</h1>
-              <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-[0.3em] mt-1">Techno / Trance Edition · 楽曲管理</span>
+    <div className="min-h-screen min-h-[100dvh] text-zinc-300 p-3 sm:p-6 lg:p-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
+      <div className="max-w-2xl mx-auto">
+        <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+              <BrandIcon />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-white tracking-tight">Mastering Agent</h1>
+              <span className="text-[10px] text-zinc-500">{language === 'ja' ? 'Beatport / Spotify 対応' : 'Beatport / Spotify ready'}</span>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <PlatformNav current={section} onSelect={setSection} />
             <LanguageSwitcher />
           </div>
         </header>
 
         {section !== 'mastering' && (
-          <main className="animate-in fade-in duration-300">
+          <main className="animate-fade-up">
             {section === 'library' && <LibraryView />}
             {section === 'checklist' && <ChecklistView />}
             {section === 'email' && <EmailView />}
             {section === 'sns' && <SNSView />}
+            {section === 'mypage' && <MyPageView />}
           </main>
         )}
 
-        {section === 'mastering' && (
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Upload & Main Info */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-[#141414] p-6 rounded-2xl border border-white/5 shadow-2xl">
-              <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">{t('section.step1.title')}</h2>
-              <FileUpload 
-                onFileChange={handleFileChange} 
-                fileName={audioFile?.name} 
-                isAnalyzing={isProcessing}
-                pyodideStatus={pyodideStatus}
-              />
-              {error && (
-                <div className="mt-4 p-3 bg-red-950/20 border border-red-900/50 rounded-lg text-red-400 text-xs font-bold animate-pulse">
-                  {error}
-                </div>
-              )}
-            </div>
+        <DownloadGateModal
+          open={showDownloadGate}
+          onClose={() => setShowDownloadGate(false)}
+          onSignInWithGoogle={signInWithGoogle}
+        />
 
-            <Console logs={logs} />
+        {analysisData && masteringParams && (
+          <ResultsModal
+            open={showResultsModal}
+            onClose={() => setShowResultsModal(false)}
+            analysisData={analysisData}
+            masteringParams={masteringParams}
+            masteringTarget={masteringTarget}
+            onTargetChange={handleTargetChange}
+            onDownloadMastered={handleDownload}
+            isProcessingAudio={isExporting}
+            audioBuffer={audioBuffer}
+            audioFile={audioFile}
+            onSaveToLibrary={handleSaveToLibrary}
+            saveToLibraryForm={saveToLibraryForm}
+            onSaveFormChange={(k, v) => setSaveToLibraryForm((p) => ({ ...p, [k]: v }))}
+            showSaveToLibrary={showSaveToLibrary}
+            onToggleSaveToLibrary={() => {
+              if (!showSaveToLibrary && audioFile) {
+                const base = audioFile.name.replace(/\.[^/.]+$/, '') || 'Untitled';
+                setSaveToLibraryForm((p) => ({ ...p, title: base }));
+              }
+              setShowSaveToLibrary((b) => !b);
+            }}
+            language={language}
+          />
+        )}
+
+        {section === 'mastering' && (
+        <main className="space-y-4 sm:space-y-8">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 py-2 flex-wrap">
+            {[1, 2, 3].map((s) => (
+              <React.Fragment key={s}>
+                <div className="flex items-center gap-2">
+                  <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
+                  <span className={`text-xs font-medium ${step >= s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
+                </div>
+                {s < 3 && <div className="w-8 h-px bg-white/10" />}
+              </React.Fragment>
+            ))}
           </div>
 
-          {/* Right Column: Results & Mastering Dashboard */}
-          <div className="lg:col-span-8">
-            {!analysisData && !isProcessing ? (
-              <div className="h-full min-h-[500px] flex flex-col items-center justify-center bg-[#141414]/50 border-2 border-dashed border-white/5 rounded-3xl text-center p-10">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                  <BrandIcon />
-                </div>
-                <h2 className="text-xl font-black text-white uppercase tracking-widest">{t('agent.idle.title')}</h2>
-                <p className="text-sm text-gray-500 mt-4 max-w-xs">{t('agent.idle.detail')}</p>
-              </div>
-            ) : isProcessing ? (
-               <div className="h-full min-h-[500px] flex flex-col items-center justify-center bg-[#141414] rounded-3xl text-center p-10 border border-white/5">
-                <div className="w-12 h-12 mb-6 text-emerald-500"><Spinner /></div>
-                <h2 className="text-lg font-black text-white uppercase tracking-widest">{t('upload.analyzing')}</h2>
-                <p className="text-xs text-gray-500 mt-2 font-bold uppercase tracking-widest">{t('upload.analyzing.detail')}</p>
-              </div>
-            ) : (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-                <div className="bg-[#141414] p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl">
-                   <AnalysisDisplay 
-                    data={analysisData!} 
-                    isLoading={isProcessing}
-                    masteringTarget={masteringTarget}
-                    onTargetChange={handleTargetChange}
-                  />
-                  
-                  <div className="mt-10 pt-10 border-t border-white/5">
-                    <MasteringAgent 
-                      params={masteringParams}
-                      isLoading={isProcessing} 
-                      error={error} 
-                      hasAnalysis={true}
-                      onDownloadMastered={handleDownload}
-                      isProcessingAudio={isExporting}
-                      audioBuffer={audioBuffer}
-                    />
-                    {analysisData && audioFile && (
-                      <div className="mt-6 pt-6 border-t border-white/5">
-                        <button
-                          type="button"
-                          onClick={openSaveToLibrary}
-                          className="text-sm font-bold text-emerald-400 hover:text-emerald-300 uppercase tracking-wider"
-                        >
-                          + この曲をライブラリに保存
-                        </button>
-                        {showSaveToLibrary && (
-                          <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-                            <p className="text-[10px] text-gray-500 uppercase">メタ情報（ディストリビューター用にコピーできます）</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-[10px] text-gray-500">タイトル</label>
-                                <input value={saveToLibraryForm.title} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, title: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="タイトル" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">アーティスト</label>
-                                <input value={saveToLibraryForm.artist} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, artist: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="アーティスト" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">アルバム</label>
-                                <input value={saveToLibraryForm.album} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, album: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="アルバム" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">ジャンル</label>
-                                <input value={saveToLibraryForm.genre} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, genre: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Techno" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">ISRC</label>
-                                <input value={saveToLibraryForm.isrc} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, isrc: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="ISRC" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-gray-500">リリース日</label>
-                                <input value={saveToLibraryForm.releaseDate} onChange={(e) => setSaveToLibraryForm((p) => ({ ...p, releaseDate: e.target.value }))} className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="2025-01-01" />
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <button type="button" onClick={handleSaveToLibrary} className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold uppercase hover:bg-emerald-600">保存してライブラリへ</button>
-                              <button type="button" onClick={() => setShowSaveToLibrary(false)} className="px-4 py-2 rounded-xl bg-white/10 text-gray-400 text-xs font-bold uppercase hover:bg-white/20">キャンセル</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="glass rounded-2xl p-4 sm:p-8">
+            <FileUpload 
+              onFileChange={handleFileChange} 
+              fileName={audioFile?.name} 
+              isAnalyzing={isProcessing}
+              pyodideStatus={pyodideStatus}
+            />
+            {error && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                {error}
               </div>
             )}
           </div>
+
+          {isProcessing && (
+            <div className="glass rounded-2xl p-12 flex flex-col items-center justify-center text-center animate-fade-up">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-4 text-cyan-400">
+                <Spinner />
+              </div>
+              <h2 className="text-lg font-bold text-white">{t('upload.analyzing')}</h2>
+              <p className="text-sm text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
+            </div>
+          )}
+
+          {!isProcessing && analysisData && masteringParams && (
+            <div className="glass rounded-2xl p-6 animate-fade-up text-center">
+              <p className="text-sm text-zinc-400 mb-4">
+                {language === 'ja' ? '分析とマスタリングが完了しました' : 'Analysis and mastering complete'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowResultsModal(true)}
+                className="px-8 py-3 min-h-[48px] rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 active:scale-[0.98] touch-manipulation"
+              >
+                {language === 'ja' ? '結果を見る' : 'View Results'}
+              </button>
+            </div>
+          )}
+
+          {!analysisData && !isProcessing && (
+            <div className="glass rounded-2xl p-12 text-center animate-fade-up">
+              <p className="text-zinc-500 text-sm">{t('agent.idle.detail')}</p>
+            </div>
+          )}
         </main>
         )}
 
-        <footer className="mt-16 py-8 border-t border-white/5 flex justify-between items-center text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+        <footer className="mt-8 sm:mt-12 py-4 sm:py-6 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 flex-wrap gap-2">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
-          <p>Version 2.0 (High-Speed Engine)</p>
         </footer>
       </div>
     </div>
@@ -293,9 +305,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <LanguageProvider>
-    <PlatformProvider>
-      <AppContent />
-    </PlatformProvider>
+    <AuthProvider>
+      <PlatformProvider>
+        <AppContent />
+        <Analytics />
+        <SpeedInsights />
+      </PlatformProvider>
+    </AuthProvider>
   </LanguageProvider>
 );
 

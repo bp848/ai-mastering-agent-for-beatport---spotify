@@ -1,5 +1,15 @@
 
 {
+  "auth.download_gate.title": "ダウンロードにはログインが必要です",
+  "auth.download_gate.description": "Googleアカウントでログイン（または登録）すると、ダウンロードと購入履歴を利用できます。",
+  "auth.sign_in_google": "Googleでログイン",
+  "auth.cancel": "キャンセル",
+  "auth.sign_out": "ログアウト",
+  "auth.loading": "読み込み中...",
+  "mypage.sign_in_required": "マイページ",
+  "mypage.sign_in_required_description": "ログインするとダウンロード・購入履歴を確認できます。",
+  "mypage.download_history": "ダウンロード・購入履歴",
+  "mypage.no_history": "まだ履歴がありません。",
   "header.title": "AI マスタリング・エージェント",
   "footer.copyright": "© {year} AI Mastering Solutions. 全著作権所有。",
   "section.step1.title": "トラックをアップロード",

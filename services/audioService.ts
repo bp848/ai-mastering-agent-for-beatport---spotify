@@ -236,19 +236,19 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
 
   let lastNode: AudioNode = source;
 
-  // 1. Gain Adjustment
-  if (params.gain_adjustment_db !== 0) {
-    const gainNode = offlineCtx.createGain();
-    gainNode.gain.value = Math.pow(10, params.gain_adjustment_db / 20);
-    lastNode.connect(gainNode);
-    lastNode = gainNode;
-  }
+  // 1. Gain Adjustment（必ず適用）
+  const gainNode = offlineCtx.createGain();
+  gainNode.gain.value = Math.pow(10, (params.gain_adjustment_db ?? 0) / 20);
+  lastNode.connect(gainNode);
+  lastNode = gainNode;
 
   // 2. EQ Adjustments
   if (params.eq_adjustments && params.eq_adjustments.length > 0) {
     for (const eq of params.eq_adjustments) {
       const filterNode = offlineCtx.createBiquadFilter();
-      filterNode.type = eq.type;
+      // Web Audio API は "peaking" を要求。"peak" は無効
+      const filterType = (eq.type === 'peak' ? 'peaking' : eq.type) as BiquadFilterType;
+      filterNode.type = filterType;
       filterNode.frequency.value = eq.frequency;
       filterNode.gain.value = eq.gain_db;
       filterNode.Q.value = eq.q;
@@ -257,17 +257,19 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
     }
   }
 
-  // 3. Limiter (using DynamicsCompressorNode)
+  // 3. Limiter（シーリング = この値以上に出力しない）
+  // DynamicsCompressor: threshold を超えると圧縮開始。ratio 20:1 で強めに制限
   const limiter = offlineCtx.createDynamicsCompressor();
-  limiter.threshold.value = params.limiter_ceiling_db;
-  limiter.knee.value = 0; // Hard knee for limiting
-  limiter.ratio.value = 20; // High ratio for limiting
-  limiter.attack.value = 0.003; // Fast attack
-  limiter.release.value = 0.05; // Fast release
+  const ceilingDb = params.limiter_ceiling_db ?? -0.1;
+  limiter.threshold.value = ceilingDb;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001; // より速いアタックでピークをキャッチ
+  limiter.release.value = 0.05;
 
   lastNode.connect(limiter);
   limiter.connect(offlineCtx.destination);
-  
+
   source.start(0);
 
   const renderedBuffer = await offlineCtx.startRendering();

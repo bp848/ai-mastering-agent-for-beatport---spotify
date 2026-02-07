@@ -13,7 +13,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-[#1a1a1a] text-white p-3 border border-white/10 rounded-xl shadow-2xl backdrop-blur-md">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">{label} Hz</p>
+                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">{label} Hz</p>
                 <p className="text-sm font-mono font-bold">Level: {payload[0].value.toFixed(1)} dB</p>
             </div>
         );
@@ -26,9 +26,9 @@ const FrequencyChart: React.FC<FrequencyChartProps> = ({ data }) => {
   
   // 色のグラデーション設定
   const getBarColor = (name: string) => {
-    if (name.includes('20-60') || name.includes('60-250')) return '#10b981'; // Bass
-    if (name.includes('250-1k') || name.includes('1k-4k')) return '#3b82f6'; // Mids
-    return '#a855f7'; // Highs
+    if (name.includes('20-60') || name.includes('60-250')) return '#22d3ee'; // Bass
+    if (name.includes('250-1k') || name.includes('1k-4k')) return '#67e8f9'; // Mids
+    return '#a78bfa'; // Highs
   };
 
   return (

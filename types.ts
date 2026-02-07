@@ -35,7 +35,17 @@ export interface MasteringParams {
 
 // --- 楽曲管理プラットフォーム ---
 
-export type PlatformSection = 'mastering' | 'library' | 'checklist' | 'email' | 'sns';
+export type PlatformSection = 'mastering' | 'library' | 'checklist' | 'email' | 'sns' | 'mypage' | 'admin';
+
+/** ダウンロード・購入履歴（Supabase） */
+export interface DownloadHistoryRow {
+  id: string;
+  user_id: string;
+  file_name: string;
+  mastering_target: MasteringTarget;
+  created_at: string;
+  amount_cents?: number | null; // 決済連携時に使用
+}
 
 /** ライブラリの1曲（メタ情報・マスター状態） */
 export interface LibraryTrack {

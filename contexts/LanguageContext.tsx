@@ -64,7 +64,18 @@ const ja = {
   "common.copied": "コピー完了",
   "console.title": "エージェント行動ログ",
   "language.ja": "日本語",
-  "language.en": "English"
+  "language.en": "English",
+  "nav.mastering": "マスター",
+  "nav.library": "ライブラリ",
+  "nav.checklist": "チェック",
+  "nav.email": "メール",
+  "nav.sns": "SNS",
+  "nav.mypage": "マイページ",
+  "nav.admin": "管理",
+  "auth.download_gate.title": "ダウンロードにはログインが必要です",
+  "auth.download_gate.description": "Googleでログインするとダウンロードできます。",
+  "auth.sign_in_google": "Googleでログイン",
+  "auth.cancel": "キャンセル"
 };
 
 const en = {
@@ -125,7 +136,18 @@ const en = {
   "common.copied": "Copied!",
   "console.title": "AI Analysis Logs",
   "language.ja": "日本語",
-  "language.en": "English"
+  "language.en": "English",
+  "nav.mastering": "Master",
+  "nav.library": "Library",
+  "nav.checklist": "Check",
+  "nav.email": "Email",
+  "nav.sns": "SNS",
+  "nav.mypage": "My Page",
+  "nav.admin": "Admin",
+  "auth.download_gate.title": "Sign in to download",
+  "auth.download_gate.description": "Sign in with Google to download your mastered file.",
+  "auth.sign_in_google": "Sign in with Google",
+  "auth.cancel": "Cancel"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };

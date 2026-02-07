@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { UploadIcon, Spinner } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -13,58 +13,93 @@ interface FileUploadProps {
 const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnalyzing, pyodideStatus }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const isReady = pyodideStatus === t('upload.pyodide.ready');
   const isDisabled = isAnalyzing || !isReady;
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files ? event.target.files[0] : null;
     onFileChange(file);
-    if(event.target) event.target.value = '';
+    if (event.target) event.target.value = '';
   };
 
   const handleClick = () => {
     if (!isDisabled) fileInputRef.current?.click();
   };
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (isDisabled) return;
+    const file = e.dataTransfer.files[0];
+    if (file && /audio\/(wav|mp3|aiff|x-aiff)|\.(wav|mp3|aiff)$/i.test(file.type || file.name)) {
+      onFileChange(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(!isDisabled);
+  };
+
+  const handleDragLeave = () => setIsDragOver(false);
+
   return (
-    <div 
-      className={`relative h-40 flex flex-col items-center justify-center bg-[#1a1a1a] border border-white/10 rounded-2xl transition-all duration-300 ${!isDisabled ? 'cursor-pointer hover:border-emerald-500/50 hover:bg-[#222]' : 'opacity-50 cursor-not-allowed'}`}
+    <div
       onClick={handleClick}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       role="button"
       tabIndex={isDisabled ? -1 : 0}
       aria-label={t('upload.aria.label')}
+      className={`
+        relative min-h-[180px] sm:min-h-[200px] flex flex-col items-center justify-center rounded-2xl
+        border-2 border-dashed transition-all duration-300 cursor-pointer
+        ${isDragOver ? 'border-cyan-500/60 bg-cyan-500/10 scale-[1.02]' : 'border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.02]'}
+        ${isDisabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}
+      `}
     >
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelect}
         className="hidden"
-        accept="audio/wav, audio/mp3, audio/aiff"
+        accept="audio/wav,audio/mp3,audio/aiff,audio/x-aiff,.wav,.mp3,.aiff"
         disabled={isDisabled}
       />
-      
+
       {!isReady ? (
-        <div className="flex flex-col items-center">
-            <div className="w-8 h-8 opacity-20"><Spinner /></div>
-            <p className="text-[10px] text-gray-500 mt-4 font-black uppercase tracking-widest">Initializing Engine...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Spinner />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-white">{t('upload.pyodide.loading')}</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.detail')}</p>
+          </div>
         </div>
       ) : isAnalyzing ? (
-        <div className="flex flex-col items-center">
-            <div className="w-8 h-8 text-emerald-500"><Spinner /></div>
-            <p className="text-[10px] text-emerald-500 mt-4 font-black uppercase tracking-widest">Processing...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Spinner />
+          </div>
+          <p className="text-sm font-medium text-white">{t('upload.analyzing')}</p>
         </div>
       ) : (
-        <>
-            <div className="w-8 h-8 mb-4 text-gray-600"><UploadIcon /></div>
-            {fileName ? (
-                <p className="text-[11px] font-mono text-emerald-400 font-bold px-4 truncate w-full text-center">{fileName}</p>
-            ) : (
-                <div className="text-center">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('upload.cta.title')}</p>
-                    <p className="text-[9px] text-gray-600 mt-1 uppercase font-bold tracking-tighter">WAV / MP3 / AIFF</p>
-                </div>
-            )}
-        </>
+        <div className="flex flex-col items-center gap-3 text-center px-6">
+          <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+            <UploadIcon />
+          </div>
+          {fileName ? (
+            <p className="text-sm font-medium text-cyan-400 truncate max-w-full">{fileName}</p>
+          ) : (
+            <>
+              <p className="text-base font-semibold text-white">{t('upload.cta.title')}</p>
+              <p className="text-xs text-zinc-500">{t('upload.cta.detail')}</p>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
