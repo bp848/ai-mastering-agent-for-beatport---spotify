@@ -1,0 +1,5 @@
+{
+  "name": "AI Mastering Agent for Beatport & Spotify",
+  "description": "Upload an audio file, and a Python-based advanced analysis engine (including EBU R 128 loudness measurement) will evaluate its sonic characteristics. Based on the results, a generative AI agent will propose mastering settings optimized for distribution platforms like Beatport and Spotify.",
+  "requestFramePermissions": []
+}
