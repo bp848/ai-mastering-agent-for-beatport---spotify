@@ -32,7 +32,7 @@ const FrequencyChart: React.FC<FrequencyChartProps> = ({ data }) => {
   };
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height={128} minWidth={0} minHeight={96}>
       <BarChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
         <defs>
           <filter id="glow">

@@ -99,7 +99,6 @@ export const getMasteringSuggestions = async (data: AudioAnalysisData, target: M
       },
     });
 
-    // Fixed: Use the .text property directly (it's a getter, not a function call).
     const jsonText = response.text?.trim();
     if (!jsonText) throw new Error("error.gemini.invalid_params");
     return JSON.parse(jsonText) as MasteringParams;

@@ -1,5 +1,5 @@
 
-import type { AudioAnalysisData, FrequencyData, MasteringParams } from '../types';
+import type { AudioAnalysisData, MasteringParams } from '../types';
 
 // Helper function to convert AudioBuffer to a WAV file (Blob)
 const bufferToWave = (buffer: AudioBuffer): Blob => {
@@ -236,7 +236,7 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
 
   let lastNode: AudioNode = source;
 
-  // 1. Gain Adjustment（必ず適用）
+  // 1. Gain Adjustment
   const gainNode = offlineCtx.createGain();
   gainNode.gain.value = Math.pow(10, (params.gain_adjustment_db ?? 0) / 20);
   lastNode.connect(gainNode);
@@ -246,7 +246,6 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
   if (params.eq_adjustments && params.eq_adjustments.length > 0) {
     for (const eq of params.eq_adjustments) {
       const filterNode = offlineCtx.createBiquadFilter();
-      // Web Audio API は "peaking" を要求。"peak" は無効
       const filterType = (eq.type === 'peak' ? 'peaking' : eq.type) as BiquadFilterType;
       filterNode.type = filterType;
       filterNode.frequency.value = eq.frequency;
@@ -257,14 +256,13 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
     }
   }
 
-  // 3. Limiter（シーリング = この値以上に出力しない）
-  // DynamicsCompressor: threshold を超えると圧縮開始。ratio 20:1 で強めに制限
+  // 3. Limiter
   const limiter = offlineCtx.createDynamicsCompressor();
   const ceilingDb = params.limiter_ceiling_db ?? -0.1;
   limiter.threshold.value = ceilingDb;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.001; // より速いアタックでピークをキャッチ
+  limiter.attack.value = 0.001;
   limiter.release.value = 0.05;
 
   lastNode.connect(limiter);

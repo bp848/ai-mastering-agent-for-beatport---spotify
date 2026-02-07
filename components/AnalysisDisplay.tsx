@@ -64,7 +64,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
         <div className="p-3 sm:p-4 rounded-xl bg-black/30 border border-white/5 overflow-hidden">
           <Waveform data={data.waveform} />
         </div>
-        <div className="h-24 sm:h-32 p-3 sm:p-4 rounded-xl bg-black/30 border border-white/5">
+        <div className="h-32 min-h-[128px] p-3 sm:p-4 rounded-xl bg-black/30 border border-white/5">
           <FrequencyChart data={data.frequencyData} />
         </div>
       </div>

@@ -140,7 +140,7 @@ const AudioPreview: React.FC<{
 
   useEffect(() => {
     return () => {
-      sourceRef.current?.stop?.();
+      try { sourceRef.current?.stop(); } catch (_) {}
       audioContextRef.current?.close?.();
     };
   }, []);
@@ -153,15 +153,27 @@ const AudioPreview: React.FC<{
     }
   }, [isBypassed]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (isPlaying) {
-      sourceRef.current?.stop();
+      try { sourceRef.current?.stop(); } catch (_) {}
       setIsPlaying(false);
-    } else {
-      audioContextRef.current?.resume?.();
-      if (!sourceRef.current) setupAudioGraph();
-      sourceRef.current?.start(0);
+      return;
+    }
+    if (!sourceRef.current || !audioContextRef.current) setupAudioGraph();
+    const ctx = audioContextRef.current;
+    const src = sourceRef.current;
+    if (!ctx || !src) return;
+    if (ctx.state === 'suspended') await ctx.resume();
+    try {
+      src.start(0);
       setIsPlaying(true);
+    } catch (_) {
+      setupAudioGraph();
+      const retry = sourceRef.current;
+      if (retry) {
+        retry.start(0);
+        setIsPlaying(true);
+      }
     }
   };
 
