@@ -35,7 +35,7 @@ export interface MasteringParams {
 
 // --- 楽曲管理プラットフォーム ---
 
-export type PlatformSection = 'mastering' | 'library' | 'checklist' | 'email' | 'sns' | 'mypage' | 'admin';
+export type PlatformSection = 'mastering' | 'pricing' | 'mypage' | 'library' | 'checklist' | 'email' | 'sns' | 'admin';
 
 /** ダウンロード・購入履歴（Supabase） */
 export interface DownloadHistoryRow {

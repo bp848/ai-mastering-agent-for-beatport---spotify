@@ -7,6 +7,7 @@ import FileUpload from './components/FileUpload';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import MasteringAgent from './components/MasteringAgent';
 import PlatformNav from './components/PlatformNav';
+import PricingView from './components/PricingView';
 import LibraryView from './components/LibraryView';
 import ChecklistView from './components/ChecklistView';
 import EmailView from './components/EmailView';
@@ -186,18 +187,27 @@ const AppContent: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <PlatformNav current={section} onSelect={setSection} />
+            <PlatformNav
+              current={section}
+              onSelect={setSection}
+              session={session}
+              onLoginClick={() => {
+                if (session?.user) setSection('mypage');
+                else signInWithGoogle();
+              }}
+            />
             <LanguageSwitcher />
           </div>
         </header>
 
         {section !== 'mastering' && (
           <main className="animate-fade-up">
+            {section === 'pricing' && <PricingView />}
+            {section === 'mypage' && <MyPageView />}
             {section === 'library' && <LibraryView />}
             {section === 'checklist' && <ChecklistView />}
             {section === 'email' && <EmailView />}
             {section === 'sns' && <SNSView />}
-            {section === 'mypage' && <MyPageView />}
           </main>
         )}
 

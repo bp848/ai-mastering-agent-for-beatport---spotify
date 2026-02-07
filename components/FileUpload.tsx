@@ -27,22 +27,35 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
     if (!isDisabled) fileInputRef.current?.click();
   };
 
+  const isAudioFile = (file: File) =>
+    /audio\/(wav|mp3|mpeg|aiff|x-aiff|wave|mp4|m4a)|\.(wav|mp3|aiff|aif|m4a)$/i.test(file.type || file.name);
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
     if (isDisabled) return;
     const file = e.dataTransfer.files[0];
-    if (file && /audio\/(wav|mp3|aiff|x-aiff)|\.(wav|mp3|aiff)$/i.test(file.type || file.name)) {
+    if (file && isAudioFile(file)) {
       onFileChange(file);
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(!isDisabled);
+    e.stopPropagation();
+    if (!isDisabled) {
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragOver(true);
+    }
   };
 
-  const handleDragLeave = () => setIsDragOver(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
 
   return (
     <div
@@ -65,7 +78,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
         ref={fileInputRef}
         onChange={handleFileSelect}
         className="hidden"
-        accept="audio/wav,audio/mp3,audio/aiff,audio/x-aiff,.wav,.mp3,.aiff"
+        accept="audio/*,.wav,.mp3,.aiff,.aif,.m4a"
         disabled={isDisabled}
       />
 
