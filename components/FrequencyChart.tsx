@@ -22,51 +22,44 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const FrequencyChart: React.FC<FrequencyChartProps> = ({ data }) => {
-  const { t } = useTranslation();
-  
-  // 色のグラデーション設定
   const getBarColor = (name: string) => {
-    if (name.includes('20-60') || name.includes('60-250')) return '#22d3ee'; // Bass
-    if (name.includes('250-1k') || name.includes('1k-4k')) return '#67e8f9'; // Mids
-    return '#a78bfa'; // Highs
+    if (name.includes('20-60') || name.includes('60-250')) return '#22d3ee';
+    if (name.includes('250-1k') || name.includes('1k-4k')) return '#67e8f9';
+    return '#a78bfa';
   };
 
+  const height = 260;
+
   return (
-    <ResponsiveContainer width="100%" height={128} minWidth={0} minHeight={96}>
-      <BarChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-        <XAxis 
-          dataKey="name" 
-          tick={{ fill: '#4a4a4a', fontWeight: 'bold' }} 
-          fontSize={9} 
-          axisLine={false}
-          tickLine={false}
-          dy={10}
-        />
-        <YAxis 
-          tick={{ fill: '#4a4a4a', fontWeight: 'bold' }} 
-          fontSize={9} 
-          domain={[-60, 0]} 
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255, 255, 255, 0.05)'}} />
-        <Bar dataKey="level" radius={[4, 4, 0, 0]} filter="url(#glow)">
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} fillOpacity={0.8} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="w-full" style={{ minWidth: 0, minHeight: height }}>
+      <ResponsiveContainer width="100%" height={height} minWidth={0} minHeight={height}>
+        <BarChart data={data} margin={{ top: 12, right: 12, left: 8, bottom: 8 }}>
+          <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.08)" vertical={false} />
+          <XAxis
+            dataKey="name"
+            tick={{ fill: '#a1a1aa', fontSize: 11 }}
+            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            tickLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+            dy={4}
+          />
+          <YAxis
+            tick={{ fill: '#a1a1aa', fontSize: 11 }}
+            domain={[-60, 0]}
+            ticks={[-60, -45, -30, -15, 0]}
+            tickFormatter={(v) => `${v} dB`}
+            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            tickLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+            width={40}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
+          <Bar dataKey="level" radius={[4, 4, 0, 0]} barSize={32} maxBarSize={48}>
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} fillOpacity={0.9} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 

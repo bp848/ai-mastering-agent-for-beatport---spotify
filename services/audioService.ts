@@ -256,14 +256,15 @@ export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, param
     }
   }
 
-  // 3. Limiter
-  const limiter = offlineCtx.createDynamicsCompressor();
+  // 3. Limiter（シーリングは「上限」であり、threshold は「ここから圧縮開始」にすること）
+  // threshold をシーリングより下に置き、ピークだけを抑えてダイナミクスを保持する
   const ceilingDb = params.limiter_ceiling_db ?? -0.1;
-  limiter.threshold.value = ceilingDb;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.05;
+  const limiter = offlineCtx.createDynamicsCompressor();
+  limiter.threshold.value = ceilingDb - 6; // シーリングの 6dB 下から圧縮 → ピークのみリミット
+  limiter.knee.value = 6;                  // ソフトニーでとげとげしさを軽減
+  limiter.ratio.value = 8;                // 20:1 だと潰れやすいので 8:1 に
+  limiter.attack.value = 0.003;           // わずかに遅めでトランジェントを残す
+  limiter.release.value = 0.08;           // リリースをやや長めで自然に
 
   lastNode.connect(limiter);
   limiter.connect(offlineCtx.destination);

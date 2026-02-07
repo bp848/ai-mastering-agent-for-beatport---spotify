@@ -174,8 +174,8 @@ const AppContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen min-h-[100dvh] text-zinc-300 p-3 sm:p-6 lg:p-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
+      <div className="max-w-4xl mx-auto w-full">
         <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
@@ -183,7 +183,7 @@ const AppContent: React.FC = () => {
             </div>
             <div>
               <h1 className="text-base font-bold text-white tracking-tight">Mastering Agent</h1>
-              <span className="text-[10px] text-zinc-500">{language === 'ja' ? 'Beatport / Spotify 対応' : 'Beatport / Spotify ready'}</span>
+              <span className="text-[10px] text-zinc-500">{language === 'ja' ? 'Beatport top を目指す・忖度なしの解析' : 'Beatport top · no-deference analysis'}</span>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -271,16 +271,6 @@ const AppContent: React.FC = () => {
               </div>
             )}
           </div>
-
-          {isProcessing && (
-            <div className="glass rounded-2xl p-12 flex flex-col items-center justify-center text-center animate-fade-up">
-              <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-4 text-cyan-400">
-                <Spinner />
-              </div>
-              <h2 className="text-lg font-bold text-white">{t('upload.analyzing')}</h2>
-              <p className="text-sm text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
-            </div>
-          )}
 
           {!isProcessing && analysisData && masteringParams && (
             <div className="glass rounded-2xl p-6 animate-fade-up text-center">

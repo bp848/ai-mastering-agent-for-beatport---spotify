@@ -11,12 +11,12 @@ const getPlatformSpecifics = (target: MasteringTarget) => {
       genreContext: 'Streaming distribution. Target transparent and dynamic sound.'
     };
   }
-  // Beatport Techno/Trance 基準
+  // Beatport Top 基準（忖度なし＝チャートで戦うための厳格基準）
   return {
-    platformName: 'Beatport (Techno/Trance High-Energy Standard)',
-    targetLufs: -7.0, // 極めて高い音圧が必要なクラブ標準
-    targetPeak: -0.1, // 最大出力を確保するためのシーリング
-    genreContext: 'Competitive Peak-Time Techno/Trance. Focus: Aggressive but clean loudness, punchy kick/sub-bass preservation, and extremely clear transients. Integrated LUFS must strictly target -7.0.'
+    platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
+    targetLufs: -7.0,
+    targetPeak: -0.1,
+    genreContext: 'This is for Beatport top chart competitiveness. No deference to the mix—only what the track needs to compete. Peak-Time Techno/Trance: aggressive loudness, punchy sub, clear transients. LUFS must hit -7.0; true peak at -0.1 dBTP.'
   };
 };
 
@@ -50,34 +50,30 @@ const generatePrompt = (data: AudioAnalysisData, specifics: ReturnType<typeof ge
 
     return `
 # ROLE
-You are a legendary Mastering Engineer for modern Techno and Trance (e.g., Drumcode style, Peak-Time, High-Energy).
+You are a mastering engineer whose only goal is **Beatport top chart competitiveness**. You give no deference to the mix—you suggest exactly what the track needs to compete. No softening, no "being nice"; only parameters that meet the standard.
 
 # OBJECTIVE
-Calculate precise DSP parameters to meet the **${specifics.platformName}** standard.
+Output DSP parameters so this track meets **${specifics.platformName}**. The analysis below is objective (LUFS, true peak, crest factor, spectrum). Use it strictly.
 
-# TARGET STANDARDS (STRICT)
-- TARGET INTEGRATED LUFS: ${specifics.targetLufs} dB
-- TARGET TRUE PEAK: ${specifics.targetPeak} dBTP
+# TARGET (NON-NEGOTIABLE)
+- INTEGRATED LUFS: ${specifics.targetLufs} dB
+- TRUE PEAK: ${specifics.targetPeak} dBTP
 - CONTEXT: ${specifics.genreContext}
 
-# CURRENT AUDIO ANALYSIS DATA
-- Integrated LUFS: ${data.lufs.toFixed(2)}
-- True Peak: ${data.truePeak.toFixed(2)}
+# CURRENT ANALYSIS (USE AS-IS; DO NOT INTERPRET KINDLY)
+- Integrated LUFS: ${data.lufs.toFixed(2)}  → gap to target: ${(specifics.targetLufs - data.lufs).toFixed(1)} dB
+- True Peak: ${data.truePeak.toFixed(2)} dBTP
 - Crest Factor: ${data.crestFactor.toFixed(2)}
-- Low-end Energy (60-250Hz): ${bassLevel.toFixed(1)} dB
-- High-end Energy (8k-20kHz): ${highLevel.toFixed(1)} dB
+- Low-end (60-250 Hz): ${bassLevel.toFixed(1)} dB
+- High-end (8k-20k): ${highLevel.toFixed(1)} dB
 
-# MANDATORY INSTRUCTIONS
-1. GAIN: Add precise gain to elevate the loudness from ${data.lufs.toFixed(2)} LUFS to exactly ${specifics.targetLufs} LUFS.
-2. LIMITER: Set the ceiling to exactly ${specifics.targetPeak} dBTP.
-3. EQ: 
-   - If Low-end energy is below -25dB, add a Low-shelf boost at 80Hz. 
-   - If High-end energy is below -30dB, add a High-shelf boost at 12kHz for "air".
-   - If Crest Factor is high (>10), apply more aggressive limiting logic in your gain calculation.
-   - For Techno/Trance, ensure sub-bass is clean and highs are crisp.
+# RULES (NO DEFERENCE)
+1. GAIN: The track must reach ${specifics.targetLufs} LUFS. Add the gain required. Do not under-suggest to "be safe"; the limiter will catch peaks. If the mix is quiet, suggest the full gain needed.
+2. LIMITER: Ceiling exactly ${specifics.targetPeak} dBTP.
+3. EQ: Suggest what the spectrum actually needs to compete: if low-end is weak, add the shelf/cut needed; if highs are dull, add the air needed. Keep gains and Q within sane bounds (e.g. ±3 dB, Q 0.5–1.5) but do not avoid correction that the analysis clearly calls for.
 
 # OUTPUT
-Respond with valid JSON following the provided schema.
+Valid JSON only (schema provided). No commentary—only parameters.
 `;
 };
 

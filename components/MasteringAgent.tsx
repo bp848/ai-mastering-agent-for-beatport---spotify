@@ -4,8 +4,59 @@ import type { MasteringParams } from '../types';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon, AiProposeIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
-/** オーディオビジュアライザー（音声は変更せず AnalyserNode で読み取りのみ） */
-const PreviewVisualizer: React.FC<{ analyserRef: React.RefObject<AnalyserNode | null>; isPlaying: boolean }> = ({ analyserRef, isPlaying }) => {
+/** 再生中のリアルタイム Peak（dB）表示。判断材料として数値を出す。 */
+const LivePeakMeter: React.FC<{
+  analyserRef: React.RefObject<AnalyserNode | null>;
+  isPlaying: boolean;
+  label: string;
+}> = ({ analyserRef, isPlaying, label }) => {
+  const [peakDb, setPeakDb] = useState<number | null>(null);
+  const dataRef = useRef<Float32Array | null>(null);
+
+  useEffect(() => {
+    if (!isPlaying || !analyserRef.current) {
+      setPeakDb(null);
+      return;
+    }
+    const analyser = analyserRef.current;
+    const length = analyser.fftSize;
+    const data = new Float32Array(length);
+    dataRef.current = data;
+
+    let raf = 0;
+    const update = () => {
+      raf = requestAnimationFrame(update);
+      if (!analyserRef.current || !dataRef.current) return;
+      analyser.getFloatTimeDomainData(dataRef.current);
+      let max = 0;
+      for (let i = 0; i < dataRef.current.length; i++) {
+        const v = Math.abs(dataRef.current[i]);
+        if (v > max) max = v;
+      }
+      const db = max <= 1e-6 ? -100 : 20 * Math.log10(max);
+      setPeakDb(db);
+    };
+    update();
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, analyserRef]);
+
+  return (
+    <div className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-black/40 border border-white/10">
+      <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{label}</span>
+      <span className="font-mono text-sm font-bold tabular-nums text-cyan-400">
+        {peakDb != null ? `${peakDb.toFixed(1)} dB` : '—'}
+      </span>
+    </div>
+  );
+};
+
+/** 再生レベル（周波数）のリアルタイム表示。AnalyserNode で読み取りのみ。 */
+const PreviewVisualizer: React.FC<{
+  analyserRef: React.RefObject<AnalyserNode | null>;
+  isPlaying: boolean;
+  label: string;
+  idleLabel: string;
+}> = ({ analyserRef, isPlaying, label, idleLabel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const dataArrayRef = useRef<Uint8Array | null>(null);
@@ -17,8 +68,7 @@ const PreviewVisualizer: React.FC<{ analyserRef: React.RefObject<AnalyserNode | 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.8;
+    analyser.smoothingTimeConstant = 0.7;
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     dataArrayRef.current = dataArray;
@@ -30,7 +80,7 @@ const PreviewVisualizer: React.FC<{ analyserRef: React.RefObject<AnalyserNode | 
 
       const w = canvas.width;
       const h = canvas.height;
-      ctx.fillStyle = 'rgba(5, 5, 8, 0.3)';
+      ctx.fillStyle = 'rgba(5, 5, 8, 0.5)';
       ctx.fillRect(0, 0, w, h);
 
       const barCount = 32;
@@ -38,14 +88,10 @@ const PreviewVisualizer: React.FC<{ analyserRef: React.RefObject<AnalyserNode | 
       for (let i = 0; i < barCount; i++) {
         const idx = Math.floor((i / barCount) * bufferLength);
         const v = dataArray[idx] / 255;
-        const barH = Math.max(4, v * h * 0.9);
-        const x = i * barWidth + 2;
+        const barH = Math.max(2, v * h * 0.88);
+        const x = i * barWidth + 1;
         const y = h - barH;
-        const g = ctx.createLinearGradient(0, h, 0, 0);
-        g.addColorStop(0, '#22d3ee');
-        g.addColorStop(0.7, '#67e8f9');
-        g.addColorStop(1, '#a78bfa');
-        ctx.fillStyle = g;
+        ctx.fillStyle = i < barCount / 2 ? '#22d3ee' : '#67e8f9';
         ctx.fillRect(x, y, barWidth - 2, barH);
       }
     };
@@ -54,18 +100,16 @@ const PreviewVisualizer: React.FC<{ analyserRef: React.RefObject<AnalyserNode | 
   }, [isPlaying, analyserRef]);
 
   return (
-    <div className="w-full h-20 sm:h-24 rounded-xl bg-black/40 border border-white/5 overflow-hidden relative">
-      <canvas
-        ref={canvasRef}
-        width={320}
-        height={96}
-        className="w-full h-full block"
-      />
-      {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/30">
-          <span className="text-[10px] text-zinc-500 font-medium">▶ 再生でビジュアライザー表示</span>
-        </div>
-      )}
+    <div className="w-full rounded-xl bg-black/50 border border-white/10 overflow-hidden">
+      <p className="text-[10px] font-medium text-zinc-500 px-3 pt-2 uppercase tracking-wider">{label}</p>
+      <div className="relative h-20 sm:h-24">
+        <canvas ref={canvasRef} width={320} height={96} className="w-full h-full block" />
+        {!isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+            <span className="text-[10px] text-zinc-500">{idleLabel}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -78,13 +122,25 @@ interface MasteringAgentProps {
   audioBuffer: AudioBuffer | null;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+/** マスター書き出しWAVの推定サイズ（16bit・ヘッダ44byte） */
+function estimateMasteredWavBytes(buffer: AudioBuffer): number {
+  const samples = buffer.length * buffer.numberOfChannels;
+  return samples * 2 + 44;
+}
+
 const AudioPreview: React.FC<{
   audioBuffer: AudioBuffer;
   params: MasteringParams;
 }> = ({ audioBuffer, params }) => {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isBypassed, setIsBypassed] = useState(true);
+  const [isBypassed, setIsBypassed] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -96,6 +152,7 @@ const AudioPreview: React.FC<{
     const context = new (window.AudioContext || (window as any).webkitAudioContext)();
     audioContextRef.current = context;
     const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
     analyserRef.current = analyser;
     const bypassGain = context.createGain();
     const masteredGain = context.createGain();
@@ -125,9 +182,12 @@ const AudioPreview: React.FC<{
       }
     }
     const limiter = context.createDynamicsCompressor();
-    limiter.threshold.value = params.limiter_ceiling_db;
-    limiter.knee.value = 0;
-    limiter.ratio.value = 20;
+    const ceilingDb = params.limiter_ceiling_db ?? -0.1;
+    limiter.threshold.value = ceilingDb - 6;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 8;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.08;
     lastNode.connect(limiter);
     limiter.connect(masteredGain);
     sourceRef.current = source;
@@ -153,13 +213,13 @@ const AudioPreview: React.FC<{
     }
   }, [isBypassed]);
 
-  const togglePlay = async () => {
+  const togglePlay = useCallback(async () => {
     if (isPlaying) {
       try { sourceRef.current?.stop(); } catch (_) {}
       setIsPlaying(false);
       return;
     }
-    if (!sourceRef.current || !audioContextRef.current) setupAudioGraph();
+    setupAudioGraph();
     const ctx = audioContextRef.current;
     const src = sourceRef.current;
     if (!ctx || !src) return;
@@ -175,33 +235,52 @@ const AudioPreview: React.FC<{
         setIsPlaying(true);
       }
     }
-  };
+  }, [isPlaying, setupAudioGraph]);
 
   return (
-    <div className="flex flex-col items-center gap-6 py-6">
-      <div className="w-full relative">
-        <PreviewVisualizer analyserRef={analyserRef} isPlaying={isPlaying} />
+    <div className="flex flex-col gap-5">
+      <div className="w-full space-y-2">
+        <LivePeakMeter
+          analyserRef={analyserRef}
+          isPlaying={isPlaying}
+          label={t('agent.preview.peak_live')}
+        />
+        <PreviewVisualizer
+          analyserRef={analyserRef}
+          isPlaying={isPlaying}
+          label={t('agent.preview.visualizer')}
+          idleLabel={t('agent.preview.visualizer_idle')}
+        />
       </div>
-      <div className="flex items-center justify-center gap-3 sm:gap-6 flex-wrap">
-        <button
-          onClick={() => setIsBypassed(true)}
-          className={`flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 min-h-[60px] rounded-xl transition-all touch-manipulation ${isBypassed ? 'bg-cyan-500/15 border border-cyan-500/30' : 'opacity-40 hover:opacity-60 active:opacity-70'}`}
-        >
-          <span className="w-6 h-6"><PlayIcon /></span>
-          <span className="text-[10px] sm:text-xs font-medium text-zinc-400">{t('agent.preview.original')}</span>
-        </button>
-        <button onClick={togglePlay} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500 flex items-center justify-center text-black hover:bg-cyan-400 active:scale-95 transition-all touch-manipulation shrink-0">
-          <span className="w-7 h-7 sm:w-8 sm:h-8">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
-        </button>
-        <button
-          onClick={() => setIsBypassed(false)}
-          className={`flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 min-h-[60px] rounded-xl transition-all touch-manipulation ${!isBypassed ? 'bg-cyan-500/15 border border-cyan-500/30' : 'opacity-40 hover:opacity-60 active:opacity-70'}`}
-        >
-          <span className="w-6 h-6"><AiProposeIcon /></span>
-          <span className="text-xs font-medium text-zinc-400">{t('agent.preview.mastered')}</span>
-        </button>
+
+      <div className="flex flex-col gap-3">
+        <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+          {t('agent.preview.params_short')} · +{params.gain_adjustment_db.toFixed(1)} dB / {params.limiter_ceiling_db.toFixed(1)} dBTP
+        </p>
+        <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+          <button
+            onClick={() => { setIsBypassed(false); }}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all touch-manipulation ${!isBypassed ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'border-white/10 text-zinc-400 hover:border-white/20'}`}
+          >
+            <span className="w-5 h-5"><AiProposeIcon /></span>
+            <span className="text-sm font-medium">{t('agent.preview.mastered')}</span>
+          </button>
+          <button
+            onClick={togglePlay}
+            className="w-14 h-14 rounded-full bg-cyan-500 flex items-center justify-center text-black hover:bg-cyan-400 active:scale-95 transition-all touch-manipulation shrink-0"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            <span className="w-7 h-7">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
+          </button>
+          <button
+            onClick={() => { setIsBypassed(true); }}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all touch-manipulation ${isBypassed ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'border-white/10 text-zinc-400 hover:border-white/20'}`}
+          >
+            <span className="w-5 h-5"><PlayIcon /></span>
+            <span className="text-sm font-medium">{t('agent.preview.original')}</span>
+          </button>
+        </div>
       </div>
-      <p className="text-xs text-zinc-500">+{params.gain_adjustment_db.toFixed(1)} dB · {params.limiter_ceiling_db.toFixed(1)} dBTP</p>
     </div>
   );
 };
@@ -214,12 +293,19 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
   audioBuffer,
 }) => {
   const { t } = useTranslation();
+  const estimatedSize = audioBuffer ? formatBytes(estimateMasteredWavBytes(audioBuffer)) : null;
 
   if (isLoading || !params) return null;
 
   return (
     <div className="space-y-6">
       {audioBuffer && <AudioPreview audioBuffer={audioBuffer} params={params} />}
+
+      {estimatedSize && (
+        <p className="text-xs text-zinc-500">
+          {t('agent.file_size', { replacements: { size: estimatedSize } })}
+        </p>
+      )}
 
       <button
         onClick={onDownloadMastered}

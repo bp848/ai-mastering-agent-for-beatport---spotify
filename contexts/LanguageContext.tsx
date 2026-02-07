@@ -15,7 +15,7 @@ const ja = {
   "upload.pyodide.error": "初期化失敗",
   "upload.pyodide.detail": "ブラウザ内で高精度なEBU R 128分析環境を構築しています。",
   "upload.analyzing": "音響スキャン実行中...",
-  "upload.analyzing.detail": "テクノ・トランスの音響特性を抽出しています。",
+  "upload.analyzing.detail": "LUFS・トゥルービーク・クレストファクター・波形・周波数分布を解析しています。",
   "upload.cta.title": "マスタリングする音源を選択",
   "upload.cta.detail": "WAV / MP3 / AIFF (24bit/44.1kHz以上推奨)",
   "upload.loaded": "読み込み完了:",
@@ -56,8 +56,13 @@ const ja = {
   "agent.params.eq.format": ": {gain}dB @ {frequency}Hz (Q: {q})",
   "agent.params.eq.not_needed": "補正不要 (バランス良好)",
   "agent.preview.title": "同一トラック比較プレビュー",
-  "agent.preview.original": "バイパス (加工なし)",
   "agent.preview.mastered": "マスター (AI処理)",
+  "agent.preview.original": "オリジナル (A/B比較)",
+  "agent.preview.peak_live": "再生中 Peak（判断用）",
+  "agent.preview.visualizer": "再生レベル（周波数）",
+  "agent.preview.visualizer_idle": "再生でリアルタイム表示",
+  "agent.preview.params_short": "Gain / リミッター",
+  "agent.file_size": "書き出しサイズ 約 {size}",
   "agent.button.download": "マスタリング済みWAVを書き出し",
   "agent.button.copy_params": "パラメータをコピー (DAW用)",
   "agent.button.processing": "高精度レンダリング中...",
@@ -79,7 +84,9 @@ const ja = {
   "auth.download_gate.title": "ダウンロードにはログインが必要です",
   "auth.download_gate.description": "Googleでログインするとダウンロードできます。",
   "auth.sign_in_google": "Googleでログイン",
-  "auth.cancel": "キャンセル"
+  "auth.cancel": "キャンセル",
+  "modal.close_back": "閉じてトップへ",
+  "modal.close_back_aria": "モーダルを閉じてマスタリング画面に戻る"
 };
 
 const en = {
@@ -94,7 +101,7 @@ const en = {
   "upload.pyodide.error": "Init Error",
   "upload.pyodide.detail": "Building high-precision analysis environment in browser.",
   "upload.analyzing": "Analyzing Audio...",
-  "upload.analyzing.detail": "Scanning Techno/Trance acoustic properties.",
+  "upload.analyzing.detail": "Measuring LUFS, true peak, crest factor, waveform & frequency spectrum.",
   "upload.cta.title": "Upload Audio",
   "upload.cta.detail": "WAV / MP3 / AIFF (24bit recommended)",
   "upload.loaded": "Loaded:",
@@ -134,7 +141,15 @@ const en = {
   "agent.params.eq": "Frequency Balance Correction",
   "agent.params.eq.format": ": {gain}dB @ {frequency}Hz (Q: {q})",
   "agent.params.eq.not_needed": "No correction needed",
-  "agent.button.download": "Generate Mastered WAV",
+  "agent.preview.title": "A/B Preview",
+  "agent.preview.mastered": "Master (AI)",
+  "agent.preview.original": "Original (A/B)",
+  "agent.preview.peak_live": "Peak (live, for A/B)",
+  "agent.preview.visualizer": "Playback level (frequency)",
+  "agent.preview.visualizer_idle": "Real-time when playing",
+  "agent.preview.params_short": "Gain / Limiter",
+  "agent.file_size": "Export size ~{size}",
+  "agent.button.download": "Export Mastered WAV",
   "agent.button.copy_params": "Copy Parameters (for DAW)",
   "agent.button.processing": "Exporting Audio...",
   "common.copied": "Copied!",
@@ -155,7 +170,9 @@ const en = {
   "auth.download_gate.title": "Sign in to download",
   "auth.download_gate.description": "Sign in with Google to download your mastered file.",
   "auth.sign_in_google": "Sign in with Google",
-  "auth.cancel": "Cancel"
+  "auth.cancel": "Cancel",
+  "modal.close_back": "Close (back to top)",
+  "modal.close_back_aria": "Close modal and return to mastering screen"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };

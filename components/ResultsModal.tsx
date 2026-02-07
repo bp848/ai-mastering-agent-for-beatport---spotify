@@ -53,6 +53,8 @@ export default function ResultsModal({
 
   const nextLabel = language === 'ja' ? '次へ' : 'Next';
   const prevLabel = language === 'ja' ? '前へ' : 'Back';
+  const closeBackLabel = t('modal.close_back');
+  const closeBackAria = t('modal.close_back_aria');
 
   return (
     <div
@@ -62,7 +64,7 @@ export default function ResultsModal({
       aria-modal="true"
     >
       <div
-        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl"
+        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* スライドインジケーター */}
@@ -94,15 +96,57 @@ export default function ResultsModal({
             </div>
           )}
           {slide === 1 && (
-            <div className="animate-fade-up">
-              <h3 className="text-sm font-bold text-cyan-400 mb-4">
-                {language === 'ja' ? '2. プレビュー＆ダウンロード' : '2. Preview & Download'}
+            <div className="animate-fade-up space-y-5">
+              <h3 className="text-sm font-bold text-cyan-400 mb-1">
+                {language === 'ja' ? '2. プレビュー → 購入・ダウンロード' : '2. Preview → Purchase & Download'}
               </h3>
-              <p className="text-[10px] text-zinc-500 mb-4">
+              <p className="text-[10px] text-zinc-500 mb-2">
                 {language === 'ja'
-                  ? '※ダウンロード時に Gain / EQ / Limiter を実際に適用したWAVを書き出します'
-                  : '※Download applies Gain / EQ / Limiter and exports real WAV'}
+                  ? '再生で確認してから、下のボタンで購入（1曲1,000円）してWAVをダウンロード。'
+                  : 'Preview first, then use the button below to purchase (¥1,000/track) and download WAV.'}
               </p>
+
+              {/* 聞き比べの判断材料：耳以外の数値比較 */}
+              <section className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-3">
+                  {language === 'ja' ? '聞き比べの判断材料（数値）' : 'A/B comparison (metrics)'}
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-500 mb-2 font-medium">
+                      {language === 'ja' ? 'オリジナル（分析値）' : 'Original (analysis)'}
+                    </p>
+                    <ul className="text-xs font-mono space-y-1">
+                      <li className="text-zinc-300">LUFS {analysisData.lufs.toFixed(1)}</li>
+                      <li className="text-zinc-300">TP {analysisData.truePeak.toFixed(1)} dB</li>
+                      <li className="text-zinc-300">Crest {analysisData.crestFactor.toFixed(1)}</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-cyan-500 mb-2 font-medium">
+                      {language === 'ja' ? 'マスター（目標/適用後）' : 'Master (target / applied)'}
+                    </p>
+                    <ul className="text-xs font-mono space-y-1">
+                      <li className="text-cyan-300">
+                        LUFS {masteringTarget === 'beatport' ? '-7.0' : '-14.0'}
+                        <span className="text-zinc-500 text-[10px] ml-1">
+                          (+{masteringParams.gain_adjustment_db.toFixed(1)} dB)
+                        </span>
+                      </li>
+                      <li className="text-cyan-300">
+                        TP {(masteringParams.limiter_ceiling_db ?? -0.1).toFixed(1)} dB
+                      </li>
+                      <li className="text-zinc-500">—</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-[9px] text-zinc-600 mt-2">
+                  {language === 'ja'
+                    ? '再生中のリアルタイム Peak は下のメーターで確認。'
+                    : 'Check real-time peak in the meter below while playing.'}
+                </p>
+              </section>
+
               <MasteringAgent
                 params={masteringParams}
                 isLoading={false}
@@ -112,53 +156,19 @@ export default function ResultsModal({
                 isProcessingAudio={isProcessingAudio}
                 audioBuffer={audioBuffer}
               />
-              {audioFile && (
-                <div className="mt-6 pt-6 border-t border-white/5">
-                  <button
-                    type="button"
-                    onClick={onToggleSaveToLibrary}
-                    className="text-sm text-cyan-400 hover:text-cyan-300 font-medium"
-                  >
-                    {language === 'ja' ? '+ ライブラリに保存' : '+ Save to Library'}
-                  </button>
-                  {showSaveToLibrary && (
-                    <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
-                      <input
-                        value={saveToLibraryForm.title}
-                        onChange={(e) => onSaveFormChange('title', e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-3 text-base sm:text-sm text-white placeholder-zinc-500"
-                        placeholder={language === 'ja' ? 'タイトル' : 'Title'}
-                      />
-                      <input
-                        value={saveToLibraryForm.artist}
-                        onChange={(e) => onSaveFormChange('artist', e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-3 text-base sm:text-sm text-white placeholder-zinc-500"
-                        placeholder={language === 'ja' ? 'アーティスト' : 'Artist'}
-                      />
-                      <div className="flex gap-2">
-                        <button type="button" onClick={onSaveToLibrary} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-400">
-                          {language === 'ja' ? '保存' : 'Save'}
-                        </button>
-                        <button type="button" onClick={onToggleSaveToLibrary} className="px-4 py-2 rounded-lg bg-white/10 text-zinc-400 text-sm hover:bg-white/20">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
 
-        {/* ナビゲーション */}
+        {/* フッター: 1枚目は「次へ」、2枚目は閉じるのみ（主行動は購入・ダウンロードボタン） */}
         <div className="flex items-center justify-between p-4 border-t border-white/5 gap-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={() => (slide > 0 ? setSlide(slide - 1) : onClose())}
             className="px-5 py-3 min-h-[44px] text-sm font-medium text-zinc-400 hover:text-white active:opacity-80 -ml-2"
+            aria-label={slide > 0 ? undefined : closeBackAria}
           >
-            {slide > 0 ? prevLabel : (language === 'ja' ? '閉じる' : 'Close')}
+            {slide > 0 ? prevLabel : closeBackLabel}
           </button>
           {slide < totalSlides - 1 ? (
             <button
@@ -169,13 +179,9 @@ export default function ResultsModal({
               {nextLabel}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 min-h-[44px] rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 active:opacity-90"
-            >
-              {language === 'ja' ? '完了' : 'Done'}
-            </button>
+            <span className="text-[10px] text-zinc-500">
+              {language === 'ja' ? '購入・ダウンロードは上のボタンから' : 'Use the button above to purchase & download'}
+            </span>
           )}
         </div>
       </div>

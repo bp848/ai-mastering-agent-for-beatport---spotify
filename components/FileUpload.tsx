@@ -97,7 +97,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
           <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
             <Spinner />
           </div>
-          <p className="text-sm font-medium text-white">{t('upload.analyzing')}</p>
+          <div className="text-center">
+            <p className="text-sm font-medium text-white">{t('upload.analyzing')}</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 text-center px-6">
