@@ -290,8 +290,8 @@ const AppContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
-      <div className="max-w-6xl mx-auto w-full">
+    <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-5 sm:py-6 lg:px-10 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
+      <div className="max-w-screen-2xl mx-auto w-full">
         <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">

@@ -57,7 +57,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
         </h2>
 
         {/* Lead */}
-        <p className="max-w-2xl mx-auto text-sm sm:text-[15px] leading-relaxed text-zinc-400">
+        <p className="max-w-4xl mx-auto text-sm sm:text-[15px] leading-relaxed text-zinc-400">
           {ja
             ? '既存のAIマスタリングは、プリセットを当てはめるだけでした。我々のエンジンは違います。AIが楽曲の「方向性（Vibe）」を決定し、独自開発のアルゴリズムが「音圧（Physics）」を数理的に保証するハイブリッド・ループシステムを採用。Beatport Top 100のサウンドをWebブラウザ上でリアルタイムに再構築します。'
             : 'Existing AI mastering just applies presets. Our engine is different. AI determines the track\u2019s \u201Cvibe,\u201D while our proprietary algorithm mathematically guarantees loudness targets\u2014a hybrid feedback loop that reconstructs Beatport Top 100 sound in real time, right in your browser.'}

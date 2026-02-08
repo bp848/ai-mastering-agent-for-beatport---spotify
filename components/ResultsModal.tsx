@@ -71,7 +71,7 @@ export default function ResultsModal({
       aria-modal="true"
     >
       <div
-        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-6xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl"
+        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* スライドインジケーター */}
