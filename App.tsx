@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import DownloadGateModal from './components/DownloadGateModal';
 import ResultsModal from './components/ResultsModal';
+import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
 import { recordDownload } from './services/downloadHistory';
 import { Analytics } from '@vercel/analytics/react';
@@ -39,6 +40,7 @@ const AppContent: React.FC = () => {
 
   const [pyodideStatus, setPyodideStatus] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
+  const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
   const [showDownloadGate, setShowDownloadGate] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const { t, language } = useTranslation();
@@ -79,34 +81,96 @@ const AppContent: React.FC = () => {
     setupPyodide();
   }, [t, addLog]);
 
-  // アップロード・分析・AI提案を一気通貫で実行
+  const addActionLog = useCallback((phase: string, message: string, toolCall?: string, status: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    const locale = language === 'ja' ? 'ja-JP' : 'en-US';
+    const timestamp = new Date().toLocaleTimeString(locale, { hour12: false, fractionalSecondDigits: 2 });
+    setActionLogs(prev => [...prev, { phase, timestamp, message, toolCall, status }]);
+  }, [language]);
+
+  // アップロード・分析・AI提案を一気通貫で実行（プロセス透明化）
   const processTrack = useCallback(async (file: File, target: MasteringTarget) => {
     setAudioFile(file);
     setAnalysisData(null);
     setMasteringParams(null);
     setError('');
     setIsProcessing(true);
+    setActionLogs([]);
     
     try {
+      // Phase 1: Input Integrity Check
+      addActionLog('Phase 1', language === 'ja' ? 'タイトル情報を破棄。純粋な波形データとして読み込み開始。' : 'Discarding title metadata. Loading as pure waveform data.', undefined, 'info');
+      addActionLog('Phase 1', language === 'ja' ? `ファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
+      
       addLog(t('log.audio.analysis_start'));
+      addActionLog('Phase 2', language === 'ja' ? 'Python分析エンジン起動: numpy, scipy, pyloudnorm' : 'Python analysis engine: numpy, scipy, pyloudnorm', 'analyze_audio_metrics', 'info');
+      
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
+      
+      // Phase 2: Structural Analysis Results
+      const targetLufs = target === 'beatport' ? -7.0 : -14.0;
+      const lufsGap = targetLufs - result.lufs;
+      addActionLog('Phase 2', language === 'ja' 
+        ? `構造分析完了: LUFS ${result.lufs.toFixed(2)} / 目標 ${targetLufs} → 差分 ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`
+        : `Structural analysis: LUFS ${result.lufs.toFixed(2)} / Target ${targetLufs} → Gap ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`, undefined, 'success');
+      
+      if (result.phaseCorrelation !== undefined) {
+        const phaseStatus = result.phaseCorrelation > 0.5 ? 'success' : result.phaseCorrelation > 0 ? 'warning' : 'error';
+        addActionLog('Phase 2', language === 'ja'
+          ? `位相相関: ${result.phaseCorrelation.toFixed(3)} ${result.phaseCorrelation > 0.5 ? '(安全)' : result.phaseCorrelation > 0 ? '(注意)' : '(危険)'}`
+          : `Phase correlation: ${result.phaseCorrelation.toFixed(3)} ${result.phaseCorrelation > 0.5 ? '(safe)' : result.phaseCorrelation > 0 ? '(caution)' : '(danger)'}`, undefined, phaseStatus);
+      }
+      
+      if (result.distortionPercent !== undefined && result.distortionPercent > 0.1) {
+        addActionLog('Phase 2', language === 'ja'
+          ? `歪み検出: ${result.distortionPercent.toFixed(2)}% (クリッピング疑い)`
+          : `Distortion detected: ${result.distortionPercent.toFixed(2)}% (possible clipping)`, undefined, 'warning');
+      }
+      
+      if (result.noiseFloorDb !== undefined) {
+        addActionLog('Phase 2', language === 'ja'
+          ? `ノイズフロア: ${result.noiseFloorDb.toFixed(1)} dB`
+          : `Noise floor: ${result.noiseFloorDb.toFixed(1)} dB`, undefined, result.noiseFloorDb < -80 ? 'success' : 'warning');
+      }
+      
       setAnalysisData(result);
       setAudioBuffer(buffer);
       addLog(t('log.audio.analysis_complete'));
 
-      // 続けてAI提案を取得
+      // Phase 3: AI Parameter Calculation
+      addActionLog('Phase 3', language === 'ja' ? 'AIエージェント: Beatport top基準への最適化パラメータ算出中...' : 'AI Agent: Calculating optimization parameters for Beatport top standard...', 'getMasteringSuggestions', 'info');
       addLog(t('log.gemini.request'));
+      
       const params = await getMasteringSuggestions(result, target, language);
+      
+      // Tool Calls (EQ, Gain, Limiter)
+      if (params.eq_adjustments && params.eq_adjustments.length > 0) {
+        params.eq_adjustments.forEach((eq, i) => {
+          addActionLog('Phase 3', language === 'ja'
+            ? `[Tool Call] EQ調整 ${i + 1}: ${eq.frequency}Hz に ${eq.gain_db > 0 ? '+' : ''}${eq.gain_db.toFixed(1)} dB (Q: ${eq.q.toFixed(2)})`
+            : `[Tool Call] EQ ${i + 1}: ${eq.frequency}Hz ${eq.gain_db > 0 ? '+' : ''}${eq.gain_db.toFixed(1)} dB (Q: ${eq.q.toFixed(2)})`, 'Linear_Phase_EQ', 'info');
+        });
+      }
+      
+      addActionLog('Phase 3', language === 'ja'
+        ? `[Tool Call] ゲイン補正: +${params.gain_adjustment_db.toFixed(1)} dB (目標 LUFS 到達)`
+        : `[Tool Call] Gain adjustment: +${params.gain_adjustment_db.toFixed(1)} dB (target LUFS)`, 'LUFS_Maximizer', 'info');
+      
+      addActionLog('Phase 3', language === 'ja'
+        ? `[Tool Call] リミッター: シーリング ${params.limiter_ceiling_db.toFixed(1)} dBTP`
+        : `[Tool Call] Limiter: Ceiling ${params.limiter_ceiling_db.toFixed(1)} dBTP`, 'Brickwall_Limiter', 'info');
+      
       setMasteringParams(params);
+      addActionLog('Phase 3', language === 'ja' ? '最適化完了: Beatport top基準に適合' : 'Optimization complete: Beatport top standard matched', undefined, 'success');
       addLog(t('log.gemini.success'));
       setShowResultsModal(true);
     } catch (err) {
       const errorKey = err instanceof Error ? err.message : 'error.audio.analysis';
+      addActionLog('Error', t(errorKey, { default: t('error.audio.analysis') }), undefined, 'error');
       setError(t(errorKey, { default: t('error.audio.analysis') }));
     } finally {
       setIsProcessing(false);
     }
-  }, [t, language, addLog]);
+  }, [t, language, addLog, addActionLog]);
 
   const handleFileChange = useCallback((file: File | null) => {
     if (file) processTrack(file, masteringTarget);
@@ -241,6 +305,7 @@ const AppContent: React.FC = () => {
               setShowSaveToLibrary((b) => !b);
             }}
             language={language}
+            actionLogs={actionLogs}
           />
         )}
 

@@ -14,6 +14,9 @@ export interface AudioAnalysisData {
   crestFactor: number;
   frequencyData: FrequencyData[];
   waveform: number[];
+  phaseCorrelation?: number; // -1 to +1 (位相相関)
+  distortionPercent?: number; // THD近似（クリッピング率）
+  noiseFloorDb?: number; // ノイズフロア（-dB）
 }
 
 export type MasteringTarget = 'beatport' | 'spotify';

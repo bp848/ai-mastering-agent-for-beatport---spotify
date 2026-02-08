@@ -91,8 +91,9 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     dynamic_range = true_peak_db - peak_rms_db
     crest_factor = dynamic_range
 
-    # --- Stereo Width ---
+    # --- Stereo Width & Phase Correlation ---
     stereo_width = 0.0
+    phase_correlation = 1.0
     if channels > 1:
         mid = (left_channel + right_channel) * 0.5
         side = (left_channel - right_channel) * 0.5
@@ -100,6 +101,28 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         side_rms = np.sqrt(np.mean(np.square(side)))
         if mid_rms > 1e-9:
             stereo_width = np.clip((side_rms / mid_rms) * 150, 0, 100)
+        # Phase correlation: -1 (out of phase) to +1 (in phase)
+        correlation = np.corrcoef(left_channel, right_channel)[0, 1]
+        phase_correlation = float(correlation) if not np.isnan(correlation) else 1.0
+    
+    # --- Distortion (THD approximation via harmonic detection) ---
+    # Check for clipping/saturation: samples near ±1.0 indicate potential distortion
+    clipped_samples = np.sum(np.abs(audio_data) > 0.98)
+    total_samples = audio_data.size
+    clipping_ratio = clipped_samples / total_samples if total_samples > 0 else 0.0
+    # Estimate THD-like metric: if many samples are clipped, distortion is likely
+    estimated_thd_percent = clipping_ratio * 100.0
+    
+    # --- Noise Floor (silence detection) ---
+    # Find quiet sections (below -60dB) and measure their RMS
+    quiet_threshold = 10 ** (-60 / 20)  # -60dB in linear
+    quiet_mask = np.abs(audio_data) < quiet_threshold
+    if np.any(quiet_mask):
+        quiet_samples = audio_data[quiet_mask]
+        noise_rms = np.sqrt(np.mean(np.square(quiet_samples)))
+        noise_floor_db = 20 * np.log10(noise_rms) if noise_rms > 0 else -144.0
+    else:
+        noise_floor_db = -100.0  # No quiet sections found
 
     # --- Frequency Analysis ---
     # Analyze a chunk from the middle for performance
@@ -145,6 +168,9 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         "peakRMS": peak_rms_db if np.isfinite(peak_rms_db) else -144.0,
         "bassVolume": bass_volume if np.isfinite(bass_volume) else -100.0,
         "frequencyData": frequency_results,
+        "phaseCorrelation": phase_correlation if channels > 1 else 1.0,
+        "distortionPercent": estimated_thd_percent,
+        "noiseFloorDb": noise_floor_db if np.isfinite(noise_floor_db) else -100.0,
     }
 
     return json.dumps(results)

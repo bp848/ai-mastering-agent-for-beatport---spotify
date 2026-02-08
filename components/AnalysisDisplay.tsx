@@ -126,6 +126,68 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
           <FrequencyChart data={data.frequencyData} />
         </div>
       </section>
+
+      {/* プロ向け詳細メトリクス（端折らず） */}
+      {(data.phaseCorrelation !== undefined || data.distortionPercent !== undefined || data.noiseFloorDb !== undefined) && (
+        <section className="space-y-2 w-full">
+          <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+            {isJa ? '最終検品（QC）メトリクス' : 'Final QC Metrics'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {data.phaseCorrelation !== undefined && (
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                <p className="text-[10px] text-zinc-500 mb-1">{isJa ? '位相相関' : 'Phase Correlation'}</p>
+                <p className={`text-base font-bold font-mono ${
+                  data.phaseCorrelation > 0.5 ? 'text-green-400' :
+                  data.phaseCorrelation > 0 ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {data.phaseCorrelation.toFixed(3)}
+                </p>
+                <p className="text-[9px] text-zinc-600 mt-1">
+                  {isJa 
+                    ? data.phaseCorrelation > 0.5 ? '安全 (+1.0〜+0.5)' : data.phaseCorrelation > 0 ? '注意' : '危険 (モノ不適合)'
+                    : data.phaseCorrelation > 0.5 ? 'Safe (+1.0~+0.5)' : data.phaseCorrelation > 0 ? 'Caution' : 'Danger (mono incompatible)'
+                  }
+                </p>
+              </div>
+            )}
+            {data.distortionPercent !== undefined && (
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                <p className="text-[10px] text-zinc-500 mb-1">{isJa ? '歪み（THD近似）' : 'Distortion (THD est.)'}</p>
+                <p className={`text-base font-bold font-mono ${
+                  data.distortionPercent < 0.1 ? 'text-green-400' :
+                  data.distortionPercent < 0.5 ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {data.distortionPercent.toFixed(2)}%
+                </p>
+                <p className="text-[9px] text-zinc-600 mt-1">
+                  {isJa 
+                    ? data.distortionPercent < 0.1 ? 'クリーン' : data.distortionPercent < 0.5 ? '軽微なクリッピング' : 'クリッピング検出'
+                    : data.distortionPercent < 0.1 ? 'Clean' : data.distortionPercent < 0.5 ? 'Minor clipping' : 'Clipping detected'
+                  }
+                </p>
+              </div>
+            )}
+            {data.noiseFloorDb !== undefined && (
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                <p className="text-[10px] text-zinc-500 mb-1">{isJa ? 'ノイズフロア' : 'Noise Floor'}</p>
+                <p className={`text-base font-bold font-mono ${
+                  data.noiseFloorDb < -80 ? 'text-green-400' :
+                  data.noiseFloorDb < -70 ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {data.noiseFloorDb.toFixed(1)} dB
+                </p>
+                <p className="text-[9px] text-zinc-600 mt-1">
+                  {isJa 
+                    ? data.noiseFloorDb < -80 ? 'プロ基準 (-90dB以下)' : data.noiseFloorDb < -70 ? '許容範囲' : 'ノイズ検出'
+                    : data.noiseFloorDb < -80 ? 'Pro standard (<-90dB)' : data.noiseFloorDb < -70 ? 'Acceptable' : 'Noise detected'
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

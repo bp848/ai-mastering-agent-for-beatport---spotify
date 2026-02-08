@@ -2,6 +2,7 @@ import React from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
 import AnalysisDisplay from './AnalysisDisplay';
 import MasteringAgent from './MasteringAgent';
+import Console, { type ActionLog } from './Console';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface ResultsModalProps {
@@ -21,6 +22,7 @@ interface ResultsModalProps {
   showSaveToLibrary: boolean;
   onToggleSaveToLibrary: () => void;
   language: 'ja' | 'en';
+  actionLogs?: ActionLog[];
 }
 
 export default function ResultsModal({
@@ -40,6 +42,7 @@ export default function ResultsModal({
   showSaveToLibrary,
   onToggleSaveToLibrary,
   language,
+  actionLogs = [],
 }: ResultsModalProps) {
   const { t } = useTranslation();
   const [slide, setSlide] = React.useState(0);
@@ -83,9 +86,9 @@ export default function ResultsModal({
         {/* スライド内容 */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 scroll-touch">
           {slide === 0 && (
-            <div className="animate-fade-up">
+            <div className="animate-fade-up space-y-6">
               <h3 className="text-sm font-bold text-cyan-400 mb-4">
-                {language === 'ja' ? '1. 分析結果' : '1. Analysis'}
+                {language === 'ja' ? '1. 分析結果（プロ基準・端折らず）' : '1. Analysis (Pro standard · no shortcuts)'}
               </h3>
               <AnalysisDisplay
                 data={analysisData}
@@ -93,6 +96,9 @@ export default function ResultsModal({
                 masteringTarget={masteringTarget}
                 onTargetChange={onTargetChange}
               />
+              {actionLogs.length > 0 && (
+                <Console logs={actionLogs} compact={false} />
+              )}
             </div>
           )}
           {slide === 1 && (
