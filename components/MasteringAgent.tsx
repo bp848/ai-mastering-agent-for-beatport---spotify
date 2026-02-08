@@ -47,89 +47,60 @@ const WaveformOverlay: React.FC<{
     ctx.fillStyle = '#08080c';
     ctx.fillRect(0, 0, w, h);
 
-    // Subtle horizontal grid lines (every 25%)
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-    ctx.lineWidth = 0.5;
-    for (const frac of [0.25, 0.75]) {
-      const gy = h * frac;
-      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
-    }
-
-    // Center line (slightly brighter)
+    // Center line (細い水平線)
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 0.75;
     ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
 
-    // Helper: draw mirrored waveform with gradient fill
-    const drawWave = (multiplier: number, fillColor: string, topAlpha: number, bottomAlpha: number, lineColor: string, lineAlpha: number) => {
-      // Compute min/max per pixel column
-      const mins: number[] = [];
-      const maxs: number[] = [];
-      for (let x = 0; x < w; x++) {
-        const start = x * step;
-        let lo = 1, hi = -1;
-        for (let j = 0; j < step && start + j < data.length; j++) {
-          const v = data[start + j] * multiplier;
-          if (v < lo) lo = v;
-          if (v > hi) hi = v;
-        }
-        lo = Math.max(lo, -1);
-        hi = Math.min(hi, 1);
-        mins.push(lo);
-        maxs.push(hi);
+    // Compute min/max per column for original (multiplier 1) and mastered (gainLinear)
+    const minsOrig: number[] = [];
+    const maxsOrig: number[] = [];
+    const minsMaster: number[] = [];
+    const maxsMaster: number[] = [];
+    for (let x = 0; x < w; x++) {
+      const start = x * step;
+      let loO = 1, hiO = -1, loM = 1, hiM = -1;
+      for (let j = 0; j < step && start + j < data.length; j++) {
+        const v = data[start + j];
+        const vo = Math.max(-1, Math.min(1, v));
+        const vm = Math.max(-1, Math.min(1, v * gainLinear));
+        if (vo < loO) loO = vo; if (vo > hiO) hiO = vo;
+        if (vm < loM) loM = vm; if (vm > hiM) hiM = vm;
       }
+      minsOrig.push(loO); maxsOrig.push(hiO);
+      minsMaster.push(loM); maxsMaster.push(hiM);
+    }
 
-      // Filled area (gradient from center outward)
-      const grad = ctx.createLinearGradient(0, mid * 0.15, 0, mid);
-      grad.addColorStop(0, fillColor.replace('A)', `${topAlpha})`));
-      grad.addColorStop(1, fillColor.replace('A)', `${bottomAlpha})`));
+    const amp = mid * 0.9;
 
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(0, mid);
-      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxs[x] * mid * 0.85);
-      ctx.lineTo(w, mid);
-      ctx.fill();
+    // 1. Original (背面): ダークグレー #3f3f46 — 常に描画して比較用の影にする
+    ctx.fillStyle = '#3f3f46';
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxsOrig[x] * amp);
+    ctx.lineTo(w, mid);
+    for (let x = w - 1; x >= 0; x--) ctx.lineTo(x, mid - minsOrig[x] * amp);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#52525b';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-      // Mirror (bottom half)
-      const grad2 = ctx.createLinearGradient(0, mid, 0, mid + mid * 0.85);
-      grad2.addColorStop(0, fillColor.replace('A)', `${bottomAlpha})`));
-      grad2.addColorStop(1, fillColor.replace('A)', `${topAlpha})`));
-      ctx.fillStyle = grad2;
-      ctx.beginPath();
-      ctx.moveTo(0, mid);
-      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - mins[x] * mid * 0.85);
-      ctx.lineTo(w, mid);
-      ctx.fill();
-
-      // Outline (top edge, thin + glow)
-      ctx.globalAlpha = lineAlpha;
-      ctx.strokeStyle = lineColor;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const y = mid - maxs[x] * mid * 0.85;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Bottom edge
-      ctx.beginPath();
-      for (let x = 0; x < w; x++) {
-        const y = mid - mins[x] * mid * 0.85;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    };
-
-    // Original (always drawn as dark background layer)
-    drawWave(1.0, 'rgba(161,161,170,A)', isHoldingOriginal ? 0.35 : 0.12, isHoldingOriginal ? 0.1 : 0.03, '#71717a', isHoldingOriginal ? 0.8 : 0.25);
-
-    // Mastered (cyan overlay) — only when NOT holding
+    // 2. Mastered (前面): シアン #22d3ee opacity 0.8 — シアンがはみ出れば「音がデカくなった」が一目で分かる
     if (!isHoldingOriginal) {
-      drawWave(gainLinear, 'rgba(34,211,238,A)', 0.4, 0.05, '#22d3ee', 0.9);
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = '#22d3ee';
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxsMaster[x] * amp);
+      ctx.lineTo(w, mid);
+      for (let x = w - 1; x >= 0; x--) ctx.lineTo(x, mid - minsMaster[x] * amp);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(34,211,238,0.9)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
   }, [originalBuffer, gainDb, isHoldingOriginal]);
 
@@ -284,6 +255,8 @@ interface MasteringAgentProps {
   onDownloadMastered: () => void;
   isProcessingAudio: boolean;
   audioBuffer: AudioBuffer | null;
+  /** モーダル内でアクションバーにダウンロードがある場合は true */
+  hideDownloadButton?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -484,33 +457,25 @@ const AudioPreview: React.FC<{
         </button>
       </div>
 
-      {/* ── Module Badges (Applied Processing) ── */}
+      {/* ── Module Badges (機材ラック風: LABEL | VALUE) ── */}
       <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
         <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">
           {ja ? '適用済みモジュール' : 'Active Modules'}
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-0">
           {[
-            { label: 'Tube Sat', value: params.tube_drive_amount.toFixed(1), active: params.tube_drive_amount > 0 },
-            { label: 'Pultec EQ', value: 'ON', active: params.low_contour_amount > 0 },
-            { label: `${params.eq_adjustments.length}-Band EQ`, value: 'ON', active: params.eq_adjustments.length > 0 },
-            { label: 'Exciter', value: params.exciter_amount.toFixed(2), active: params.exciter_amount > 0 },
-            { label: 'M/S Width', value: `${params.width_amount.toFixed(2)}x`, active: true },
-            { label: 'Glue Comp', value: 'ON', active: true },
-            { label: 'Neuro-Drive', value: '35%', active: true },
-            { label: 'Soft Clip', value: 'ON', active: true },
-            { label: 'Limiter', value: `${params.limiter_ceiling_db.toFixed(1)} dB`, active: true },
+            { label: 'TUBE SAT', value: params.tube_drive_amount.toFixed(1) },
+            { label: 'PULTEC EQ', value: 'ON' },
+            { label: 'EQ', value: `${params.eq_adjustments.length}-BAND` },
+            { label: 'EXCITER', value: params.exciter_amount.toFixed(2) },
+            { label: 'M/S WIDTH', value: `${params.width_amount.toFixed(2)}x` },
+            { label: 'GLUE COMP', value: 'ON' },
+            { label: 'NEURO-DRIVE', value: '35%' },
+            { label: 'SOFT CLIP', value: 'ON' },
+            { label: 'LIMITER', value: `${params.limiter_ceiling_db.toFixed(1)} dB` },
           ].map(mod => (
-            <span
-              key={mod.label}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono border transition-all ${
-                mod.active
-                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
-                  : 'bg-white/5 border-white/10 text-zinc-600'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${mod.active ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
-              {mod.label}: <span className="font-bold tabular-nums">{mod.value}</span>
+            <span key={mod.label} className="module-badge">
+              {mod.label} <span className="opacity-80">|</span> <span className="font-bold tabular-nums">{mod.value}</span>
             </span>
           ))}
         </div>
@@ -531,6 +496,7 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
   onDownloadMastered,
   isProcessingAudio,
   audioBuffer,
+  hideDownloadButton = false,
 }) => {
   const { language } = useTranslation();
   const ja = language === 'ja';
@@ -541,29 +507,31 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
     <div className="space-y-6">
       {audioBuffer && <AudioPreview audioBuffer={audioBuffer} params={params} />}
 
-      <button
-        onClick={onDownloadMastered}
-        disabled={isProcessingAudio}
-        className="w-full flex items-center justify-center gap-3 py-4 px-6 min-h-[52px] rounded-xl font-bold text-base active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation"
-        style={{
-          background: 'linear-gradient(135deg, #22d3ee, #06b6d4)',
-          color: '#000',
-          boxShadow: '0 0 20px rgba(34,211,238,0.25), 0 4px 16px rgba(0,0,0,0.4)',
-          border: 'none',
-        }}
-      >
-        {isProcessingAudio ? (
-          <>
-            <Spinner />
-            <span>{ja ? '書き出し中...' : 'Exporting...'}</span>
-          </>
-        ) : (
-          <>
-            <DownloadIcon />
-            <span>{ja ? 'WAV をダウンロード' : 'Download WAV'}</span>
-          </>
-        )}
-      </button>
+      {!hideDownloadButton && (
+        <button
+          onClick={onDownloadMastered}
+          disabled={isProcessingAudio}
+          className="w-full flex items-center justify-center gap-3 py-4 px-6 min-h-[52px] rounded-xl font-bold text-base active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation"
+          style={{
+            background: 'linear-gradient(135deg, #22d3ee, #06b6d4)',
+            color: '#000',
+            boxShadow: '0 0 20px rgba(34,211,238,0.25), 0 4px 16px rgba(0,0,0,0.4)',
+            border: 'none',
+          }}
+        >
+          {isProcessingAudio ? (
+            <>
+              <Spinner />
+              <span>{ja ? '書き出し中...' : 'Exporting...'}</span>
+            </>
+          ) : (
+            <>
+              <DownloadIcon />
+              <span>{ja ? 'WAV をダウンロード' : 'Download WAV'}</span>
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 };

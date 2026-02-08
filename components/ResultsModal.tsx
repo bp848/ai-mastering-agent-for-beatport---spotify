@@ -3,6 +3,7 @@ import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../typ
 import AnalysisDisplay from './AnalysisDisplay';
 import MasteringAgent from './MasteringAgent';
 import Console, { type ActionLog } from './Console';
+import { Spinner, DownloadIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface ResultsModalProps {
@@ -163,48 +164,75 @@ export default function ResultsModal({
                 onDownloadMastered={onDownloadMastered}
                 isProcessingAudio={isProcessingAudio}
                 audioBuffer={audioBuffer}
+                hideDownloadButton
               />
             </div>
           )}
         </div>
 
-        {/* フッター: 1枚目は「次へ」、2枚目は「次の曲をアップロード」ボタン */}
-        <div className="flex items-center justify-between p-4 border-t border-white/5 gap-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {/* 高密度アクションバー (64px) — [ 戻る ] [ 次の曲をアップロード ] [ WAVをダウンロード ] */}
+        <div
+          className="flex items-center justify-between gap-2 px-4 border-t border-white/5 shrink-0"
+          style={{
+            minHeight: 64,
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            background: 'rgba(0,0,0,0.3)',
+          }}
+        >
           <button
             type="button"
             onClick={() => (slide > 0 ? setSlide(slide - 1) : onClose())}
-            className="px-5 py-3 min-h-[44px] text-sm font-medium text-zinc-400 hover:text-white active:opacity-80 -ml-2"
+            className="flex items-center gap-1.5 px-3 py-3 min-w-0 text-sm font-medium text-zinc-400 hover:text-white active:opacity-80 font-mono shrink-0"
             aria-label={slide > 0 ? undefined : closeBackAria}
           >
+            <span className="text-lg leading-none">‹</span>
             {slide > 0 ? prevLabel : closeBackLabel}
           </button>
-          {slide < totalSlides - 1 ? (
-            <button
-              type="button"
-              onClick={() => setSlide(slide + 1)}
-              className="px-6 py-3 min-h-[44px] rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 active:opacity-90"
-            >
-              {nextLabel}
-            </button>
-          ) : (
-            onNextTrack ? (
+
+          <div className="flex-1 flex items-center justify-center min-w-0">
+            {slide === totalSlides - 1 && onNextTrack ? (
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  onNextTrack();
-                }}
-                className="px-6 py-3 min-h-[44px] rounded-xl bg-zinc-700 text-white font-bold text-sm hover:bg-zinc-600 active:opacity-90 border border-white/10"
+                onClick={() => { onClose(); onNextTrack(); }}
+                className="px-4 py-3 rounded-lg text-sm font-medium text-zinc-300 hover:text-white border border-white/15 hover:bg-white/5 transition-colors font-mono"
                 aria-label={nextTrackAria}
               >
                 {nextTrackLabel}
               </button>
-            ) : (
-              <span className="text-[10px] text-zinc-500">
-                {language === 'ja' ? '購入・ダウンロードは上のボタンから' : 'Use the button above to purchase & download'}
-              </span>
-            )
-          )}
+            ) : slide < totalSlides - 1 ? (
+              <button
+                type="button"
+                onClick={() => setSlide(slide + 1)}
+                className="px-4 py-3 rounded-lg text-sm font-medium text-zinc-300 hover:text-white border border-white/15 font-mono"
+              >
+                {nextLabel}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 w-[180px] flex justify-end">
+            {slide === totalSlides - 1 ? (
+              <button
+                type="button"
+                onClick={onDownloadMastered}
+                disabled={isProcessingAudio}
+                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-sm text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono"
+                style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}
+              >
+                {isProcessingAudio ? (
+                  <>
+                    <Spinner />
+                    <span className="whitespace-nowrap">{language === 'ja' ? '書き出し中...' : 'Exporting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <DownloadIcon />
+                    <span className="whitespace-nowrap">{language === 'ja' ? 'WAVをダウンロード' : 'Download WAV'}</span>
+                  </>
+                )}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

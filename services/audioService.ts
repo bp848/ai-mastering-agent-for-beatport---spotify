@@ -302,13 +302,13 @@ const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
  * プロ仕様マスタリングチェーンをオーディオグラフとして構築する共通関数。
  * OfflineAudioContext（書き出し）にも AudioContext（プレビュー）にも使える。
  *
- * 信号経路:
- *   DC Block → Input Gain → Tube Saturation (parallel)
+ * 信号経路 (Headroom First):
+ *   Safety Trim (-3dB) → DC Block → Input Gain
+ *   → Tube Saturation (薄く・Pre-EQ で中域保護)
  *   → Pultec Sub Focus → Corrective EQ → HF Exciter (parallel)
- *   → M/S Processing (Bass Mono + Side Width + Mid Glue Comp)
- *   → AI Kapellmeister (Glue Comp + Smile Curve + Transient Recovery)
- *   → Neuro-Drive Module (Parallel Hyper-Compression + Air Exciter)
- *   → Soft Clipper → Brickwall Limiter → output
+ *   → M/S (Mid Comp: Soft Knee, 遅めアタック)
+ *   → AI Kapellmeister → Neuro-Drive (HP 800Hz, Wet 20%)
+ *   → Make-up Gain (+3dB) → Soft Clipper (0.99) → Limiter (Soft Knee)
  */
 export const buildMasteringChain = (
   ctx: BaseAudioContext,
@@ -319,7 +319,19 @@ export const buildMasteringChain = (
 ): void => {
   let lastNode: AudioNode = source;
 
-  // ── 1. DC Block & Input Gain ──────────────────────────────────────
+  // =================================================================
+  // 1. Safety Input Trim (Headroom First)
+  // =================================================================
+  // 前段で突っ込みすぎないよう一度 -3dB してヘッドルームを作る。
+  // 後段の EQ/サチュレーターでブーストしてもクリップしなくなる。
+  const safetyTrim = ctx.createGain();
+  safetyTrim.gain.value = 0.707; // -3dB
+  lastNode.connect(safetyTrim);
+  lastNode = safetyTrim;
+
+  // =================================================================
+  // 2. DC Block & User Gain
+  // =================================================================
   const dcBlocker = ctx.createBiquadFilter();
   dcBlocker.type = 'highpass';
   dcBlocker.frequency.value = 20;
@@ -331,19 +343,31 @@ export const buildMasteringChain = (
   dcBlocker.connect(inputGain);
   lastNode = inputGain;
 
-  // ── 2. Tube Saturation (Parallel) ─────────────────────────────────
+  // =================================================================
+  // 3. Tube Saturation (非常に薄く、中域を避ける)
+  // =================================================================
+  // ボーカル歪み防止: 適用量 1.0 以下、サチュレーション前に 1kHz を -3dB
   if (params.tube_drive_amount > 0) {
+    const safeDrive = Math.min(params.tube_drive_amount, 1.0);
+
+    const preSatEQ = ctx.createBiquadFilter();
+    preSatEQ.type = 'peaking';
+    preSatEQ.frequency.value = 1000;
+    preSatEQ.Q.value = 1.0;
+    preSatEQ.gain.value = -3.0; // 声の芯を歪みから守る
+
     const tubeShaper = ctx.createWaveShaper();
-    tubeShaper.curve = makeTubeCurve(params.tube_drive_amount);
+    tubeShaper.curve = makeTubeCurve(safeDrive);
     tubeShaper.oversample = '4x';
 
     const dry = ctx.createGain();
-    dry.gain.value = 0.8;
+    dry.gain.value = 1.0;
     const wet = ctx.createGain();
-    wet.gain.value = 0.2;
+    wet.gain.value = 0.1; // 歪み成分は 10% だけ足す
 
     lastNode.connect(dry);
-    lastNode.connect(tubeShaper);
+    lastNode.connect(preSatEQ);
+    preSatEQ.connect(tubeShaper);
     tubeShaper.connect(wet);
 
     const merge = ctx.createGain();
@@ -426,11 +450,12 @@ export const buildMasteringChain = (
     sideWidth.gain.value = params.width_amount ?? 1.0;
     sideHP.connect(sideWidth);
 
-    // Mid: Glue Compressor（接着感を出す）
+    // Mid: Glue Compressor（接着感を出す）— Soft Knee、アタック遅めで声を守る
     const midComp = ctx.createDynamicsCompressor();
     midComp.threshold.value = -12;
     midComp.ratio.value = 2;
-    midComp.attack.value = 0.03;
+    midComp.knee.value = 10;
+    midComp.attack.value = 0.05;
     midComp.release.value = 0.1;
     midSum.connect(midComp);
 
@@ -532,22 +557,19 @@ export const buildMasteringChain = (
   neuroDryPath.gain.value = 1.0;
   lastNode.connect(neuroDryPath);
 
-  // 8b. Hyper-Compressor (The Energy Generator)
-  //     あえて「やりすぎ」な設定で潰すことで、
-  //     微細な空気感や余韻を強制的に引きずり出す
+  // 8b. Hyper-Compressor (The Energy Generator) — Soft Knee で歪み抑制
   const hyperComp = ctx.createDynamicsCompressor();
-  hyperComp.threshold.value = -30;  // 深く捕まえる
-  hyperComp.ratio.value = 12;       // ほぼリミッター的に潰す
-  hyperComp.attack.value = 0.005;   // 最速で捕まえる
-  hyperComp.release.value = 0.25;   // 音楽的にリリース
-  hyperComp.knee.value = 0;         // Hard knee — 容赦なし
+  hyperComp.threshold.value = -30;
+  hyperComp.ratio.value = 12;
+  hyperComp.attack.value = 0.005;
+  hyperComp.release.value = 0.25;
+  hyperComp.knee.value = 10;        // Soft Knee: 急激な圧縮による歪みを防ぐ
   lastNode.connect(hyperComp);
 
-  // 8c. High-Pass on Wet Signal
-  //     潰した音の低域が濁らないよう、エネルギー成分（中高域）だけを抽出
+  // 8c. High-Pass on Wet Signal (800Hz: ボーカル/キック干渉を避ける)
   const energyFilter = ctx.createBiquadFilter();
   energyFilter.type = 'highpass';
-  energyFilter.frequency.value = 250; // キックとベースは原音に任せる
+  energyFilter.frequency.value = 800;
   energyFilter.Q.value = 0.7;
   hyperComp.connect(energyFilter);
 
@@ -559,34 +581,46 @@ export const buildMasteringChain = (
   airShelf.gain.value = 4.0; // 強烈に輝かせる
   energyFilter.connect(airShelf);
 
-  // 8e. Neuro Injection (Parallel Mixing)
-  //     激しく加工された音を、原音に "燃料" として注入
+  // 8e. Neuro Injection (Parallel Mixing) — Wet 20% で様子見（歪み抑制）
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.35; // 原音に対して 35% のハイパーエナジー注入
+  neuroWetGain.gain.value = 0.2;
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
-  neuroDryPath.connect(neuroMerge);   // Dry path
-  neuroWetGain.connect(neuroMerge);   // Wet path (parallel injection)
+  neuroDryPath.connect(neuroMerge);
+  neuroWetGain.connect(neuroMerge);
   lastNode = neuroMerge;
 
   // =================================================================
   // End of Neuro-Drive
   // =================================================================
 
-  // ── 9. Soft Clipper (Peak Shaving) ─────────────────────────────────
+  // =================================================================
+  // 9. Final Make-up Gain (+3dB)
+  // =================================================================
+  // 最初の Safety Trim -3dB を相殺。リミッターが潰しすぎない範囲で音量を取り戻す。
+  const makeupGain = ctx.createGain();
+  makeupGain.gain.value = 1.414; // +3dB
+  lastNode.connect(makeupGain);
+  lastNode = makeupGain;
+
+  // =================================================================
+  // 10. Soft Clipper (閾値 0.99 でボーカル割れ回避)
+  // =================================================================
   const clipper = ctx.createWaveShaper();
-  clipper.curve = makeClipperCurve(0.95);
+  clipper.curve = makeClipperCurve(0.99);
   lastNode.connect(clipper);
   lastNode = clipper;
 
-  // ── 10. Brickwall Limiter ─────────────────────────────────────────
+  // =================================================================
+  // 11. Limiter (Soft Knee・遅めアタック/リリースで歪み低減)
+  // =================================================================
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
-  limiter.knee.value = 0;
+  limiter.knee.value = 10;        // Soft Knee: 角を丸くし急激な圧縮を防ぐ
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.1;
+  limiter.attack.value = 0.005; // 0.001 → 0.005 (速すぎると低域・声が歪む)
+  limiter.release.value = 0.2;   // 余韻を残し波形崩れを防ぐ
   lastNode.connect(limiter);
   limiter.connect(outputNode);
 };

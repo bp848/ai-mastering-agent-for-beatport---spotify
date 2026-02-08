@@ -3,7 +3,7 @@ import React from 'react';
 import type { AudioAnalysisData, MasteringTarget } from '../types';
 
 /* ─────────────────────────────────────────────────────────────────
-   DiagnosisReport — HUD-style Diagnosis with Donut Score
+   DiagnosisReport — Compact diagnosis with score badge (no huge donut)
    ───────────────────────────────────────────────────────────────── */
 
 interface Props {
@@ -13,41 +13,6 @@ interface Props {
   isMastering: boolean;
   language: 'ja' | 'en';
 }
-
-/* ── ドーナツチャート (SVG) ────────────────────────────── */
-const DonutScore: React.FC<{ percent: number; size?: number }> = ({ percent, size = 140 }) => {
-  const stroke = 8;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
-  const color = percent >= 70 ? '#22c55e' : percent >= 40 ? '#f59e0b' : '#ef4444';
-  const glowColor = percent >= 70 ? 'rgba(34,197,94,0.3)' : percent >= 40 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)';
-
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" strokeWidth={stroke}
-          className="donut-track"
-        />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" strokeWidth={stroke} strokeLinecap="round"
-          stroke={color}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="donut-fill"
-          style={{ filter: `drop-shadow(0 0 8px ${glowColor})` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-extrabold text-white tabular-nums">{percent}</span>
-        <span className="text-[9px] text-zinc-500 uppercase tracking-widest mt-0.5">Score</span>
-      </div>
-    </div>
-  );
-};
 
 /* ── 個別の診断行 ─────────────────────────────────────── */
 interface DiagLineProps {
@@ -101,40 +66,38 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering
   const maxScore = statuses.length * 2;
   const scorePercent = Math.round((score / maxScore) * 100);
 
+  const scoreColor = scorePercent >= 70 ? 'text-green-400' : scorePercent >= 40 ? 'text-amber-400' : 'text-red-400';
+
   return (
     <div className="space-y-5 animate-fade-up">
-      {/* ── Hero: Score + Summary ─────────────────── */}
-      <div className="glass-elevated rounded-2xl p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
-          {/* Donut Chart */}
-          <DonutScore percent={scorePercent} />
-
-          {/* Summary */}
-          <div className="flex-1 text-center sm:text-left space-y-2">
+      {/* ── Compact header: small score badge + summary (no huge donut) ── */}
+      <div className="glass-elevated rounded-2xl p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
             <h2 className="text-lg font-bold text-white">
               {ja ? '診断レポート' : 'Diagnosis Report'}
             </h2>
-            <p className="text-[11px] text-zinc-500">
-              {ja
-                ? `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} 基準での忖度なし判定 — 7項目を検査`
-                : `No-deference assessment for ${target === 'beatport' ? 'Beatport Top' : 'Spotify'} — 7 metrics inspected`}
-            </p>
-            <div className="flex items-center justify-center sm:justify-start gap-4 pt-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[10px] text-zinc-500">{statuses.filter(s => s === 'good').length} Pass</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-[10px] text-zinc-500">{statuses.filter(s => s === 'warn').length} Warn</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[10px] text-zinc-500">{statuses.filter(s => s === 'bad').length} Fail</span>
-              </div>
-            </div>
+            <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1 rounded-lg font-mono font-bold text-lg tabular-nums ${scoreColor} bg-white/5 border border-white/10`}>
+              {scorePercent}%
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+              <span className="w-2 h-2 rounded-full bg-green-500" />{statuses.filter(s => s === 'good').length} Pass
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />{statuses.filter(s => s === 'warn').length} Warn
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+              <span className="w-2 h-2 rounded-full bg-red-500" />{statuses.filter(s => s === 'bad').length} Fail
+            </span>
           </div>
         </div>
+        <p className="text-[11px] text-zinc-500 mt-2">
+          {ja
+            ? `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} 基準 — 7項目を検査`
+            : `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} — 7 metrics inspected`}
+        </p>
       </div>
 
       {/* ── Diagnosis Lines ──────────────────────── */}
