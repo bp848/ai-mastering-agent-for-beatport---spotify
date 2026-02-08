@@ -119,7 +119,7 @@ export const ProVisualizer: React.FC<ProVisualizerProps> = ({ analyserRef, isPla
       <div className="absolute top-0 left-0 w-full h-8 bg-black/40 backdrop-blur-sm border-b border-white/5 flex items-center justify-between px-3 z-10">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-          <span className="text-[10px] text-zinc-400 font-mono tracking-widest">M/S ANALYZER</span>
+          <span className="text-[12px] text-zinc-300 font-mono tracking-widest">M/S ANALYZER</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-[10px] text-purple-400 font-mono">SIDE (WIDTH)</span>

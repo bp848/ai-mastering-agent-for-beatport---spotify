@@ -226,7 +226,7 @@ export const ProSpectrum: React.FC<Props> = ({ analyserRef, isPlaying, isOrigina
   return (
     <div className="w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)' }}>
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800/40 bg-zinc-950/80">
-        <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">
+        <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-widest">
           Spectrum Analyzer
         </span>
         <span className="text-[9px] font-mono text-zinc-700">

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { AudioAnalysisData, MasteringTarget } from '../types';
+import PlatformSelector from './PlatformSelector';
 
 /* ─────────────────────────────────────────────────────────────────
    DiagnosisReport — Dynamic scoring + relaxed thresholds (Authority)
@@ -8,6 +9,7 @@ import type { AudioAnalysisData, MasteringTarget } from '../types';
 interface Props {
   data: AudioAnalysisData;
   target: MasteringTarget;
+  onTargetChange: (t: MasteringTarget) => void;
   onExecute: () => void;
   isMastering: boolean;
   language: 'ja' | 'en';
@@ -89,7 +91,7 @@ const DiagLine: React.FC<DiagLineProps> = ({ label, status, detail, value }) => 
 };
 
 /* ── メインコンポーネント ────────────────────────────── */
-const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering, language }) => {
+const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, isMastering, language }) => {
   const ja = language === 'ja';
   const targetLufs = target === 'beatport' ? -7.0 : -14.0;
   const lufsGap = targetLufs - data.lufs;
@@ -111,6 +113,14 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {/* ── マスタリング先選択（実行前にここで Beatport / Spotify を選択） ── */}
+      <div className="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm font-medium text-zinc-300">
+          {ja ? 'マスタリングの配信先' : 'Mastering target'}
+        </span>
+        <PlatformSelector currentTarget={target} onTargetChange={onTargetChange} />
+      </div>
+
       {/* ── Compact header: small score badge + summary (no huge donut) ── */}
       <div className="glass-elevated rounded-2xl p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">

@@ -3,14 +3,12 @@ import React, { useState } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MetricStatus } from '../types';
 import FrequencyChart from './FrequencyChart';
 import Waveform from './Waveform';
-import PlatformSelector from './PlatformSelector';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface AnalysisDisplayProps {
   data: AudioAnalysisData;
   isLoading: boolean;
   masteringTarget: MasteringTarget;
-  onTargetChange: (target: MasteringTarget) => void;
 }
 
 const targetValues = {
@@ -65,7 +63,7 @@ const MetricPill: React.FC<{
   );
 };
 
-const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget, onTargetChange }) => {
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget }) => {
   const { t, language } = useTranslation();
   const isJa = language === 'ja';
   const lufsStatus = getStatus(data.lufs, masteringTarget, 'lufs');
@@ -76,12 +74,11 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <PlatformSelector currentTarget={masteringTarget} onTargetChange={onTargetChange} />
-          <p className="text-[10px] text-zinc-500 font-medium">
-            {isJa ? 'Beatport top 基準・忖度なしの解析' : 'Beatport top standard · no-deference analysis'}
-          </p>
-        </div>
+        <p className="text-[10px] text-zinc-500 font-medium">
+          {masteringTarget === 'beatport'
+            ? (isJa ? 'Beatport top 基準・忖度なしの解析' : 'Beatport top standard · no-deference analysis')
+            : (isJa ? 'Spotify 基準・解析' : 'Spotify standard · analysis')}
+        </p>
         <div className="grid grid-cols-3 gap-4 sm:gap-6">
           <MetricPill
             label={t('analysis.metric.lufs')}

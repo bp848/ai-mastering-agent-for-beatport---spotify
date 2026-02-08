@@ -12,9 +12,15 @@
   --accent-glow: rgba(34, 211, 238, 0.25);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --text-primary: #f4f4f5;
-  --text-muted: #a1a1aa;
+  --text-muted: #d4d4d8;
+  --text-secondary: #a1a1aa;
   --gradient-start: #0c0c12;
   --gradient-end: #0f172a;
+  /* 可読性: フォント約1.2倍 */
+  --text-tiny: 0.6875rem;
+  --text-caption: 0.8125rem;
+  --text-body: 0.9375rem;
+  --text-lead: 1.0625rem;
 }
 
 * {
@@ -31,6 +37,7 @@ body {
   min-height: -webkit-fill-available;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   color: var(--text-primary);
+  font-size: var(--text-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;

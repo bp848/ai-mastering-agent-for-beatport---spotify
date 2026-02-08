@@ -228,11 +228,6 @@ const AppContent: React.FC = () => {
     if (file) analyzeOnly(file, masteringTarget);
   }, [analyzeOnly, masteringTarget]);
 
-  const handleTargetChange = (target: MasteringTarget) => {
-    setMasteringTarget(target);
-    if (audioFile) analyzeOnly(audioFile, target);
-  };
-
   const handleDownload = useCallback(async () => {
     if (!masteringParams || !audioBuffer || !audioFile) return;
     if (!session?.user) {
@@ -354,7 +349,6 @@ const AppContent: React.FC = () => {
             analysisData={analysisData}
             masteringParams={masteringParams}
             masteringTarget={masteringTarget}
-            onTargetChange={handleTargetChange}
             onDownloadMastered={handleDownload}
             isProcessingAudio={isExporting}
             audioBuffer={audioBuffer}
@@ -373,6 +367,7 @@ const AppContent: React.FC = () => {
             language={language}
             actionLogs={actionLogs}
             onNextTrack={handleNextTrack}
+            onFeedbackApply={setMasteringParams}
           />
         )}
 
@@ -419,6 +414,7 @@ const AppContent: React.FC = () => {
             <DiagnosisReport
               data={analysisData}
               target={masteringTarget}
+              onTargetChange={setMasteringTarget}
               onExecute={executeMastering}
               isMastering={isMastering}
               language={language}

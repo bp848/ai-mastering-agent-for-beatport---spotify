@@ -302,13 +302,11 @@ const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
  * プロ仕様マスタリングチェーンをオーディオグラフとして構築する共通関数。
  * OfflineAudioContext（書き出し）にも AudioContext（プレビュー）にも使える。
  *
- * 信号経路 (Headroom First):
- *   Safety Trim (-3dB) → DC Block → Input Gain
- *   → Tube Saturation (薄く・Pre-EQ で中域保護)
- *   → Pultec Sub Focus → Corrective EQ → HF Exciter (parallel)
- *   → M/S (Mid Comp: Soft Knee, 遅めアタック)
- *   → AI Kapellmeister → Neuro-Drive (HP 800Hz, Wet 20%)
- *   → Make-up Gain (+3dB) → Soft Clipper (0.99) → Limiter (Soft Knee)
+ * 信号経路 (Vocal-First: 整えてから最後に上げる):
+ *   Safety Trim (-3dB) → Vocal Guard EQ (2.5kHz -1.5dB) → DC Block
+ *   → M/S Tube (Mid 0.5 / Side drive) → Pultec → Corrective EQ → Exciter → M/S
+ *   → Glue Comp → Smile Curve → Transient → Neuro-Drive
+ *   → Make-up Gain (AI + 3dB) → Clipper (0.98) → Limiter
  */
 export const buildMasteringChain = (
   ctx: BaseAudioContext,
@@ -320,28 +318,35 @@ export const buildMasteringChain = (
   let lastNode: AudioNode = source;
 
   // =================================================================
-  // 1. Safety Input Trim (Headroom First)
+  // 1. Safety Input Trim (Vocal-First: 最初は上げず -3dB でヘッドルーム)
   // =================================================================
-  // 前段で突っ込みすぎないよう一度 -3dB してヘッドルームを作る。
-  // 後段の EQ/サチュレーターでブーストしてもクリップしなくなる。
   const safetyTrim = ctx.createGain();
-  safetyTrim.gain.value = 0.707; // -3dB
+  safetyTrim.gain.value = 0.7; // -3dB 程度。突発ピークでの割れを防ぐ
   lastNode.connect(safetyTrim);
   lastNode = safetyTrim;
 
   // =================================================================
-  // 2. DC Block & User Gain
+  // 2. Vocal Protection EQ (Anti-Harshness)
+  // サチュレーションでボーカルが割れるのを防ぐため、
+  // 歪みやすい中高域(2.5kHz)を事前に少し抑える。
+  // =================================================================
+  const vocalGuard = ctx.createBiquadFilter();
+  vocalGuard.type = 'peaking';
+  vocalGuard.frequency.value = 2500;
+  vocalGuard.Q.value = 1.0;
+  vocalGuard.gain.value = -1.5;
+  lastNode.connect(vocalGuard);
+  lastNode = vocalGuard;
+
+  // =================================================================
+  // 3. DC Block（ここではゲインを上げない。Make-up は最後に）
   // =================================================================
   const dcBlocker = ctx.createBiquadFilter();
   dcBlocker.type = 'highpass';
   dcBlocker.frequency.value = 20;
   dcBlocker.Q.value = 0.5;
   lastNode.connect(dcBlocker);
-
-  const inputGain = ctx.createGain();
-  inputGain.gain.value = Math.pow(10, (params.gain_adjustment_db ?? 0) / 20);
-  dcBlocker.connect(inputGain);
-  lastNode = inputGain;
+  lastNode = dcBlocker;
 
   // =================================================================
   // 3a. Vocal Safe-Guard Saturation (Stereo only)
@@ -364,12 +369,12 @@ export const buildMasteringChain = (
     rightInv.connect(sideRaw);
 
     const midShaper = ctx.createWaveShaper();
-    midShaper.curve = makeTubeCurve(1.0);
+    midShaper.curve = makeTubeCurve(0.5); // Mid (Vocal): 歪み少なめ
     midShaper.oversample = '4x';
     midRaw.connect(midShaper);
 
     const sideShaper = ctx.createWaveShaper();
-    sideShaper.curve = makeTubeCurve(3.0);
+    sideShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount, 4));
     sideShaper.oversample = '4x';
     sideRaw.connect(sideShaper);
 
@@ -630,31 +635,33 @@ export const buildMasteringChain = (
   // =================================================================
 
   // =================================================================
-  // 9. Final Make-up Gain (+3dB)
+  // 9. Intelligent Make-up Gain（ここで音圧を稼ぐ）
+  // 全ての処理が終わった後、リミッター直前にブースト。
+  // AI のゲイン調整値 + SafetyTrim で下げた分(+3dB)を取り戻す。
   // =================================================================
-  // 最初の Safety Trim -3dB を相殺。リミッターが潰しすぎない範囲で音量を取り戻す。
+  const targetGainDb = (params.gain_adjustment_db ?? 0) + 3.0;
   const makeupGain = ctx.createGain();
-  makeupGain.gain.value = 1.414; // +3dB
+  makeupGain.gain.value = Math.pow(10, targetGainDb / 20);
   lastNode.connect(makeupGain);
   lastNode = makeupGain;
 
   // =================================================================
-  // 10. Soft Clipper (閾値 0.99 でボーカル割れ回避)
+  // 10. Soft Clipper（余裕を持たせる）
   // =================================================================
   const clipper = ctx.createWaveShaper();
-  clipper.curve = makeClipperCurve(0.99);
+  clipper.curve = makeClipperCurve(0.98);
   lastNode.connect(clipper);
   lastNode = clipper;
 
   // =================================================================
-  // 11. Limiter (Soft Knee・遅めアタック/リリースで歪み低減)
+  // 11. Limiter（トランジェント通過のためアタックやや遅め）
   // =================================================================
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
-  limiter.knee.value = 10;        // Soft Knee: 角を丸くし急激な圧縮を防ぐ
+  limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.005; // 0.001 → 0.005 (速すぎると低域・声が歪む)
-  limiter.release.value = 0.2;   // 余韻を残し波形崩れを防ぐ
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.1;
   lastNode.connect(limiter);
   limiter.connect(outputNode);
 };
@@ -707,14 +714,14 @@ export const optimizeMasteringParams = async (
     for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
   }
 
-  // --- 簡易 DSP シミュレーション ---
+  // --- 簡易 DSP シミュレーション（本番チェーンと同一: Make-up = gain_adjustment_db + 3dB） ---
   const source = offlineCtx.createBufferSource();
   source.buffer = chunkBuffer;
   let node: AudioNode = source;
 
-  // Gain
+  const targetGainDb = (optimizedParams.gain_adjustment_db ?? 0) + 3.0;
   const gainNode = offlineCtx.createGain();
-  gainNode.gain.value = Math.pow(10, optimizedParams.gain_adjustment_db / 20);
+  gainNode.gain.value = Math.pow(10, targetGainDb / 20);
   node.connect(gainNode);
   node = gainNode;
 
