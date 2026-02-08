@@ -4,6 +4,7 @@ import type { MasteringParams } from '../types';
 import { buildMasteringChain } from '../services/audioService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
+import ProSpectrum from './ProSpectrum';
 
 /* ─────────────────────────────────────────────────────────────────
    "Glass Cockpit" — Professional Preview & Comparison Player
@@ -363,6 +364,13 @@ const AudioPreview: React.FC<{
           limiterCeiling={params.limiter_ceiling_db}
         />
       </div>
+
+      {/* ── Pro Spectrum Analyzer (Log Scale) ── */}
+      <ProSpectrum
+        analyserRef={analyserRef}
+        isPlaying={isPlaying}
+        isOriginal={isHoldingOriginal}
+      />
 
       {/* ── Controls ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

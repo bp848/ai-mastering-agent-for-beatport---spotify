@@ -460,13 +460,64 @@ export const buildMasteringChain = (
     }
   }
 
-  // ── 7. Soft Clipper (Peak Shaving) ────────────────────────────────
+  // =================================================================
+  // 7. The AI Kapellmeister (Master Bus Orchestration)
+  //    バラバラの要素を有機的に結合させる「接着」セクション
+  // =================================================================
+
+  // 7a. "The Glue" — SSL Bus Comp Style
+  //     アタック 30ms（パンチを残す）, 低レシオ 1.5:1, Soft Knee
+  //     全体がキックに合わせて「呼吸」する一体感を作る
+  const glueComp = ctx.createDynamicsCompressor();
+  glueComp.threshold.value = -10;
+  glueComp.knee.value = 10;
+  glueComp.ratio.value = 1.5;
+  glueComp.attack.value = 0.03;   // 30ms — キックのアタックを通す
+  glueComp.release.value = 0.1;   // Auto release 的挙動
+  lastNode.connect(glueComp);
+  lastNode = glueComp;
+
+  // 7b. "Smile Curve" — ラウドネス等感度曲線
+  //     500Hz 付近の「モコモコ帯域」を -1.5dB 引くことで、
+  //     相対的に低域と高域が輝き、マスキングが解消される
+  const midScoop = ctx.createBiquadFilter();
+  midScoop.type = 'peaking';
+  midScoop.frequency.value = 500;
+  midScoop.Q.value = 1.0;
+  midScoop.gain.value = -1.5;
+  lastNode.connect(midScoop);
+  lastNode = midScoop;
+
+  // 7c. Transient Recovery (Micro-Dynamics Enhancement)
+  //     コンプ/サチュレーションで鈍ったアタック感を取り戻す。
+  //     1kHz 以上の高域成分だけを抽出して 15% 加算し、
+  //     「太いのにキレがある」状態を作る。
+  const transFilter = ctx.createBiquadFilter();
+  transFilter.type = 'highpass';
+  transFilter.frequency.value = 1000;
+  transFilter.Q.value = 0.5;
+  lastNode.connect(transFilter);
+
+  const transBoost = ctx.createGain();
+  transBoost.gain.value = 0.15; // 原音に 15% のエッジを足す
+  transFilter.connect(transBoost);
+
+  const kapellmeisterMerge = ctx.createGain();
+  lastNode.connect(kapellmeisterMerge);   // Main body (Smile Curve output)
+  transBoost.connect(kapellmeisterMerge);  // Added punch (transient)
+  lastNode = kapellmeisterMerge;
+
+  // =================================================================
+  // End of Orchestration
+  // =================================================================
+
+  // ── 8. Soft Clipper (Peak Shaving) ─────────────────────────────────
   const clipper = ctx.createWaveShaper();
   clipper.curve = makeClipperCurve(0.95);
   lastNode.connect(clipper);
   lastNode = clipper;
 
-  // ── 8. Brickwall Limiter ──────────────────────────────────────────
+  // ── 9. Brickwall Limiter ──────────────────────────────────────────
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
   limiter.knee.value = 0;
