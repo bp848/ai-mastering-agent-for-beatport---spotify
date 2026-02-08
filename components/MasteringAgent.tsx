@@ -5,8 +5,7 @@ import { buildMasteringChain } from '../services/audioService';
 import { applyFeedbackAdjustment, type FeedbackType } from '../services/feedbackService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
-import ProSpectrum from './ProSpectrum';
-import ProVisualizer from './ProVisualizer';
+import MasteringConsole from './MasteringConsole';
 import RetryModal from './RetryModal';
 
 /* ─────────────────────────────────────────────────────────────────
@@ -415,15 +414,8 @@ const AudioPreview: React.FC<{
         />
       </div>
 
-      {/* ── Pro Spectrum Analyzer (Log Scale) ── */}
-      <ProSpectrum
-        analyserRef={analyserRef}
-        isPlaying={isPlaying}
-        isOriginal={isHoldingOriginal}
-      />
-
-      {/* ── M/S Analyzer & Glue GR Meter ── */}
-      <ProVisualizer analyserRef={analyserRef} isPlaying={isPlaying} />
+      {/* ── 一枚のガラス製コンソール（ベジェ曲線・スペクトラム＋M/S 統合） ── */}
+      <MasteringConsole analyserRef={analyserRef} isPlaying={isPlaying} />
 
       {/* ── Controls (VST-style) ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

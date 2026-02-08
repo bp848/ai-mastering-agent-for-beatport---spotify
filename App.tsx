@@ -21,6 +21,7 @@ import DownloadGateModal from './components/DownloadGateModal';
 import ResultsModal from './components/ResultsModal';
 import HeroEngine from './components/HeroEngine';
 import AnalysisTerminal from './components/AnalysisTerminal';
+import StatusLoader from './components/StatusLoader';
 import DiagnosisReport from './components/DiagnosisReport';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
@@ -401,7 +402,9 @@ const AppContent: React.FC = () => {
             )}
           </div>
 
-          {/* ── Phase: Processing (Terminal Logs) ── */}
+          {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
+          {isAnalyzing && <StatusLoader mode="analysis" />}
+          {isMastering && <StatusLoader mode="mastering" />}
           {isProcessing && actionLogs.length > 0 && (
             <AnalysisTerminal
               logs={actionLogs}
