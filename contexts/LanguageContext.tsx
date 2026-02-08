@@ -5,7 +5,7 @@ type Language = 'ja' | 'en';
 
 const ja = {
   "header.title": "AI マスタリング・エージェント (Techno/Trance)",
-  "footer.copyright": "© {year} AI Mastering Solutions. 全著作権所有。",
+  "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "音源アップロード",
   "section.step2.title": "Beatport/Spotify 配信基準分析",
   "section.step3.title": "AI マスタリング提案・処理",
@@ -93,7 +93,7 @@ const ja = {
 
 const en = {
   "header.title": "AI Mastering Agent (Techno/Trance)",
-  "footer.copyright": "© {year} AI Mastering Solutions. All rights reserved.",
+  "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "Upload Track",
   "section.step2.title": "Distribution Standards Analysis",
   "section.step3.title": "AI Mastering Proposal",
