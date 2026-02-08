@@ -197,6 +197,20 @@ const AppContent: React.FC = () => {
           : 'No correction needed — AI proposal within ±0.5 dB', 'Auto_Correction', 'success');
       }
 
+      // Neuro-Drive Module ログ
+      addActionLog('NEURO', language === 'ja'
+        ? 'Neuro-Drive Module: Parallel Hyper-Compression 起動 (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)'
+        : 'Neuro-Drive Module: Parallel Hyper-Compression active (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)', 'HyperCompressor', 'info');
+      addActionLog('NEURO', language === 'ja'
+        ? 'Energy Filter: 250Hz HPF — キック/ベースの位相干渉を回避'
+        : 'Energy Filter: 250Hz HPF — avoiding kick/bass phase interference', 'EnergyFilter', 'info');
+      addActionLog('NEURO', language === 'ja'
+        ? 'Air Exciter: 12kHz+ High-Shelf +4.0dB — 超高域の覚醒刺激'
+        : 'Air Exciter: 12kHz+ High-Shelf +4.0dB — hyper-high frequency stimulation', 'AirExciter', 'info');
+      addActionLog('NEURO', language === 'ja'
+        ? 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active'
+        : 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active', 'NeuroMix', 'success');
+
       setMasteringParams(validatedParams);
       addActionLog('DONE', language === 'ja' ? '最適化完了: Beatport top 基準に物理適合' : 'Optimization complete: physically validated', undefined, 'success');
       addLog(t('log.gemini.success'));

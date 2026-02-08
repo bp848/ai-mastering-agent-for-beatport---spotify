@@ -71,6 +71,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
             'AI (Gemini)',
             'Self-Correction',
             'DSP Chain',
+            'Neuro-Drive',
             'Preview / Export',
           ].map((step, i, arr) => (
             <React.Fragment key={step}>
@@ -84,7 +85,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
       </div>
 
       {/* ── Tech Specs Grid ──────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         <SpecCard
           number="1"
           title={ja ? '自己補正ループ' : 'Self-Correction Loop'}
@@ -123,6 +124,16 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
             ja
               ? 'リミッターだけで音圧を稼ごうとすると、音が潰れて平坦になります。我々のエンジンは、リミッターの前段にソフトクリッパーを配置。人間の耳には聞こえないピークを一瞬で削り取ることで、パンチ感を損なわずに Extreme な音圧レベルを実現します。'
               : 'Relying solely on a limiter for loudness crushes dynamics flat. Our engine places a soft clipper before the limiter, shaving inaudible peaks instantly \u2014 achieving extreme loudness levels without sacrificing punch.'
+          }
+        />
+        <SpecCard
+          number="5"
+          title={ja ? 'Neuro-Drive Module（脳内駆動エンジン）' : 'Neuro-Drive Module'}
+          titleEn="Parallel Hyper-Compression + Air Exciter"
+          body={
+            ja
+              ? '音響心理学（Psychoacoustics）に基づく科学的エネルギー注入。信号を極限まで圧縮した Hyper-Compressed 音を並列で生成し、250Hz HPF で低域干渉を排除した上で 12kHz 以上の Air 帯域を +4dB ブースト。原音に 35% パラレルミックスすることで、ダイナミクスを殺さずに音の密度（RMS）を爆発的に高め、脳をトランス状態へ誘導する「持続的音圧」を実現します。'
+              : 'Scientific energy injection based on Psychoacoustics. A hyper-compressed parallel signal is generated at 12:1 ratio, filtered through a 250Hz HPF to eliminate low-end phase interference, then boosted +4dB above 12kHz for "electrical fizz." Mixed at 35% into the dry signal, it explosively increases RMS density without killing dynamics — creating the sustained pressure that drives the brain into a trance state.'
           }
         />
       </div>

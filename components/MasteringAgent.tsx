@@ -408,7 +408,7 @@ const AudioPreview: React.FC<{
           {ja ? '適用済み処理' : 'Applied Processing'}
         </p>
         <p className="text-[11px] text-zinc-400 leading-relaxed font-mono">
-          Tube Sat ({params.tube_drive_amount.toFixed(1)}) → Pultec EQ → {params.eq_adjustments.length}-band EQ → Exciter ({params.exciter_amount.toFixed(2)}) → M/S ({params.width_amount.toFixed(2)}x) → Soft Clip → Limiter ({params.limiter_ceiling_db.toFixed(1)} dBTP)
+          Tube Sat ({params.tube_drive_amount.toFixed(1)}) → Pultec EQ → {params.eq_adjustments.length}-band EQ → Exciter ({params.exciter_amount.toFixed(2)}) → M/S ({params.width_amount.toFixed(2)}x) → Glue Comp → Neuro-Drive (35% ∥ HyperComp + 12kHz Air) → Soft Clip → Limiter ({params.limiter_ceiling_db.toFixed(1)} dBTP)
         </p>
         <div className="flex items-center gap-4 text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5">
           <span>WAV 16bit / 44.1kHz</span>

@@ -306,6 +306,8 @@ const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
  *   DC Block → Input Gain → Tube Saturation (parallel)
  *   → Pultec Sub Focus → Corrective EQ → HF Exciter (parallel)
  *   → M/S Processing (Bass Mono + Side Width + Mid Glue Comp)
+ *   → AI Kapellmeister (Glue Comp + Smile Curve + Transient Recovery)
+ *   → Neuro-Drive Module (Parallel Hyper-Compression + Air Exciter)
  *   → Soft Clipper → Brickwall Limiter → output
  */
 export const buildMasteringChain = (
@@ -511,13 +513,74 @@ export const buildMasteringChain = (
   // End of Orchestration
   // =================================================================
 
-  // ── 8. Soft Clipper (Peak Shaving) ─────────────────────────────────
+  // =================================================================
+  // 8. THE NEURO-DRIVE MODULE (Scientific Energy Injection)
+  //    目的: "Hyper Energy" の生成。音の密度 (RMS) を極限まで高め、
+  //    脳をトランス状態へ誘導する「持続的な音圧」を作る。
+  //    
+  //    原理:
+  //    - Parallel Compression (NY Style): ピークはそのまま、減衰音を引き上げ
+  //      → 常時音圧がかかり続ける Constant Pressure 状態
+  //    - 250Hz High-Pass on Wet: キック/ベースの位相干渉を物理的に回避
+  //      → キックはタイトなまま上物だけが分厚くなる
+  //    - 12kHz Air Boost: 覚醒中枢を刺激する超高域エネルギー
+  //      → ドーパミンが出る「ハイパーな質感」
+  // =================================================================
+
+  // 8a. 分岐: 原音 (Dry) はそのまま通過、加工用 (Wet) を並列で作る
+  const neuroDryPath = ctx.createGain();
+  neuroDryPath.gain.value = 1.0;
+  lastNode.connect(neuroDryPath);
+
+  // 8b. Hyper-Compressor (The Energy Generator)
+  //     あえて「やりすぎ」な設定で潰すことで、
+  //     微細な空気感や余韻を強制的に引きずり出す
+  const hyperComp = ctx.createDynamicsCompressor();
+  hyperComp.threshold.value = -30;  // 深く捕まえる
+  hyperComp.ratio.value = 12;       // ほぼリミッター的に潰す
+  hyperComp.attack.value = 0.005;   // 最速で捕まえる
+  hyperComp.release.value = 0.25;   // 音楽的にリリース
+  hyperComp.knee.value = 0;         // Hard knee — 容赦なし
+  lastNode.connect(hyperComp);
+
+  // 8c. High-Pass on Wet Signal
+  //     潰した音の低域が濁らないよう、エネルギー成分（中高域）だけを抽出
+  const energyFilter = ctx.createBiquadFilter();
+  energyFilter.type = 'highpass';
+  energyFilter.frequency.value = 250; // キックとベースは原音に任せる
+  energyFilter.Q.value = 0.7;
+  hyperComp.connect(energyFilter);
+
+  // 8d. Air Exciter (Electrical Fizz)
+  //     12kHz 以上をブーストし、「電気的なビリビリ感」を付加
+  const airShelf = ctx.createBiquadFilter();
+  airShelf.type = 'highshelf';
+  airShelf.frequency.value = 12000;
+  airShelf.gain.value = 4.0; // 強烈に輝かせる
+  energyFilter.connect(airShelf);
+
+  // 8e. Neuro Injection (Parallel Mixing)
+  //     激しく加工された音を、原音に "燃料" として注入
+  const neuroWetGain = ctx.createGain();
+  neuroWetGain.gain.value = 0.35; // 原音に対して 35% のハイパーエナジー注入
+  airShelf.connect(neuroWetGain);
+
+  const neuroMerge = ctx.createGain();
+  neuroDryPath.connect(neuroMerge);   // Dry path
+  neuroWetGain.connect(neuroMerge);   // Wet path (parallel injection)
+  lastNode = neuroMerge;
+
+  // =================================================================
+  // End of Neuro-Drive
+  // =================================================================
+
+  // ── 9. Soft Clipper (Peak Shaving) ─────────────────────────────────
   const clipper = ctx.createWaveShaper();
   clipper.curve = makeClipperCurve(0.95);
   lastNode.connect(clipper);
   lastNode = clipper;
 
-  // ── 9. Brickwall Limiter ──────────────────────────────────────────
+  // ── 10. Brickwall Limiter ─────────────────────────────────────────
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
   limiter.knee.value = 0;

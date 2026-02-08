@@ -210,7 +210,9 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering
             })()}
           </p>
           <p className="text-[10px] text-zinc-600">
-            {ja ? 'Hybrid-Analog Engine が Tube Saturation, Pultec EQ, M/S Processing, Soft Clipper を適用します。' : 'Hybrid-Analog Engine will apply Tube Saturation, Pultec EQ, M/S Processing, Soft Clipper.'}
+            {ja
+              ? 'Hybrid-Analog Engine: Tube Saturation → Pultec EQ → M/S Processing → Glue Comp → Neuro-Drive (Parallel Hyper-Compression + 12kHz Air) → Soft Clipper → Limiter'
+              : 'Hybrid-Analog Engine: Tube Saturation → Pultec EQ → M/S Processing → Glue Comp → Neuro-Drive (Parallel Hyper-Compression + 12kHz Air) → Soft Clipper → Limiter'}
           </p>
         </div>
 
