@@ -1,9 +1,8 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { AudioAnalysisData, MasteringTarget } from '../types';
 
 /* ─────────────────────────────────────────────────────────────────
-   DiagnosisReport — Compact diagnosis with score badge (no huge donut)
+   DiagnosisReport — Dynamic scoring + relaxed thresholds (Authority)
    ───────────────────────────────────────────────────────────────── */
 
 interface Props {
@@ -13,6 +12,51 @@ interface Props {
   isMastering: boolean;
   language: 'ja' | 'en';
 }
+
+/** 動的スコア計算（重み付け + 揺らぎで納得感のある数字に） */
+const calculateScore = (data: AudioAnalysisData, target: MasteringTarget): number => {
+  const targetLufs = target === 'beatport' ? -8.0 : -14.0;
+  let score = 0;
+
+  const diffLufs = Math.abs(data.lufs - targetLufs);
+  if (diffLufs < 1.0) score += 30;
+  else if (diffLufs < 3.0) score += 25;
+  else if (diffLufs < 6.0) score += 15;
+  else score += 5;
+
+  const dr = data.dynamicRange ?? data.crestFactor ?? 0;
+  if (dr >= 8 && dr <= 14) score += 20;
+  else if (dr > 14) score += 15;
+  else score += 10;
+
+  if (data.phaseCorrelation > 0.8) score += 15;
+  else if (data.phaseCorrelation > 0.5) score += 10;
+  else score += 0;
+
+  if (data.stereoWidth < 30) score += 15;
+  else if (data.stereoWidth < 60) score += 10;
+  else score += 5;
+
+  if (data.truePeak <= -1.0) score += 10;
+  else score += 5;
+
+  if (data.noiseFloorDb < -60) score += 5;
+  else if (data.noiseFloorDb < -40) score += 3;
+  else score += 0;
+
+  if (data.distortionPercent < 1.0) score += 5;
+  else score += 0;
+
+  const variance = Math.floor(Math.random() * 3) - 1;
+  return Math.min(99, Math.max(10, score + variance));
+};
+
+/** ノイズフロア判定（-60dB 以下を優秀とする） */
+const getNoiseStatus = (db: number): 'good' | 'warn' | 'bad' => {
+  if (db < -60) return 'good';
+  if (db < -40) return 'warn';
+  return 'bad';
+};
 
 /* ── 個別の診断行 ─────────────────────────────────────── */
 interface DiagLineProps {
@@ -56,15 +100,12 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering
   const dynamicStatus = data.crestFactor >= 6 ? 'good' : data.crestFactor >= 3 ? 'warn' : 'bad';
   const phaseStatus = data.phaseCorrelation > 0.5 ? 'good' : data.phaseCorrelation > 0 ? 'warn' : 'bad';
   const distortionStatus = data.distortionPercent < 0.1 ? 'good' : data.distortionPercent < 1 ? 'warn' : 'bad';
-  const noiseStatus = data.noiseFloorDb < -80 ? 'good' : data.noiseFloorDb < -60 ? 'warn' : 'bad';
+  const noiseStatus = getNoiseStatus(data.noiseFloorDb);
   const stereoWidth = data.stereoWidth;
   const bassMonoStatus = stereoWidth < 50 ? 'good' : stereoWidth < 70 ? 'warn' : 'bad';
 
-  // 総合スコア
   const statuses = [loudnessStatus, peakStatus, dynamicStatus, phaseStatus, distortionStatus, noiseStatus, bassMonoStatus];
-  const score = statuses.reduce((s, st) => s + (st === 'good' ? 2 : st === 'warn' ? 1 : 0), 0);
-  const maxScore = statuses.length * 2;
-  const scorePercent = Math.round((score / maxScore) * 100);
+  const scorePercent = useMemo(() => calculateScore(data, target), [data, target]);
 
   const scoreColor = scorePercent >= 70 ? 'text-green-400' : scorePercent >= 40 ? 'text-amber-400' : 'text-red-400';
 
@@ -129,7 +170,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onExecute, isMastering
         <DiagLine label={ja ? '歪みチェック' : 'Distortion Check'} status={distortionStatus} value={`${data.distortionPercent.toFixed(2)}%`}
           detail={ja ? (distortionStatus === 'good' ? 'クリーンです。' : 'クリッピングの兆候。ソフトクリッパーで処理。') : (distortionStatus === 'good' ? 'Clean signal.' : 'Clipping detected. Soft clipper will handle.')} />
         <DiagLine label={ja ? 'ノイズフロア' : 'Noise Floor'} status={noiseStatus} value={`${data.noiseFloorDb.toFixed(1)} dB`}
-          detail={ja ? (noiseStatus === 'good' ? 'プロ水準のノイズフロア。' : 'ノイズ検出。DCブロッカーで対処。') : (noiseStatus === 'good' ? 'Professional noise floor.' : 'Noise detected. DC blocker will address.')} />
+          detail={ja ? (noiseStatus === 'good' ? 'クリーンです。' : noiseStatus === 'warn' ? 'アナログノイズ検出。除去を推奨。' : 'ノイズが多すぎます。') : (noiseStatus === 'good' ? 'Clean.' : noiseStatus === 'warn' ? 'Analog noise detected. Removal recommended.' : 'Too much noise.')} />
       </div>
 
       {/* ── Execute Button (Glowing CTA) ──────────── */}
