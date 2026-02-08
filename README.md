@@ -22,6 +22,11 @@ This contains everything you need to run your app locally.
 3. Run the app:
    `npm run dev`
 
+## Documentation
+
+- **[Beatport 納品のマスタリングワークフロー](docs/MASTERING_WORKFLOW.md)** — 24bit マスタ → 16bit/44.1kHz ダウンコンバート（Dither 推奨）とアーカイブの手順。
+- [運用管理画面（ADMIN）仕様](docs/ADMIN_SPEC.md)
+
 ## Deploy to production (e.g. mastering.plu.plus)
 
 1. Set **VITE_SUPABASE_URL** and **VITE_SUPABASE_ANON_KEY** in your host’s environment (e.g. Vercel → Project → Settings → Environment Variables). Without these, the app will show “Supabase is not configured”.
