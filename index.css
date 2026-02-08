@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-/* Future-forward design system */
+/* ══════════════════════════════════════════════════════════════════
+   Premium Design System — ALGORITHM MUSIC TOKYO
+   ══════════════════════════════════════════════════════════════════ */
+
 :root {
   --bg-deep: #050508;
   --bg-card: rgba(15, 15, 20, 0.7);
@@ -27,14 +30,28 @@ body {
   min-height: 100vh;
   min-height: -webkit-fill-available;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: var(--bg-deep);
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-dim), transparent),
-    linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
+
+  /* ── Premium Mesh Gradient Background ── */
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(34, 211, 238, 0.06) 0%, transparent 35%),
+    radial-gradient(circle at 15% 70%, rgba(99, 102, 241, 0.05) 0%, transparent 35%),
+    linear-gradient(180deg, #050508 0%, #0a0a14 50%, #0f172a 100%);
+  background-attachment: fixed;
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4, h5, h6, button, [class*="font-bold"], [class*="font-extrabold"], [class*="font-black"] {
+  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+}
+
+code, pre, .font-mono, [class*="tabular-nums"] {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
 }
 
 /* スマホ向け: 入力時にズーム防止 */
@@ -55,25 +72,45 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Glass card */
+/* ── Glass Morphism (強化版) ── */
 .glass {
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
-/* Subtle grid overlay */
+.glass-elevated {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ── Cyan Glow Effect ── */
+.glow-cyan {
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.15),
+    0 0 60px rgba(34, 211, 238, 0.08),
+    0 4px 30px rgba(0, 0, 0, 0.4);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+/* ── Subtle grid overlay ── */
 .grid-overlay {
-  background-image: 
+  background-image:
     linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-/* Smooth transitions */
+/* ── Animations ── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -81,7 +118,16 @@ body {
   animation: fade-up 0.5s ease-out forwards;
 }
 
-/* Step connector */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.2), 0 0 60px rgba(34, 211, 238, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(34, 211, 238, 0.35), 0 0 80px rgba(34, 211, 238, 0.15); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ── Step connector ── */
 .step-dot {
   width: 10px;
   height: 10px;
@@ -101,4 +147,14 @@ body {
 
 .step-dot.pending {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Donut Chart (SVG) ── */
+.donut-track {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.donut-fill {
+  transition: stroke-dashoffset 1s ease-out;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
 }

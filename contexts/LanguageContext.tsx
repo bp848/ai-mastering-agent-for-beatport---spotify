@@ -88,7 +88,13 @@ const ja = {
   "modal.close_back": "閉じてトップへ",
   "modal.close_back_aria": "モーダルを閉じてマスタリング画面に戻る",
   "modal.next_track": "次の曲をアップロード",
-  "modal.next_track_aria": "次の曲をアップロードしてマスタリングを続ける"
+  "modal.next_track_aria": "次の曲をアップロードしてマスタリングを続ける",
+  "auth.loading": "認証確認中...",
+  "auth.sign_out": "ログアウト",
+  "mypage.sign_in_required": "マイページ",
+  "mypage.sign_in_required_description": "ログインすると、マスタリング履歴の閲覧やダウンロードが可能になります。",
+  "mypage.download_history": "マスタリング履歴",
+  "mypage.no_history": "まだ履歴がありません"
 };
 
 const en = {
@@ -176,7 +182,13 @@ const en = {
   "modal.close_back": "Close (back to top)",
   "modal.close_back_aria": "Close modal and return to mastering screen",
   "modal.next_track": "Upload Next Track",
-  "modal.next_track_aria": "Upload next track and continue mastering"
+  "modal.next_track_aria": "Upload next track and continue mastering",
+  "auth.loading": "Verifying authentication...",
+  "auth.sign_out": "Sign out",
+  "mypage.sign_in_required": "My Page",
+  "mypage.sign_in_required_description": "Sign in to view your mastering history and access downloads.",
+  "mypage.download_history": "Mastering History",
+  "mypage.no_history": "No history yet"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };
