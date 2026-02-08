@@ -23,6 +23,7 @@ interface ResultsModalProps {
   onToggleSaveToLibrary: () => void;
   language: 'ja' | 'en';
   actionLogs?: ActionLog[];
+  onNextTrack?: () => void;
 }
 
 export default function ResultsModal({
@@ -43,6 +44,7 @@ export default function ResultsModal({
   onToggleSaveToLibrary,
   language,
   actionLogs = [],
+  onNextTrack,
 }: ResultsModalProps) {
   const { t } = useTranslation();
   const [slide, setSlide] = React.useState(0);
@@ -58,6 +60,8 @@ export default function ResultsModal({
   const prevLabel = language === 'ja' ? '前へ' : 'Back';
   const closeBackLabel = t('modal.close_back');
   const closeBackAria = t('modal.close_back_aria');
+  const nextTrackLabel = t('modal.next_track');
+  const nextTrackAria = t('modal.next_track_aria');
 
   return (
     <div
@@ -156,8 +160,6 @@ export default function ResultsModal({
               <MasteringAgent
                 params={masteringParams}
                 isLoading={false}
-                error=""
-                hasAnalysis={true}
                 onDownloadMastered={onDownloadMastered}
                 isProcessingAudio={isProcessingAudio}
                 audioBuffer={audioBuffer}
@@ -166,7 +168,7 @@ export default function ResultsModal({
           )}
         </div>
 
-        {/* フッター: 1枚目は「次へ」、2枚目は閉じるのみ（主行動は購入・ダウンロードボタン） */}
+        {/* フッター: 1枚目は「次へ」、2枚目は「次の曲をアップロード」ボタン */}
         <div className="flex items-center justify-between p-4 border-t border-white/5 gap-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
@@ -185,9 +187,23 @@ export default function ResultsModal({
               {nextLabel}
             </button>
           ) : (
-            <span className="text-[10px] text-zinc-500">
-              {language === 'ja' ? '購入・ダウンロードは上のボタンから' : 'Use the button above to purchase & download'}
-            </span>
+            onNextTrack ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNextTrack();
+                }}
+                className="px-6 py-3 min-h-[44px] rounded-xl bg-zinc-700 text-white font-bold text-sm hover:bg-zinc-600 active:opacity-90 border border-white/10"
+                aria-label={nextTrackAria}
+              >
+                {nextTrackLabel}
+              </button>
+            ) : (
+              <span className="text-[10px] text-zinc-500">
+                {language === 'ja' ? '購入・ダウンロードは上のボタンから' : 'Use the button above to purchase & download'}
+              </span>
+            )
           )}
         </div>
       </div>

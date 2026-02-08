@@ -86,7 +86,9 @@ const ja = {
   "auth.sign_in_google": "Googleでログイン",
   "auth.cancel": "キャンセル",
   "modal.close_back": "閉じてトップへ",
-  "modal.close_back_aria": "モーダルを閉じてマスタリング画面に戻る"
+  "modal.close_back_aria": "モーダルを閉じてマスタリング画面に戻る",
+  "modal.next_track": "次の曲をアップロード",
+  "modal.next_track_aria": "次の曲をアップロードしてマスタリングを続ける"
 };
 
 const en = {
@@ -172,7 +174,9 @@ const en = {
   "auth.sign_in_google": "Sign in with Google",
   "auth.cancel": "Cancel",
   "modal.close_back": "Close (back to top)",
-  "modal.close_back_aria": "Close modal and return to mastering screen"
+  "modal.close_back_aria": "Close modal and return to mastering screen",
+  "modal.next_track": "Upload Next Track",
+  "modal.next_track_aria": "Upload next track and continue mastering"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };

@@ -250,53 +250,360 @@ export const analyzeAudioFile = async (file: File): Promise<{ analysisData: Audi
 };
 
 
-export const applyMasteringAndExport = async (originalBuffer: AudioBuffer, params: MasteringParams): Promise<Blob> => {
+// ==========================================
+// 1. DSP Helpers (Analog Emulation)
+// ==========================================
+
+/** 真空管ドライブ（偶数倍音付加・非対称クリップ） */
+const makeTubeCurve = (amount: number): Float32Array => {
+  const n = 44100;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let x = (i * 2) / n - 1;
+    if (x < -0.5) x = -0.5 + (x + 0.5) * 0.8;
+    else if (x > 0.5) x = 0.5 + (x - 0.5) * 0.9;
+    curve[i] = Math.tanh(x * amount) / Math.tanh(amount);
+  }
+  return curve;
+};
+
+/** エキサイター（高次倍音生成） */
+const makeExciterCurve = (_amount: number): Float32Array => {
+  const n = 44100;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = (Math.abs(x) < 0.5)
+      ? x
+      : (x > 0 ? 0.5 + (x - 0.5) * 0.2 : -0.5 + (x + 0.5) * 0.2);
+  }
+  return curve;
+};
+
+/** ソフトクリッパー（リミッター前段のピーク削り） */
+const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
+  const n = 65536;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let x = (i * 2) / n - 1;
+    if (x > threshold) x = threshold + (x - threshold) * 0.1;
+    else if (x < -threshold) x = -threshold + (x + threshold) * 0.1;
+    curve[i] = x;
+  }
+  return curve;
+};
+
+
+// ==========================================
+// 2. Shared DSP Chain (Preview & Export)
+// ==========================================
+
+/**
+ * プロ仕様マスタリングチェーンをオーディオグラフとして構築する共通関数。
+ * OfflineAudioContext（書き出し）にも AudioContext（プレビュー）にも使える。
+ *
+ * 信号経路:
+ *   DC Block → Input Gain → Tube Saturation (parallel)
+ *   → Pultec Sub Focus → Corrective EQ → HF Exciter (parallel)
+ *   → M/S Processing (Bass Mono + Side Width + Mid Glue Comp)
+ *   → Soft Clipper → Brickwall Limiter → output
+ */
+export const buildMasteringChain = (
+  ctx: BaseAudioContext,
+  source: AudioNode,
+  params: MasteringParams,
+  numChannels: number,
+  outputNode: AudioNode,
+): void => {
+  let lastNode: AudioNode = source;
+
+  // ── 1. DC Block & Input Gain ──────────────────────────────────────
+  const dcBlocker = ctx.createBiquadFilter();
+  dcBlocker.type = 'highpass';
+  dcBlocker.frequency.value = 20;
+  dcBlocker.Q.value = 0.5;
+  lastNode.connect(dcBlocker);
+
+  const inputGain = ctx.createGain();
+  inputGain.gain.value = Math.pow(10, (params.gain_adjustment_db ?? 0) / 20);
+  dcBlocker.connect(inputGain);
+  lastNode = inputGain;
+
+  // ── 2. Tube Saturation (Parallel) ─────────────────────────────────
+  if (params.tube_drive_amount > 0) {
+    const tubeShaper = ctx.createWaveShaper();
+    tubeShaper.curve = makeTubeCurve(params.tube_drive_amount);
+    tubeShaper.oversample = '4x';
+
+    const dry = ctx.createGain();
+    dry.gain.value = 0.8;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.2;
+
+    lastNode.connect(dry);
+    lastNode.connect(tubeShaper);
+    tubeShaper.connect(wet);
+
+    const merge = ctx.createGain();
+    dry.connect(merge);
+    wet.connect(merge);
+    lastNode = merge;
+  }
+
+  // ── 3. Resonant Sub Focus (Pultec Trick) ──────────────────────────
+  if (params.low_contour_amount > 0) {
+    const subFocus = ctx.createBiquadFilter();
+    subFocus.type = 'highpass';
+    subFocus.frequency.value = 35;
+    // Contour 量が多いほど Q を上げてドンシャリ感を出す
+    subFocus.Q.value = 0.7 + (params.low_contour_amount * 0.5);
+    lastNode.connect(subFocus);
+    lastNode = subFocus;
+  }
+
+  // ── 4. Corrective EQ (AI パラメータ) ──────────────────────────────
+  if (params.eq_adjustments?.length) {
+    for (const eq of params.eq_adjustments) {
+      const f = ctx.createBiquadFilter();
+      f.type = (eq.type === 'peak' ? 'peaking' : eq.type) as BiquadFilterType;
+      f.frequency.value = eq.frequency;
+      f.gain.value = eq.gain_db;
+      f.Q.value = eq.q;
+      lastNode.connect(f);
+      lastNode = f;
+    }
+  }
+
+  // ── 5. Exciter (Parallel High Frequency Distortion) ───────────────
+  let exciterNode: GainNode | null = null;
+  if (params.exciter_amount > 0) {
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 6000;
+    hp.Q.value = 0.5;
+
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeExciterCurve(4.0);
+    shaper.oversample = '2x';
+
+    const gain = ctx.createGain();
+    gain.gain.value = params.exciter_amount; // 0.0–0.2
+
+    lastNode.connect(hp);
+    hp.connect(shaper);
+    shaper.connect(gain);
+    exciterNode = gain;
+  }
+
+  // ── 6. M/S Processing & Width ─────────────────────────────────────
+  if (numChannels === 2) {
+    const splitter = ctx.createChannelSplitter(2);
+    const merger = ctx.createChannelMerger(2);
+    lastNode.connect(splitter);
+
+    // M/S Encode: Mid = L+R, Side = L-R
+    const midSum = ctx.createGain();
+    const sideDiff = ctx.createGain();
+    const inv = ctx.createGain();
+    inv.gain.value = -1;
+
+    splitter.connect(midSum, 0);
+    splitter.connect(midSum, 1);
+    splitter.connect(sideDiff, 0);
+    splitter.connect(inv, 1);
+    inv.connect(sideDiff);
+
+    // Side: Bass Mono (150 Hz 以下をカット) + Width
+    const sideHP = ctx.createBiquadFilter();
+    sideHP.type = 'highpass';
+    sideHP.frequency.value = 150;
+    sideHP.Q.value = 0.7;
+    sideDiff.connect(sideHP);
+
+    const sideWidth = ctx.createGain();
+    sideWidth.gain.value = params.width_amount ?? 1.0;
+    sideHP.connect(sideWidth);
+
+    // Mid: Glue Compressor（接着感を出す）
+    const midComp = ctx.createDynamicsCompressor();
+    midComp.threshold.value = -12;
+    midComp.ratio.value = 2;
+    midComp.attack.value = 0.03;
+    midComp.release.value = 0.1;
+    midSum.connect(midComp);
+
+    // M/S Decode: L=(M+S)/2, R=(M-S)/2
+    midComp.connect(merger, 0, 0);
+    midComp.connect(merger, 0, 1);
+    sideWidth.connect(merger, 0, 0);
+    const sideInv = ctx.createGain();
+    sideInv.gain.value = -1;
+    sideWidth.connect(sideInv);
+    sideInv.connect(merger, 0, 1);
+
+    const norm = ctx.createGain();
+    norm.gain.value = 0.5;
+    merger.connect(norm);
+
+    // Exciter をここでマージ
+    const finalMix = ctx.createGain();
+    norm.connect(finalMix);
+    if (exciterNode) exciterNode.connect(finalMix);
+    lastNode = finalMix;
+  } else {
+    // Mono fallback
+    if (exciterNode) {
+      const monoMix = ctx.createGain();
+      lastNode.connect(monoMix);
+      exciterNode.connect(monoMix);
+      lastNode = monoMix;
+    }
+  }
+
+  // ── 7. Soft Clipper (Peak Shaving) ────────────────────────────────
+  const clipper = ctx.createWaveShaper();
+  clipper.curve = makeClipperCurve(0.95);
+  lastNode.connect(clipper);
+  lastNode = clipper;
+
+  // ── 8. Brickwall Limiter ──────────────────────────────────────────
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.1;
+  lastNode.connect(limiter);
+  limiter.connect(outputNode);
+};
+
+
+// ==========================================
+// 3. Feedback Loop (Auto-Correction)
+// ==========================================
+
+/**
+ * AI の提案値を物理的な計測に基づいて補正する。
+ * 高速な部分レンダリング（曲の中央 10 秒）を行い、
+ * ターゲット LUFS との乖離を埋める。
+ *
+ * AI = 感性（EQ カーブ、サチュレーション量、ステレオ幅）
+ * Code = 物理保証（LUFS、True Peak）
+ */
+export const optimizeMasteringParams = async (
+  originalBuffer: AudioBuffer,
+  aiParams: MasteringParams,
+): Promise<MasteringParams> => {
+  const optimizedParams = { ...aiParams };
+  const TARGET_LUFS = aiParams.target_lufs ?? -9.0;
+
+  // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
+  const chunkDuration = 10;
+  const startSample = Math.floor(originalBuffer.length / 2);
+  const endSample = Math.min(
+    startSample + originalBuffer.sampleRate * chunkDuration,
+    originalBuffer.length,
+  );
+  const length = endSample - startSample;
+
+  if (length <= 0) return aiParams;
+
+  const offlineCtx = new OfflineAudioContext(
+    originalBuffer.numberOfChannels,
+    length,
+    originalBuffer.sampleRate,
+  );
+  const chunkBuffer = offlineCtx.createBuffer(
+    originalBuffer.numberOfChannels,
+    length,
+    originalBuffer.sampleRate,
+  );
+
+  for (let ch = 0; ch < originalBuffer.numberOfChannels; ch++) {
+    const raw = originalBuffer.getChannelData(ch);
+    const chunk = chunkBuffer.getChannelData(ch);
+    for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
+  }
+
+  // --- 簡易 DSP シミュレーション ---
+  const source = offlineCtx.createBufferSource();
+  source.buffer = chunkBuffer;
+  let node: AudioNode = source;
+
+  // Gain
+  const gainNode = offlineCtx.createGain();
+  gainNode.gain.value = Math.pow(10, optimizedParams.gain_adjustment_db / 20);
+  node.connect(gainNode);
+  node = gainNode;
+
+  // サチュレーションによる聴感上の音圧上昇を簡易加算
+  if (optimizedParams.tube_drive_amount > 0) {
+    const satBoost = offlineCtx.createGain();
+    satBoost.gain.value = 1.0 + optimizedParams.tube_drive_amount * 0.05;
+    node.connect(satBoost);
+    node = satBoost;
+  }
+
+  // Limiter (Ceiling)
+  const limiter = offlineCtx.createDynamicsCompressor();
+  limiter.threshold.value = optimizedParams.limiter_ceiling_db - 3;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  node.connect(limiter);
+  limiter.connect(offlineCtx.destination);
+
+  source.start(0);
+  const renderedBuffer = await offlineCtx.startRendering();
+
+  // --- RMS から LUFS を簡易推定 ---
+  let sumSquare = 0;
+  const data = renderedBuffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) sumSquare += data[i] * data[i];
+  const rms = Math.sqrt(sumSquare / data.length);
+  const measuredLUFS = 20 * Math.log10(rms) + 0.5; // 簡易補正
+
+  // --- 補正実行 ---
+  const diff = TARGET_LUFS - measuredLUFS;
+  // 誤差が 0.5 dB 以上あれば補正
+  if (Math.abs(diff) > 0.5) {
+    let newGain = optimizedParams.gain_adjustment_db + diff;
+    // 安全装置: 極端なゲインアップ/ダウンを防ぐ
+    newGain = Math.max(-6, Math.min(12, newGain));
+    optimizedParams.gain_adjustment_db = parseFloat(newGain.toFixed(1));
+    console.log(
+      `[Auto-Correction] Adjusted Gain: ${aiParams.gain_adjustment_db} -> ${newGain.toFixed(1)} (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,
+    );
+  }
+
+  return optimizedParams;
+};
+
+// ------------------------------------------------------------------
+// Export (WAV 書き出し)
+// ------------------------------------------------------------------
+
+export const applyMasteringAndExport = async (
+  originalBuffer: AudioBuffer,
+  params: MasteringParams,
+): Promise<Blob> => {
   const offlineCtx = new OfflineAudioContext(
     originalBuffer.numberOfChannels,
     originalBuffer.length,
-    originalBuffer.sampleRate
+    originalBuffer.sampleRate,
   );
 
   const source = offlineCtx.createBufferSource();
   source.buffer = originalBuffer;
 
-  let lastNode: AudioNode = source;
-
-  // 1. Gain Adjustment
-  const gainNode = offlineCtx.createGain();
-  gainNode.gain.value = Math.pow(10, (params.gain_adjustment_db ?? 0) / 20);
-  lastNode.connect(gainNode);
-  lastNode = gainNode;
-
-  // 2. EQ Adjustments
-  if (params.eq_adjustments && params.eq_adjustments.length > 0) {
-    for (const eq of params.eq_adjustments) {
-      const filterNode = offlineCtx.createBiquadFilter();
-      const filterType = (eq.type === 'peak' ? 'peaking' : eq.type) as BiquadFilterType;
-      filterNode.type = filterType;
-      filterNode.frequency.value = eq.frequency;
-      filterNode.gain.value = eq.gain_db;
-      filterNode.Q.value = eq.q;
-      lastNode.connect(filterNode);
-      lastNode = filterNode;
-    }
-  }
-
-  // 3. Limiter（シーリングは「上限」であり、threshold は「ここから圧縮開始」にすること）
-  // threshold をシーリングより下に置き、ピークだけを抑えてダイナミクスを保持する
-  const ceilingDb = params.limiter_ceiling_db ?? -0.1;
-  const limiter = offlineCtx.createDynamicsCompressor();
-  limiter.threshold.value = ceilingDb - 6; // シーリングの 6dB 下から圧縮 → ピークのみリミット
-  limiter.knee.value = 6;                  // ソフトニーでとげとげしさを軽減
-  limiter.ratio.value = 8;                // 20:1 だと潰れやすいので 8:1 に
-  limiter.attack.value = 0.003;           // わずかに遅めでトランジェントを残す
-  limiter.release.value = 0.08;           // リリースをやや長めで自然に
-
-  lastNode.connect(limiter);
-  limiter.connect(offlineCtx.destination);
+  buildMasteringChain(
+    offlineCtx,
+    source,
+    params,
+    originalBuffer.numberOfChannels,
+    offlineCtx.destination,
+  );
 
   source.start(0);
-
   const renderedBuffer = await offlineCtx.startRendering();
   return bufferToWave(renderedBuffer);
 };

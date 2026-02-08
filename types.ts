@@ -8,15 +8,15 @@ export interface AudioAnalysisData {
   lufs: number;
   truePeak: number;
   dynamicRange: number;
+  crestFactor: number;
   stereoWidth: number;
   peakRMS: number;
   bassVolume: number;
-  crestFactor: number;
+  phaseCorrelation: number;    // -1 to +1 (位相相関)
+  distortionPercent: number;   // THD近似（クリッピング率）
+  noiseFloorDb: number;        // ノイズフロア（-dB）
   frequencyData: FrequencyData[];
   waveform: number[];
-  phaseCorrelation?: number; // -1 to +1 (位相相関)
-  distortionPercent?: number; // THD近似（クリッピング率）
-  noiseFloorDb?: number; // ノイズフロア（-dB）
 }
 
 export type MasteringTarget = 'beatport' | 'spotify';
@@ -24,16 +24,26 @@ export type MasteringTarget = 'beatport' | 'spotify';
 export type MetricStatus = 'good' | 'warning' | 'bad' | 'neutral';
 
 export interface EQAdjustment {
-  type: BiquadFilterType;
   frequency: number;
   gain_db: number;
   q: number;
+  type: 'peak' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass';
 }
 
 export interface MasteringParams {
+  // --- 基本パラメータ ---
   gain_adjustment_db: number;
-  limiter_ceiling_db: number;
   eq_adjustments: EQAdjustment[];
+  limiter_ceiling_db: number;
+
+  // --- Signature Engine Parameters (AI が決定する「色気」) ---
+  tube_drive_amount: number;      // 0.0–5.0  真空管サチュレーション量
+  exciter_amount: number;         // 0.0–0.2  高域倍音付加量
+  low_contour_amount: number;     // 0.0–1.0  Pultec式 低域処理量
+  width_amount: number;           // 1.0–1.5  ステレオ幅
+
+  // --- Target Logic (アルゴリズムが強制する目標値) ---
+  target_lufs?: number;           // 目標音圧 (例: -8.0 LUFS)
 }
 
 // --- 楽曲管理プラットフォーム ---
