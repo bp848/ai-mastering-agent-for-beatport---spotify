@@ -295,6 +295,8 @@ const AudioPreview: React.FC<{
   /** GR メーター用: リミッター「前」の信号レベルを計測するサイドチェーン */
   const grAnalyserRef = useRef<AnalyserNode | null>(null);
   const nodesRef = useRef<{ bypassGain: GainNode | null; masteredGain: GainNode | null }>({ bypassGain: null, masteredGain: null });
+  /** スペクトラム用: グラフ準備完了で MasteringConsole が描画を開始できる */
+  const [graphReady, setGraphReady] = useState(false);
 
   const setupAudioGraph = useCallback(() => {
     if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close().catch(() => {});
@@ -342,10 +344,14 @@ const AudioPreview: React.FC<{
 
     sourceRef.current = source;
     nodesRef.current = { bypassGain, masteredGain };
+    setGraphReady(true);
   }, [audioBuffer, params, isHoldingOriginal]);
 
   useEffect(() => {
-    if (!isPlaying) setupAudioGraph();
+    if (!isPlaying) {
+      setGraphReady(false);
+      setupAudioGraph();
+    }
   }, [audioBuffer, params, isPlaying, setupAudioGraph]);
 
   useEffect(() => {
@@ -415,7 +421,7 @@ const AudioPreview: React.FC<{
       </div>
 
       {/* ── 一枚のガラス製コンソール（ベジェ曲線・スペクトラム＋M/S 統合） ── */}
-      <MasteringConsole analyserRef={analyserRef} isPlaying={isPlaying} />
+      <MasteringConsole analyserRef={analyserRef} isPlaying={isPlaying} graphReady={graphReady} />
 
       {/* ── Controls (VST-style) ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

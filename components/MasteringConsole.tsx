@@ -3,17 +3,19 @@ import React, { useEffect, useRef } from 'react';
 interface Props {
   analyserRef: React.RefObject<AnalyserNode | null>;
   isPlaying: boolean;
+  /** 親でオーディオグラフが構築済みのとき true。これで analyserRef.current が有効になり描画が始まる */
+  graphReady?: boolean;
 }
 
 /**
  * FabFilter Pro-Q 3 / Voxengo SPAN 相当の対数スケール精密グリッド付き
  * 周波数アナライザ — 目盛りと数値ラベルでエンジニアリングツールとして使える
  */
-export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying }) => {
+export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, graphReady = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current || !analyserRef.current) return;
+    if (!canvasRef.current || !graphReady || !analyserRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -165,7 +167,7 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying }) =>
     };
 
     draw();
-  }, [analyserRef, isPlaying]);
+  }, [analyserRef, isPlaying, graphReady]);
 
   return (
     <div className="w-full aspect-[21/9] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden relative shadow-2xl">
