@@ -344,39 +344,74 @@ export const buildMasteringChain = (
   lastNode = inputGain;
 
   // =================================================================
-  // 3. Tube Saturation (非常に薄く、中域を避ける)
+  // 3a. Vocal Safe-Guard Saturation (Stereo only)
+  // ボーカル(Mid)を歪ませず、Side(広がり)だけを太くする M/S サチュレーション
   // =================================================================
-  // ボーカル歪み防止: 適用量 1.0 以下、サチュレーション前に 1kHz を -3dB
-  if (params.tube_drive_amount > 0) {
-    const safeDrive = Math.min(params.tube_drive_amount, 1.0);
+  if (numChannels === 2) {
+    const splitter = ctx.createChannelSplitter(2);
+    const merger = ctx.createChannelMerger(2);
+    lastNode.connect(splitter);
 
+    const midRaw = ctx.createGain();
+    const sideRaw = ctx.createGain();
+    const rightInv = ctx.createGain();
+    rightInv.gain.value = -1;
+
+    splitter.connect(midRaw, 0);
+    splitter.connect(midRaw, 1);
+    splitter.connect(sideRaw, 0);
+    splitter.connect(rightInv, 1);
+    rightInv.connect(sideRaw);
+
+    const midShaper = ctx.createWaveShaper();
+    midShaper.curve = makeTubeCurve(1.0);
+    midShaper.oversample = '4x';
+    midRaw.connect(midShaper);
+
+    const sideShaper = ctx.createWaveShaper();
+    sideShaper.curve = makeTubeCurve(3.0);
+    sideShaper.oversample = '4x';
+    sideRaw.connect(sideShaper);
+
+    // M/S Decode: L = Mid+Side, R = Mid-Side
+    midShaper.connect(merger, 0, 0);
+    midShaper.connect(merger, 0, 1);
+    sideShaper.connect(merger, 0, 0);
+    const sideInvBack = ctx.createGain();
+    sideInvBack.gain.value = -1;
+    sideShaper.connect(sideInvBack);
+    sideInvBack.connect(merger, 0, 1);
+
+    const msNorm = ctx.createGain();
+    msNorm.gain.value = 0.5;
+    merger.connect(msNorm);
+    lastNode = msNorm;
+  } else if (params.tube_drive_amount > 0) {
+    // Mono: 従来の薄い Tube Saturation
+    const safeDrive = Math.min(params.tube_drive_amount, 1.0);
     const preSatEQ = ctx.createBiquadFilter();
     preSatEQ.type = 'peaking';
     preSatEQ.frequency.value = 1000;
     preSatEQ.Q.value = 1.0;
-    preSatEQ.gain.value = -3.0; // 声の芯を歪みから守る
-
+    preSatEQ.gain.value = -3.0;
     const tubeShaper = ctx.createWaveShaper();
     tubeShaper.curve = makeTubeCurve(safeDrive);
     tubeShaper.oversample = '4x';
-
     const dry = ctx.createGain();
     dry.gain.value = 1.0;
     const wet = ctx.createGain();
-    wet.gain.value = 0.1; // 歪み成分は 10% だけ足す
-
+    wet.gain.value = 0.1;
     lastNode.connect(dry);
     lastNode.connect(preSatEQ);
     preSatEQ.connect(tubeShaper);
     tubeShaper.connect(wet);
-
     const merge = ctx.createGain();
     dry.connect(merge);
     wet.connect(merge);
     lastNode = merge;
   }
 
-  // ── 3. Resonant Sub Focus (Pultec Trick) ──────────────────────────
+  // ── 3b. Resonant Sub Focus (Pultec Trick) ──────────────────────────
   if (params.low_contour_amount > 0) {
     const subFocus = ctx.createBiquadFilter();
     subFocus.type = 'highpass';
@@ -492,15 +527,14 @@ export const buildMasteringChain = (
   //    バラバラの要素を有機的に結合させる「接着」セクション
   // =================================================================
 
-  // 7a. "The Glue" — SSL Bus Comp Style
-  //     アタック 30ms（パンチを残す）, 低レシオ 1.5:1, Soft Knee
-  //     全体がキックに合わせて「呼吸」する一体感を作る
+  // 7a. "Smooth" Glue Compressor
+  //     パツパツに潰さず、全体を「包み込む」設定。ボーカルアタックを潰さない。
   const glueComp = ctx.createDynamicsCompressor();
-  glueComp.threshold.value = -10;
-  glueComp.knee.value = 10;
+  glueComp.threshold.value = -12;
+  glueComp.knee.value = 30;       // かなりソフトニー（自然なかかり方）
   glueComp.ratio.value = 1.5;
-  glueComp.attack.value = 0.03;   // 30ms — キックのアタックを通す
-  glueComp.release.value = 0.1;   // Auto release 的挙動
+  glueComp.attack.value = 0.05;   // 50ms — ボーカルのアタックを潰さない
+  glueComp.release.value = 0.4;   // 400ms — ゆっくり戻して余韻を作る
   lastNode.connect(glueComp);
   lastNode = glueComp;
 

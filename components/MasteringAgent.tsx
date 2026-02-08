@@ -5,6 +5,7 @@ import { buildMasteringChain } from '../services/audioService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 import ProSpectrum from './ProSpectrum';
+import ProVisualizer from './ProVisualizer';
 
 /* ─────────────────────────────────────────────────────────────────
    "Glass Cockpit" — Professional Preview & Comparison Player
@@ -416,6 +417,9 @@ const AudioPreview: React.FC<{
         isPlaying={isPlaying}
         isOriginal={isHoldingOriginal}
       />
+
+      {/* ── M/S Analyzer & Glue GR Meter ── */}
+      <ProVisualizer analyserRef={analyserRef} isPlaying={isPlaying} />
 
       {/* ── Controls (VST-style) ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
