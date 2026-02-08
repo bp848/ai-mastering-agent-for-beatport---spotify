@@ -2,18 +2,17 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 
 /* ─────────────────────────────────────────────────────────────────
-   ProSpectrum — Voxengo SPAN 相当の対数スケールスペクトラムアナライザー
+   ProSpectrum — Cyberpunk-grade Log-Scale Spectrum Analyzer
    
-   - FFT 8192 → 低域の解像度を確保
-   - 20 Hz – 22 kHz 対数スケール
-   - グリッド + 周波数ラベル + dB グリッド
-   - シアングラデーション塗りつぶし + アウトライン
+   - FFT 8192, 20 Hz – 22 kHz log scale
+   - Cyberpunk gradient fill (top opaque → bottom transparent)
+   - White glow peak line (1px + shadow)
+   - Ultra-thin grid lines (0.5px) for instrument-grade precision
    ───────────────────────────────────────────────────────────────── */
 
 interface Props {
   analyserRef: React.RefObject<AnalyserNode | null>;
   isPlaying: boolean;
-  /** 比較用: true の場合、色をグレーに変える（オリジナル再生中） */
   isOriginal?: boolean;
 }
 
@@ -22,7 +21,10 @@ const MAX_FREQ = 22050;
 const MIN_LOG = Math.log(MIN_FREQ);
 const MAX_LOG = Math.log(MAX_FREQ);
 
-/** 周波数グリッド線とラベル */
+const DB_FLOOR = -90;
+const DB_CEIL  =   0;
+const DB_RANGE = DB_CEIL - DB_FLOOR;
+
 const GRID_FREQS = [
   { freq: 30,    label: '30'  },
   { freq: 60,    label: '60'  },
@@ -36,20 +38,17 @@ const GRID_FREQS = [
   { freq: 16000, label: '16k' },
 ];
 
-/** dB 目盛り */
-const DB_TICKS = [
-  { ratio: 0.125, label: '-6' },
-  { ratio: 0.25,  label: '-12' },
-  { ratio: 0.50,  label: '-24' },
-  { ratio: 0.75,  label: '-36' },
-];
+const DB_TICKS = [-10, -20, -30, -40, -50, -60, -70, -80].map(db => ({
+  ratio: (DB_CEIL - db) / DB_RANGE,
+  label: String(db),
+}));
 
 const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-  // 周波数線
-  ctx.strokeStyle = '#27272a';
-  ctx.lineWidth = 1;
-  ctx.fillStyle = '#52525b';
-  ctx.font = '9px monospace';
+  // Ultra-thin grid for instrument feel
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = '#1a1a1f';
+  ctx.fillStyle = '#3f3f46';
+  ctx.font = '9px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
 
   for (const { freq, label } of GRID_FREQS) {
@@ -62,8 +61,22 @@ const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     ctx.fillText(label, x, h - 4);
   }
 
-  // dB 水平線
+  // dB lines
   ctx.textAlign = 'left';
+
+  // 0 dBFS reference line (brighter)
+  ctx.strokeStyle = '#27272a';
+  ctx.lineWidth = 0.75;
+  ctx.beginPath();
+  ctx.moveTo(0, 0.5);
+  ctx.lineTo(w, 0.5);
+  ctx.stroke();
+  ctx.fillStyle = '#52525b';
+  ctx.fillText('0 dBFS', 4, 10);
+
+  ctx.strokeStyle = '#1a1a1f';
+  ctx.fillStyle = '#3f3f46';
+  ctx.lineWidth = 0.5;
   for (const { ratio, label } of DB_TICKS) {
     const y = Math.round(ratio * h) + 0.5;
     ctx.beginPath();
@@ -100,53 +113,84 @@ export const ProSpectrum: React.FC<Props> = ({ analyserRef, isPlaying, isOrigina
     const h = canvas.height;
     const sampleRate = analyser.context.sampleRate || 44100;
 
-    // Background
-    ctx.fillStyle = '#09090b';
+    // Background — rich black
+    ctx.fillStyle = '#08080c';
     ctx.fillRect(0, 0, w, h);
     drawGrid(ctx, w, h);
 
-    // ── Spectrum Path (Log Scale 20 Hz – 22 kHz) ──
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-
+    // ── Build spectrum path ──
+    const points: { x: number; y: number }[] = [];
     for (let x = 0; x < w; x++) {
       const percent = x / w;
       const freq = Math.exp(MIN_LOG + (MAX_LOG - MIN_LOG) * percent);
       const index = Math.round((freq / (sampleRate / 2)) * bufferLength);
 
       if (index < bufferLength) {
-        // 隣接 bin を平均して滑らかに（3-bin 移動平均）
-        let sum = 0;
-        let count = 0;
-        for (let j = Math.max(0, index - 1); j <= Math.min(bufferLength - 1, index + 1); j++) {
-          sum += dataArray[j];
-          count++;
+        // 5-bin weighted average for smoother curves
+        let sum = 0, weight = 0;
+        for (let j = Math.max(0, index - 2); j <= Math.min(bufferLength - 1, index + 2); j++) {
+          const w2 = 1.0 - Math.abs(j - index) * 0.3;
+          sum += dataArray[j] * w2;
+          weight += w2;
         }
-        const value = sum / count;
+        const value = sum / weight;
         const y = h - (value / 255) * h;
-        ctx.lineTo(x, y);
+        points.push({ x, y });
       }
     }
 
+    if (points.length === 0) return;
+
+    // ── Gradient fill (top opaque → bottom transparent) ──
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (const p of points) ctx.lineTo(p.x, p.y);
     ctx.lineTo(w, h);
     ctx.lineTo(0, h);
 
-    // Fill gradient
-    const gradient = ctx.createLinearGradient(0, h, 0, 0);
+    const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
     if (isOriginal) {
-      gradient.addColorStop(0, 'rgba(161,161,170,0.05)');
-      gradient.addColorStop(1, 'rgba(161,161,170,0.4)');
+      fillGrad.addColorStop(0, 'rgba(161,161,170,0.25)');
+      fillGrad.addColorStop(0.4, 'rgba(161,161,170,0.08)');
+      fillGrad.addColorStop(1, 'rgba(161,161,170,0.0)');
     } else {
-      gradient.addColorStop(0, 'rgba(6,182,212,0.08)');
-      gradient.addColorStop(1, 'rgba(6,182,212,0.7)');
+      fillGrad.addColorStop(0, 'rgba(6,182,212,0.5)');
+      fillGrad.addColorStop(0.3, 'rgba(6,182,212,0.15)');
+      fillGrad.addColorStop(0.7, 'rgba(6,182,212,0.03)');
+      fillGrad.addColorStop(1, 'rgba(6,182,212,0.0)');
     }
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = fillGrad;
     ctx.fill();
 
-    // Outline
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = isOriginal ? '#71717a' : '#22d3ee';
+    // ── Peak line (white, thin, glowing) ──
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+      if (i === 0) ctx.moveTo(points[i].x, points[i].y);
+      else ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.lineWidth = 1;
+    if (isOriginal) {
+      ctx.strokeStyle = 'rgba(161,161,170,0.6)';
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#22d3ee';
+    }
     ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // ── Secondary glow line (cyan, wider, behind) ──
+    if (!isOriginal) {
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i++) {
+        if (i === 0) ctx.moveTo(points[i].x, points[i].y);
+        else ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(34,211,238,0.3)';
+      ctx.stroke();
+    }
   }, [analyserRef, isOriginal]);
 
   useEffect(() => {
@@ -154,28 +198,25 @@ export const ProSpectrum: React.FC<Props> = ({ analyserRef, isPlaying, isOrigina
       cancelAnimationFrame(rafRef.current);
       return;
     }
-
-    // 低域解像度確保: FFT 8192
     const analyser = analyserRef.current;
     analyser.fftSize = 8192;
     analyser.smoothingTimeConstant = 0.85;
-
+    analyser.minDecibels = DB_FLOOR;
+    analyser.maxDecibels = DB_CEIL;
     draw();
     return () => cancelAnimationFrame(rafRef.current);
   }, [isPlaying, analyserRef, draw]);
 
-  // 停止時にキャンバスをクリア
   useEffect(() => {
     if (!isPlaying && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.fillStyle = '#09090b';
+        ctx.fillStyle = '#08080c';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawGrid(ctx, canvas.width, canvas.height);
-        // Idle message
-        ctx.fillStyle = '#3f3f46';
-        ctx.font = '11px monospace';
+        ctx.fillStyle = '#27272a';
+        ctx.font = '11px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('▶ Play to activate spectrum analyzer', canvas.width / 2, canvas.height / 2);
       }
@@ -183,16 +224,18 @@ export const ProSpectrum: React.FC<Props> = ({ analyserRef, isPlaying, isOrigina
   }, [isPlaying]);
 
   return (
-    <div className="w-full rounded-xl bg-black border border-zinc-800 overflow-hidden shadow-inner">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800/60">
+    <div className="w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)' }}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800/40 bg-zinc-950/80">
         <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">
           Spectrum Analyzer
         </span>
-        <span className="text-[9px] font-mono text-zinc-600">
+        <span className="text-[9px] font-mono text-zinc-700">
           FFT 8192 · Log Scale · 20 Hz – 22 kHz
         </span>
       </div>
-      <canvas ref={canvasRef} width={800} height={220} className="w-full h-48 sm:h-56 block" />
+      <div style={{ border: '1px solid #27272a' }}>
+        <canvas ref={canvasRef} width={800} height={240} className="w-full h-52 sm:h-60 block" />
+      </div>
     </div>
   );
 };

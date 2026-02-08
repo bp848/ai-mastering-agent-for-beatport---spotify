@@ -16,7 +16,7 @@ import ProSpectrum from './ProSpectrum';
    4. Download with WAV specs
    ───────────────────────────────────────────────────────────────── */
 
-/* ── Waveform Overlay Canvas ─────────────────────────────── */
+/* ── Waveform Overlay Canvas (Mirrored, instrument-grade) ─── */
 const WaveformOverlay: React.FC<{
   originalBuffer: AudioBuffer;
   gainDb: number;
@@ -43,63 +43,112 @@ const WaveformOverlay: React.FC<{
     const step = Math.ceil(data.length / w);
     const gainLinear = Math.pow(10, gainDb / 20);
 
-    ctx.clearRect(0, 0, w, h);
+    // Background
+    ctx.fillStyle = '#08080c';
+    ctx.fillRect(0, 0, w, h);
 
-    // Center line
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, mid);
-    ctx.lineTo(w, mid);
-    ctx.stroke();
+    // Subtle horizontal grid lines (every 25%)
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 0.5;
+    for (const frac of [0.25, 0.75]) {
+      const gy = h * frac;
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+    }
 
-    // Helper: draw waveform
-    const drawWave = (color: string, multiplier: number, alpha: number) => {
-      ctx.fillStyle = color;
-      ctx.globalAlpha = alpha;
+    // Center line (slightly brighter)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.75;
+    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+
+    // Helper: draw mirrored waveform with gradient fill
+    const drawWave = (multiplier: number, fillColor: string, topAlpha: number, bottomAlpha: number, lineColor: string, lineAlpha: number) => {
+      // Compute min/max per pixel column
+      const mins: number[] = [];
+      const maxs: number[] = [];
       for (let x = 0; x < w; x++) {
         const start = x * step;
-        let min = 1, max = -1;
+        let lo = 1, hi = -1;
         for (let j = 0; j < step && start + j < data.length; j++) {
           const v = data[start + j] * multiplier;
-          if (v < min) min = v;
-          if (v > max) max = v;
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
         }
-        // Clamp
-        min = Math.max(min, -1);
-        max = Math.min(max, 1);
-        const y1 = mid - max * mid * 0.85;
-        const y2 = mid - min * mid * 0.85;
-        ctx.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+        lo = Math.max(lo, -1);
+        hi = Math.min(hi, 1);
+        mins.push(lo);
+        maxs.push(hi);
       }
+
+      // Filled area (gradient from center outward)
+      const grad = ctx.createLinearGradient(0, mid * 0.15, 0, mid);
+      grad.addColorStop(0, fillColor.replace('A)', `${topAlpha})`));
+      grad.addColorStop(1, fillColor.replace('A)', `${bottomAlpha})`));
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxs[x] * mid * 0.85);
+      ctx.lineTo(w, mid);
+      ctx.fill();
+
+      // Mirror (bottom half)
+      const grad2 = ctx.createLinearGradient(0, mid, 0, mid + mid * 0.85);
+      grad2.addColorStop(0, fillColor.replace('A)', `${bottomAlpha})`));
+      grad2.addColorStop(1, fillColor.replace('A)', `${topAlpha})`));
+      ctx.fillStyle = grad2;
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - mins[x] * mid * 0.85);
+      ctx.lineTo(w, mid);
+      ctx.fill();
+
+      // Outline (top edge, thin + glow)
+      ctx.globalAlpha = lineAlpha;
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const y = mid - maxs[x] * mid * 0.85;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Bottom edge
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const y = mid - mins[x] * mid * 0.85;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
       ctx.globalAlpha = 1;
     };
 
-    // Draw original (gray, dimmer)
-    drawWave('rgba(120,120,120,0.7)', 1.0, isHoldingOriginal ? 1.0 : 0.35);
+    // Original (always drawn as dark background layer)
+    drawWave(1.0, 'rgba(161,161,170,A)', isHoldingOriginal ? 0.35 : 0.12, isHoldingOriginal ? 0.1 : 0.03, '#71717a', isHoldingOriginal ? 0.8 : 0.25);
 
-    // Draw mastered (cyan, brighter) — only when NOT holding
+    // Mastered (cyan overlay) — only when NOT holding
     if (!isHoldingOriginal) {
-      drawWave('rgba(34,211,238,0.85)', gainLinear, 0.85);
+      drawWave(gainLinear, 'rgba(34,211,238,A)', 0.4, 0.05, '#22d3ee', 0.9);
     }
   }, [originalBuffer, gainDb, isHoldingOriginal]);
 
   return (
-    <div className="relative w-full rounded-xl bg-black/60 border border-white/10 overflow-hidden group">
+    <div className="relative w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
       {/* Labels */}
       <div className="absolute top-3 left-3 z-10 flex gap-2">
-        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
-          isHoldingOriginal ? 'bg-white text-black' : 'bg-white/10 text-zinc-500'
+        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider font-mono transition-all ${
+          isHoldingOriginal ? 'bg-white/90 text-black' : 'bg-white/5 text-zinc-600 border border-white/10'
         }`}>
           Original
         </span>
-        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
-          !isHoldingOriginal ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'bg-white/10 text-zinc-500'
+        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider font-mono transition-all ${
+          !isHoldingOriginal ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.5)]' : 'bg-white/5 text-zinc-600 border border-white/10'
         }`}>
           AI Mastered
         </span>
       </div>
-      <canvas ref={canvasRef} className="w-full h-40 sm:h-48 block" />
+      <canvas ref={canvasRef} className="w-full h-44 sm:h-52 block" />
     </div>
   );
 };
@@ -143,14 +192,26 @@ const GainReductionMeter: React.FC<{
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[8px] text-zinc-600 uppercase tracking-widest">GR</span>
-      <div className="relative w-3 h-24 rounded-full bg-zinc-900 border border-white/10 overflow-hidden">
+      <span className="text-[8px] text-zinc-600 uppercase tracking-widest font-mono">GR</span>
+      <div
+        className="relative w-3 h-28 rounded overflow-hidden"
+        style={{
+          background: '#0a0a0f',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: 'inset 0 0 8px rgba(0,0,0,0.6)',
+        }}
+      >
         <div
-          className="absolute top-0 left-0 w-full bg-gradient-to-b from-red-500 to-amber-500 rounded-b-full"
-          style={{ height: `${barHeight}%`, transition: 'height 50ms linear' }}
+          className="absolute top-0 left-0 w-full rounded-b"
+          style={{
+            height: `${barHeight}%`,
+            transition: 'height 50ms linear',
+            background: gr > 3 ? 'linear-gradient(to bottom, #ef4444, #f59e0b)' : 'linear-gradient(to bottom, #f59e0b, #22d3ee)',
+            boxShadow: gr > 3 ? '0 0 8px rgba(239,68,68,0.4)' : '0 0 6px rgba(34,211,238,0.2)',
+          }}
         />
       </div>
-      <span className="text-[9px] font-mono text-red-400 tabular-nums">
+      <span className="text-[9px] font-mono tabular-nums" style={{ color: gr > 3 ? '#ef4444' : gr > 0.1 ? '#f59e0b' : '#3f3f46' }}>
         {gr > 0.1 ? `-${gr.toFixed(1)}` : '0.0'}
       </span>
     </div>
@@ -192,13 +253,24 @@ const LivePeakMeter: React.FC<{
 
   return (
     <div className="flex items-center gap-2 w-full">
-      <span className="text-[9px] text-zinc-600 font-mono w-12 text-right tabular-nums shrink-0">
+      <span className="text-[9px] font-mono w-12 text-right tabular-nums shrink-0" style={{ color: peakDb > -1 ? '#ef4444' : peakDb > -6 ? '#f59e0b' : '#3f3f46' }}>
         {peakDb > -100 ? `${peakDb.toFixed(1)}` : '—'} dB
       </span>
-      <div className="flex-1 h-2 rounded-full bg-zinc-900 border border-white/5 overflow-hidden">
+      <div
+        className="flex-1 h-2 rounded overflow-hidden"
+        style={{ background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 6px rgba(0,0,0,0.5)' }}
+      >
         <div
-          className={`h-full ${color} transition-all duration-75 rounded-full`}
-          style={{ width: `${barPercent}%` }}
+          className="h-full transition-all duration-75 rounded"
+          style={{
+            width: `${barPercent}%`,
+            background: peakDb > -1
+              ? 'linear-gradient(90deg, #22d3ee, #f59e0b, #ef4444)'
+              : peakDb > -6
+                ? 'linear-gradient(90deg, #22d3ee, #f59e0b)'
+                : '#22d3ee',
+            boxShadow: peakDb > -6 ? '0 0 6px rgba(34,211,238,0.3)' : 'none',
+          }}
         />
       </div>
     </div>
@@ -372,18 +444,26 @@ const AudioPreview: React.FC<{
         isOriginal={isHoldingOriginal}
       />
 
-      {/* ── Controls ── */}
+      {/* ── Controls (VST-style) ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Play */}
         <button
           onClick={togglePlay}
-          className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform touch-manipulation shrink-0 shadow-lg"
+          className="w-14 h-14 rounded-full flex items-center justify-center hover:scale-105 transition-all touch-manipulation shrink-0"
+          style={{
+            background: isPlaying ? 'rgba(255,255,255,0.1)' : '#22d3ee',
+            color: isPlaying ? '#22d3ee' : '#000',
+            boxShadow: isPlaying
+              ? 'inset 0 0 10px rgba(0,0,0,0.4), 0 0 15px rgba(34,211,238,0.15)'
+              : '0 0 20px rgba(34,211,238,0.3), 0 4px 12px rgba(0,0,0,0.4)',
+            border: isPlaying ? '1px solid rgba(34,211,238,0.3)' : 'none',
+          }}
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
-          <span className="w-7 h-7">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
+          <span className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
         </button>
 
-        {/* Hold-to-Compare (PC: mousedown/up, Mobile: touchstart/end/cancel) */}
+        {/* Hold-to-Compare */}
         <button
           onMouseDown={() => setIsHoldingOriginal(true)}
           onMouseUp={() => setIsHoldingOriginal(false)}
@@ -392,34 +472,53 @@ const AudioPreview: React.FC<{
           onTouchEnd={(e) => { e.preventDefault(); setIsHoldingOriginal(false); }}
           onTouchCancel={() => setIsHoldingOriginal(false)}
           onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 w-full sm:w-auto px-6 py-4 rounded-xl border font-mono text-[11px] uppercase tracking-widest select-none transition-all touch-manipulation ${
-            isHoldingOriginal
-              ? 'bg-white/10 border-white/40 text-white'
-              : 'border-white/15 text-zinc-400 hover:bg-white/5'
-          }`}
+          className="flex-1 w-full sm:w-auto px-6 py-3.5 rounded-xl font-mono text-[10px] uppercase tracking-[0.15em] select-none transition-all touch-manipulation"
+          style={{
+            background: isHoldingOriginal ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+            border: isHoldingOriginal ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.08)',
+            color: isHoldingOriginal ? '#fff' : '#71717a',
+            boxShadow: isHoldingOriginal ? 'inset 0 0 20px rgba(255,255,255,0.05)' : 'none',
+          }}
         >
           {ja ? '長押しでオリジナルと比較' : 'Hold to Compare Original'}
         </button>
       </div>
 
-      {/* ── Process Info + Specs ── */}
-      <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 space-y-2">
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-          {ja ? '適用済み処理' : 'Applied Processing'}
+      {/* ── Module Badges (Applied Processing) ── */}
+      <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
+        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">
+          {ja ? '適用済みモジュール' : 'Active Modules'}
         </p>
-        <p className="text-[11px] text-zinc-400 leading-relaxed font-mono">
-          Tube Sat ({params.tube_drive_amount.toFixed(1)}) → Pultec EQ → {params.eq_adjustments.length}-band EQ → Exciter ({params.exciter_amount.toFixed(2)}) → M/S ({params.width_amount.toFixed(2)}x) → Glue Comp → Neuro-Drive (35% ∥ HyperComp + 12kHz Air) → Soft Clip → Limiter ({params.limiter_ceiling_db.toFixed(1)} dBTP)
-        </p>
-        <div className="flex items-center gap-4 text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { label: 'Tube Sat', value: params.tube_drive_amount.toFixed(1), active: params.tube_drive_amount > 0 },
+            { label: 'Pultec EQ', value: 'ON', active: params.low_contour_amount > 0 },
+            { label: `${params.eq_adjustments.length}-Band EQ`, value: 'ON', active: params.eq_adjustments.length > 0 },
+            { label: 'Exciter', value: params.exciter_amount.toFixed(2), active: params.exciter_amount > 0 },
+            { label: 'M/S Width', value: `${params.width_amount.toFixed(2)}x`, active: true },
+            { label: 'Glue Comp', value: 'ON', active: true },
+            { label: 'Neuro-Drive', value: '35%', active: true },
+            { label: 'Soft Clip', value: 'ON', active: true },
+            { label: 'Limiter', value: `${params.limiter_ceiling_db.toFixed(1)} dB`, active: true },
+          ].map(mod => (
+            <span
+              key={mod.label}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                mod.active
+                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+                  : 'bg-white/5 border-white/10 text-zinc-600'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${mod.active ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
+              {mod.label}: <span className="font-bold tabular-nums">{mod.value}</span>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-4 text-[10px] font-mono text-zinc-600 pt-2 border-t border-white/5">
           <span>WAV 16bit / 44.1kHz</span>
           <span>{duration}</span>
           <span>{estimatedSize}</span>
         </div>
-        <p className="text-[9px] text-zinc-600">
-          {ja
-            ? '※ WAV形式のためファイルサイズは変化しませんが、波形データは書き換えられています。'
-            : '※ WAV format: file size does not change, but waveform data has been rewritten.'}
-        </p>
       </div>
     </div>
   );
@@ -445,7 +544,13 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
       <button
         onClick={onDownloadMastered}
         disabled={isProcessingAudio}
-        className="w-full flex items-center justify-center gap-3 py-4 px-6 min-h-[52px] rounded-2xl bg-cyan-500 text-black font-bold text-base hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation shadow-lg shadow-cyan-500/20"
+        className="w-full flex items-center justify-center gap-3 py-4 px-6 min-h-[52px] rounded-xl font-bold text-base active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation"
+        style={{
+          background: 'linear-gradient(135deg, #22d3ee, #06b6d4)',
+          color: '#000',
+          boxShadow: '0 0 20px rgba(34,211,238,0.25), 0 4px 16px rgba(0,0,0,0.4)',
+          border: 'none',
+        }}
       >
         {isProcessingAudio ? (
           <>

@@ -158,3 +158,30 @@ code, pre, .font-mono, [class*="tabular-nums"] {
   transition: stroke-dashoffset 1s ease-out;
   filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
 }
+
+/* ── Terminal Block Cursor Blink ── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Custom Scrollbar (dark, thin) ── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Scanline animation for terminal ── */
+@keyframes scanline-scroll {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
