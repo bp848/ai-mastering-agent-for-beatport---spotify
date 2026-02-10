@@ -160,11 +160,12 @@ export default function LibraryView() {
               <div className="px-4 pb-4 pt-0 border-t border-white/5">
                 <div className="bg-[#0d0d0d] rounded-xl p-4 space-y-0">
                   {FIELDS.map(({ key, label }) => (
-                    <CopyableField
-                      key={key}
-                      label={label}
-                      value={String(track[key] ?? '')}
-                    />
+                    <div key={key}>
+                      <CopyableField
+                        label={label}
+                        value={String(track[key] ?? '')}
+                      />
+                    </div>
                   ))}
                 </div>
                 <div className="flex justify-end gap-2 mt-3">

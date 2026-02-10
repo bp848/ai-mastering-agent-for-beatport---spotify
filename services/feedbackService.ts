@@ -108,13 +108,13 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'squashed':
-      newParams.limiter_ceiling_db = -0.1;
+      newParams.limiter_ceiling_db = -0.2;
       newParams.gain_adjustment_db -= 1.5;
       break;
 
     case 'not_loud':
-      newParams.gain_adjustment_db += 2.0;
-      newParams.limiter_ceiling_db = -0.05;
+      newParams.gain_adjustment_db += 1.0;
+      newParams.limiter_ceiling_db = -0.2;
       break;
   }
 

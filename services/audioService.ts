@@ -551,7 +551,7 @@ export const buildMasteringChain = (
   lastNode = clipper;
 
   const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
+  limiter.threshold.value = params.limiter_ceiling_db ?? -0.3;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
   limiter.attack.value = 0.005;
@@ -664,7 +664,7 @@ export const optimizeMasteringParams = async (
 
   // --- 補正実行: 0.1 dB 単位で検知・修正。静かい 10 秒に合わせて上げすぎて割れないよう上乗せは最大 +3 dB ---
   const MAX_SELF_CORRECTION_BOOST_DB = 3;
-  const GAIN_CAP_DB = 12;
+  const GAIN_CAP_DB = 6;
   const diff = TARGET_LUFS - measuredLUFS;
   if (Math.abs(diff) > 0.5) {
     let newGain = optimizedParams.gain_adjustment_db + diff;
