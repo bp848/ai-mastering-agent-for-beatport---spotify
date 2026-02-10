@@ -1,10 +1,26 @@
 
-import React, { createContext, useState, useContext, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect, ReactNode } from 'react';
+import { type LanguageCode, SUPPORTED_LANGUAGES, isSupportedLanguage } from '../utils/languages';
 
 type Language = 'ja' | 'en';
 
+/** 完全翻訳済み（UI表示用）。未対応は en にフォールバック */
+const FULL_TRANSLATIONS: LanguageCode[] = ['ja', 'en'];
+
+function getDisplayLanguage(code: LanguageCode): 'ja' | 'en' {
+  return FULL_TRANSLATIONS.includes(code) ? (code as 'ja' | 'en') : 'en';
+}
+
+function getInitialLanguage(): LanguageCode {
+  if (typeof navigator === 'undefined') return 'en';
+  const raw = navigator.language || (navigator as { userLanguage?: string }).userLanguage || '';
+  const base = raw.split('-')[0].toLowerCase();
+  if (isSupportedLanguage(base)) return base;
+  return 'en';
+}
+
 const ja = {
-  "header.title": "AI マスタリング・エージェント (Techno/Trance)",
+  "header.title": "Dance Music Mastering AI",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "音源アップロード",
   "section.step2.title": "Beatport/Spotify 配信基準分析",
@@ -31,8 +47,8 @@ const ja = {
   "analysis.metric.width": "ステレオ幅 (Stereo Width)",
   "analysis.metric.rms": "ピークRMS",
   "analysis.metric.bass": "低域エネルギー (Bass)",
-  "analysis.target.beatport.lufs": "目標: -7.0 LUFS (-6.0 〜 -8.0)",
-  "analysis.target.beatport.peak": "目標: -0.1 dBTP (MAX)",
+  "analysis.target.beatport.lufs": "目標: -8.0 LUFS (-7.0 〜 -9.0)",
+  "analysis.target.beatport.peak": "目標: -0.3 dBTP（推奨）",
   "analysis.target.beatport.crest": "目標: 6.0 dB (5.0 〜 8.0)",
   "analysis.target.spotify.lufs": "目標: -14.0 LUFS",
   "analysis.target.spotify.peak": "目標: -1.0 dBTP",
@@ -48,7 +64,7 @@ const ja = {
   "agent.idle.title": "AIエージェント待機中",
   "agent.idle.detail": "トラックをアップロードすると、AIが最適な処理パラメータを算出します。",
   "agent.loading.title": "テクノ・トランス基準への最適化中...",
-  "agent.loading.detail": "目標値 -7.0 LUFS / -0.1 dBTP への到達経路を計算しています。",
+  "agent.loading.detail": "目標値 -8.0 LUFS / -0.3 dBTP への到達経路を計算しています。",
   "agent.params.title": "AI 算出パラメータ (DSP設定)",
   "agent.params.gain": "目標ラウドネスへのゲイン補正",
   "agent.params.limiter": "リミッター・シーリング設定",
@@ -106,7 +122,7 @@ const ja = {
 };
 
 const en = {
-  "header.title": "AI Mastering Agent (Techno/Trance)",
+  "header.title": "Dance Music Mastering AI",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "Upload Track",
   "section.step2.title": "Distribution Standards Analysis",
@@ -133,8 +149,8 @@ const en = {
   "analysis.metric.width": "Stereo Width",
   "analysis.metric.rms": "Peak RMS",
   "analysis.metric.bass": "Bass Energy",
-  "analysis.target.beatport.lufs": "Target: -7.0 LUFS (-6.0 to -8.0)",
-  "analysis.target.beatport.peak": "Target: -0.1 dBTP (MAX)",
+  "analysis.target.beatport.lufs": "Target: -8.0 LUFS (-7.0 to -9.0)",
+  "analysis.target.beatport.peak": "Target: -0.3 dBTP (recommended)",
   "analysis.target.beatport.crest": "Target: 6.0 dB (5.0 to 8.0)",
   "analysis.target.spotify.lufs": "Target: -14.0 LUFS",
   "analysis.target.spotify.peak": "Target: -1.0 dBTP",
@@ -150,7 +166,7 @@ const en = {
   "agent.idle.title": "Agent Idle",
   "agent.idle.detail": "Upload a track to get distribution-ready suggestions.",
   "agent.loading.title": "Optimizing for Techno/Trance...",
-  "agent.loading.detail": "Calculating path to reach -7.0 LUFS / -0.1 dBTP.",
+  "agent.loading.detail": "Calculating path to reach -8.0 LUFS / -0.3 dBTP.",
   "agent.params.title": "AI Proposed Parameters",
   "agent.params.gain": "Gain Adjustment for LUFS",
   "agent.params.limiter": "Peak Limiting Configuration",
@@ -218,7 +234,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('ja');
+  const [language, setLanguage] = useState<Language>(() => getDisplayLanguage(getInitialLanguage()));
   const t = useCallback((key: string, options?: { replacements?: Record<string, string | number>, default?: string }) => {
     let translation = translations[language][key] || options?.default || key;
     if (options?.replacements) {

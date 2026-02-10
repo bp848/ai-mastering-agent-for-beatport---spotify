@@ -39,7 +39,8 @@ const calculateScore = (data: AudioAnalysisData, target: MasteringTarget): numbe
   else if (data.stereoWidth < 60) score += 10;
   else score += 5;
 
-  if (data.truePeak <= -1.0) score += 10;
+  const peakTarget = target === 'beatport' ? -0.3 : -1.0;
+  if (data.truePeak <= peakTarget) score += 10;
   else score += 5;
 
   if (data.noiseFloorDb < -60) score += 5;
@@ -171,12 +172,12 @@ const SpectrumBars: React.FC<{ bands: { name: string; level: number }[]; languag
 /* ── メインコンポーネント ────────────────────────────── */
 const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, isMastering, language }) => {
   const ja = language === 'ja';
-  const targetLufs = target === 'beatport' ? -7.0 : -14.0;
+  const targetLufs = target === 'beatport' ? -8.0 : -14.0;
   const lufsGap = targetLufs - data.lufs;
   const [copied, setCopied] = React.useState(false);
 
   const copyReportToClipboard = useCallback(() => {
-    const targetPeak = target === 'beatport' ? '-0.1' : '-1';
+    const targetPeak = target === 'beatport' ? '-0.3' : '-1';
     const lines = [
       ja ? '=== 診断レポート（判断用） ===' : '=== Diagnosis Report (for decision) ===',
       `${ja ? 'ラウドネス' : 'Loudness'}: ${data.lufs.toFixed(1)} LUFS | ${ja ? '目標' : 'Target'} ${targetLufs} LUFS | ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`,
@@ -199,7 +200,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
 
   // ── 各指標の判定 ──
   const loudnessStatus = Math.abs(lufsGap) <= 2 ? 'good' : Math.abs(lufsGap) <= 5 ? 'warn' : 'bad';
-  const peakStatus = data.truePeak <= -0.1 ? 'good' : data.truePeak <= 0 ? 'warn' : 'bad';
+  const peakStatus = data.truePeak <= (target === 'beatport' ? -0.3 : -1.0) ? 'good' : data.truePeak <= 0 ? 'warn' : 'bad';
   const dynamicStatus = data.crestFactor >= 6 ? 'good' : data.crestFactor >= 3 ? 'warn' : 'bad';
   const phaseStatus = data.phaseCorrelation > 0.5 ? 'good' : data.phaseCorrelation > 0 ? 'warn' : 'bad';
   const distortionStatus = data.distortionPercent < 0.1 ? 'good' : data.distortionPercent < 1 ? 'warn' : 'bad';
@@ -276,7 +277,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
             <tr className="border-b border-white/5">
               <td className="py-2 pr-3 text-zinc-300">{ja ? 'トゥルーピーク' : 'True Peak'}</td>
               <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.truePeak.toFixed(1)} dBTP</td>
-              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">{target === 'beatport' ? '-0.1' : '-1'} dBTP</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">{target === 'beatport' ? '-0.3' : '-1'} dBTP</td>
               <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${peakStatus === 'good' ? 'bg-green-500' : peakStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {peakStatus === 'good' ? (ja ? 'OK' : 'Pass') : peakStatus === 'warn' ? (ja ? '注意' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
             </tr>
             <tr className="border-b border-white/5">
@@ -313,7 +314,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
         </table>
         <p className="text-[10px] text-zinc-500 mt-3 font-mono">
           {ja ? 'マスタリング後想定: ' : 'Post-master target: '}
-          {targetLufs} LUFS 前後、True Peak ≤ {target === 'beatport' ? '-0.1' : '-1'} dBTP（Brickwall でクリップ防止）
+          {targetLufs} LUFS 前後、True Peak ≤ {target === 'beatport' ? '-0.3' : '-1'} dBTP（Brickwall でクリップ防止）
         </p>
         <button
           type="button"
@@ -347,8 +348,8 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
             status={peakStatus}
             min={-6}
             max={target === 'beatport' ? 1 : 0}
-            targetValue={target === 'beatport' ? -0.1 : -1}
-            targetLabel={ja ? `目標 ${target === 'beatport' ? '-0.1' : '-1'} dBTP` : `Target ${target === 'beatport' ? '-0.1' : '-1'} dBTP`}
+            targetValue={target === 'beatport' ? -0.3 : -1}
+            targetLabel={ja ? `目標 ${target === 'beatport' ? '-0.3' : '-1'} dBTP` : `Target ${target === 'beatport' ? '-0.3' : '-1'} dBTP`}
           />
           <MetricGauge
             label={ja ? 'ダイナミクス (Crest)' : 'Dynamics (Crest)'}
@@ -387,7 +388,13 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
           })()}
         />
         <DiagLine label={ja ? 'トゥルーピーク' : 'True Peak'} status={peakStatus} value={`${data.truePeak.toFixed(1)} dBTP`}
-          detail={ja ? (peakStatus === 'good' ? '-0.1 dBTP 以下: クリッピングの心配なし。' : 'ピークが高すぎます。リミッターで制御します。') : (peakStatus === 'good' ? 'Below -0.1 dBTP: No clipping risk.' : 'Peak too high. Will be controlled by limiter.')} />
+          detail={ja
+            ? (peakStatus === 'good'
+              ? `${target === 'beatport' ? '-0.3' : '-1.0'} dBTP 以下: クリッピングの心配なし。`
+              : 'ピークが高すぎます。リミッターで制御します。')
+            : (peakStatus === 'good'
+              ? `Below ${target === 'beatport' ? '-0.3' : '-1.0'} dBTP: No clipping risk.`
+              : 'Peak too high. Will be controlled by limiter.')} />
         <DiagLine label={ja ? 'ダイナミックレンジ' : 'Dynamic Range'} status={dynamicStatus} value={`${data.crestFactor.toFixed(1)} dB`}
           detail={ja ? (dynamicStatus === 'good' ? '良好。パンチ感が維持されています。' : dynamicStatus === 'warn' ? 'やや詰まっています。リミッターを慎重に適用。' : '詰まりすぎ。音が平坦になるリスク。') : (dynamicStatus === 'good' ? 'Good. Punch is preserved.' : dynamicStatus === 'warn' ? 'Slightly compressed. Limiter applied carefully.' : 'Over-compressed. Risk of flat sound.')} />
         <DiagLine label={ja ? '位相相関' : 'Phase Correlation'} status={phaseStatus} value={data.phaseCorrelation.toFixed(3)}

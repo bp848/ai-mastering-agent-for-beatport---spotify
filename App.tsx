@@ -123,7 +123,7 @@ const AppContent: React.FC = () => {
       addLog(t('log.audio.analysis_start'));
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
 
-      const targetLufs = target === 'beatport' ? -7.0 : -14.0;
+      const targetLufs = target === 'beatport' ? -8.0 : -14.0;
       const lufsGap = targetLufs - result.lufs;
       addActionLog('LUFS', language === 'ja'
         ? `ラウドネス計測: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`
@@ -131,7 +131,7 @@ const AppContent: React.FC = () => {
 
       addActionLog('PEAK', language === 'ja'
         ? `トゥルーピーク: ${result.truePeak.toFixed(2)} dBTP`
-        : `True Peak: ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -0.1 ? 'success' : 'warning');
+        : `True Peak: ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= (target === 'beatport' ? -0.3 : -1.0) ? 'success' : 'warning');
 
       const phaseStatus = result.phaseCorrelation > 0.5 ? 'success' : result.phaseCorrelation > 0 ? 'warning' : 'error';
       addActionLog('PHASE', language === 'ja'
@@ -377,13 +377,16 @@ const AppContent: React.FC = () => {
           </div>
         )}
         <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
               <BrandIcon />
             </div>
-            <div>
-              <h1 className="text-base font-bold text-white tracking-tight">Mastering Agent</h1>
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-white tracking-tight">{t('header.title')}</h1>
               <span className="text-[10px] text-zinc-500">{language === 'ja' ? 'Beatport top を目指す・忖度なしの解析' : 'Beatport top · no-deference analysis'}</span>
+            </div>
+            <div className="shrink-0 ml-2">
+              <LanguageSwitcher />
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -396,7 +399,6 @@ const AppContent: React.FC = () => {
                 else signInWithGoogle();
               }}
             />
-            <LanguageSwitcher />
           </div>
         </header>
 

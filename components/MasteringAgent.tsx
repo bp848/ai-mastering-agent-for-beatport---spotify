@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { MasteringParams } from '../types';
-import { buildMasteringChain } from '../services/audioService';
+import { buildMasteringChain, optimizeMasteringParams } from '../services/audioService';
 import { applyFeedbackAdjustment, type FeedbackType } from '../services/feedbackService';
 import { clampMasteringParams } from '../services/geminiService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
@@ -573,9 +573,19 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
       await new Promise((r) => setTimeout(r, 300));
       const adjusted = applyFeedbackAdjustment(params, feedback);
       const clamped = clampMasteringParams(adjusted);
+      // フィードバック後は「固定値でゲインを足す/引く」ではなく、自己補正ループで計測→最適化する
+      if (audioBuffer) {
+        try {
+          const optimized = await optimizeMasteringParams(audioBuffer, clamped);
+          onFeedbackApply(optimized.params);
+          return;
+        } catch (e) {
+          console.warn('Feedback optimize failed; fallback to clamped params', e);
+        }
+      }
       onFeedbackApply(clamped);
     },
-    [params, onFeedbackApply],
+    [params, onFeedbackApply, audioBuffer],
   );
 
   const handleRecalcWithAI = useCallback(

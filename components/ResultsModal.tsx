@@ -142,13 +142,15 @@ export default function ResultsModal({
                         <li>LUFS {masterMetrics.lufs.toFixed(1)}</li>
                         <li>TP {masterMetrics.peakDb.toFixed(1)} dB</li>
                         <li className="text-zinc-400 text-[12px]">
-                          {language === 'ja' ? '目標' : 'Target'} {masteringTarget === 'beatport' ? '-7.0' : '-14.0'} LUFS
+                          {language === 'ja' ? '目標' : 'Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'} LUFS
                         </li>
                       </ul>
                     ) : (
                       <ul className="text-[13px] font-mono space-y-1 text-cyan-200/80">
-                        <li>LUFS {masteringTarget === 'beatport' ? '-7.0' : '-14.0'} (target)</li>
-                        <li>TP {(masteringParams.limiter_ceiling_db ?? -0.1).toFixed(1)} dB</li>
+                        <li>LUFS {masteringTarget === 'beatport' ? '-8.0' : '-14.0'} (target)</li>
+                        <li>
+                          TP {(masteringParams.limiter_ceiling_db ?? (masteringTarget === 'beatport' ? -0.3 : -1.0)).toFixed(1)} dB
+                        </li>
                       </ul>
                     )}
                   </div>

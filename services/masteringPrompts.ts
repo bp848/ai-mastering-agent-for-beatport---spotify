@@ -11,9 +11,11 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
   }
   return {
     platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
-    targetLufs: -7.0,
-    targetPeak: -0.1,
-    genreContext: 'This is for Beatport top chart competitiveness. No deference to the mix—only what the track needs to compete. Peak-Time Techno/Trance: aggressive loudness, punchy sub, clear transients. LUFS must hit -7.0; true peak at -0.1 dBTP.'
+    // -7.0 / -0.1 は歪み・耳疲れに直結しやすい（WebAudio/簡易TP推定では特に危険）。
+    // まずは品質優先の現実値に寄せ、自己補正ループで確実に到達させる。
+    targetLufs: -8.0,
+    targetPeak: -0.3,
+    genreContext: 'This is for Beatport chart competitiveness. Prioritize clarity and punch without harsh distortion. Target integrated loudness around -8.0 LUFS; keep true peak at -0.3 dBTP for safer headroom.'
   };
 };
 

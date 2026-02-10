@@ -50,15 +50,26 @@ export const applyFeedbackAdjustment = (
     exciter_amount: exciter,
     low_contour_amount: lowContour,
     width_amount: width,
-    limiter_ceiling_db: n(currentParams.limiter_ceiling_db, -0.1),
+    // デフォルト値で -0.1 など「攻めた」TPに寄せない（フィードバック時は安全側へ）
+    limiter_ceiling_db: n(currentParams.limiter_ceiling_db, -1.0),
     eq_adjustments: [...(currentParams.eq_adjustments || [])],
+  };
+
+  /** 目標 LUFS がある場合のみ微調整（固定ゲイン加算ではなく、目標自体を動かして自己補正に委ねる） */
+  const bumpTargetLufs = (delta: number) => {
+    if (typeof newParams.target_lufs !== 'number' || !Number.isFinite(newParams.target_lufs)) return;
+    // 過激な範囲に飛ばないようにガード
+    newParams.target_lufs = Math.max(-20, Math.min(-5, newParams.target_lufs + delta));
   };
 
   switch (feedback) {
     case 'distortion':
-      newParams.gain_adjustment_db -= 2.5;
+      // 「割れ/歪み」= まずは安全側に寄せる（音圧より品質）
+      bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
+      // 0dBTP 近辺へ押し上げるのを避ける
+      newParams.limiter_ceiling_db = Math.min(newParams.limiter_ceiling_db, -1.0);
       break;
 
     case 'muddy':
@@ -99,7 +110,6 @@ export const applyFeedbackAdjustment = (
 
     case 'thin':
       newParams.tube_drive_amount = Math.min(3, newParams.tube_drive_amount + 1.0);
-      newParams.gain_adjustment_db += 1.0;
       break;
 
     case 'narrow':
@@ -108,13 +118,15 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'squashed':
-      newParams.limiter_ceiling_db = -0.1;
-      newParams.gain_adjustment_db -= 1.5;
+      // 「潰れすぎ」= 目標を少し下げて自己補正で追従（無理な固定カットはしない）
+      bumpTargetLufs(-1.0);
+      newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
       break;
 
     case 'not_loud':
-      newParams.gain_adjustment_db += 2.0;
-      newParams.limiter_ceiling_db = -0.05;
+      // 「まだ音圧が足りない」= 固定で +2dB などを足さず、目標を上げて自己補正に委ねる
+      bumpTargetLufs(+1.0);
       break;
   }
 
