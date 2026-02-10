@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
-import { getMasteringSuggestions } from './services/geminiService';
+import { getMasteringSuggestions, isOpenAIAvailable, type AIProvider } from './services/aiService';
 import FileUpload from './components/FileUpload';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import MasteringAgent from './components/MasteringAgent';
@@ -236,6 +236,40 @@ const AppContent: React.FC = () => {
     }
   }, [analysisData, audioBuffer, masteringTarget, t, language, addLog, addActionLog]);
 
+  /** リトライ時: 指定した AI でパラメータを再計算し結果を更新 */
+  const recalcParamsWithAI = useCallback(async (provider: AIProvider) => {
+    if (!analysisData || !audioBuffer) return;
+    setIsMastering(true);
+    setError('');
+    try {
+      addActionLog(
+        'AI',
+        language === 'ja'
+          ? `AI再計算: ${provider === 'openai' ? 'OpenAI' : 'Gemini'} でパラメータを再取得中...`
+          : `Re-calculating with ${provider === 'openai' ? 'OpenAI' : 'Gemini'}...`,
+        'getMasteringSuggestions',
+        'info'
+      );
+      const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language, { provider });
+      const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
+      rawParams.target_lufs = targetLufsValue;
+      const validatedParams = await optimizeMasteringParams(audioBuffer, rawParams);
+      setMasteringParams(validatedParams);
+      addActionLog(
+        'DONE',
+        language === 'ja' ? `${provider === 'openai' ? 'OpenAI' : 'Gemini'} で再計算完了` : `Re-calc done with ${provider === 'openai' ? 'OpenAI' : 'Gemini'}`,
+        undefined,
+        'success'
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'error.audio.analysis';
+      addActionLog('ERROR', t(msg, { default: t('error.audio.analysis') }), undefined, 'error');
+      setError(t(msg, { default: t('error.audio.analysis') }));
+    } finally {
+      setIsMastering(false);
+    }
+  }, [analysisData, audioBuffer, masteringTarget, language, t, addActionLog]);
+
   const handleFileChange = useCallback((file: File | null) => {
     if (file) analyzeOnly(file, masteringTarget);
   }, [analyzeOnly, masteringTarget]);
@@ -402,6 +436,8 @@ const AppContent: React.FC = () => {
             actionLogs={actionLogs}
             onNextTrack={handleNextTrack}
             onFeedbackApply={setMasteringParams}
+            onRecalcWithAI={recalcParamsWithAI}
+            hasOpenAI={isOpenAIAvailable()}
           />
         )}
 

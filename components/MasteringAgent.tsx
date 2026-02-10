@@ -263,6 +263,10 @@ interface MasteringAgentProps {
   hideDownloadButton?: boolean;
   /** Human-in-the-Loop: フィードバックに基づきパラメータを補正して再レンダリング */
   onFeedbackApply?: (newParams: MasteringParams) => void;
+  /** 指定した AI でパラメータを再計算（リトライ時） */
+  onRecalcWithAI?: (provider: 'gemini' | 'openai') => Promise<void>;
+  /** OpenAI API キーが設定されていれば true（OpenAI 選択を表示） */
+  hasOpenAI?: boolean;
   language?: 'ja' | 'en';
 }
 
@@ -510,12 +514,15 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
   audioBuffer,
   hideDownloadButton = false,
   onFeedbackApply,
+  onRecalcWithAI,
+  hasOpenAI = false,
   language: languageProp,
 }) => {
   const { language: contextLang } = useTranslation();
   const language = languageProp ?? contextLang;
   const ja = language === 'ja';
   const [isRetryOpen, setIsRetryOpen] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const handleRetry = useCallback(
     async (feedback: FeedbackType) => {
@@ -526,6 +533,20 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
       onFeedbackApply(newParams);
     },
     [params, onFeedbackApply],
+  );
+
+  const handleRecalcWithAI = useCallback(
+    async (provider: 'gemini' | 'openai') => {
+      if (!onRecalcWithAI) return;
+      setIsRetryOpen(false);
+      setIsRecalculating(true);
+      try {
+        await onRecalcWithAI(provider);
+      } finally {
+        setIsRecalculating(false);
+      }
+    },
+    [onRecalcWithAI],
   );
 
   if (isLoading || !params) return null;
@@ -553,6 +574,9 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
         isOpen={isRetryOpen}
         onClose={() => setIsRetryOpen(false)}
         onRetry={handleRetry}
+        onRecalcWithAI={onRecalcWithAI ? handleRecalcWithAI : undefined}
+        hasOpenAI={hasOpenAI}
+        isRecalculating={isRecalculating}
         language={language}
       />
 

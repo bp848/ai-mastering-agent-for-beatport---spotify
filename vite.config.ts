@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'import.meta.env.VITE_OPENAI_API_KEY': JSON.stringify(env.VITE_OPENAI_API_KEY ?? ''),
+        'import.meta.env.VITE_OPENAI_MASTERING_MODEL': JSON.stringify(env.VITE_OPENAI_MASTERING_MODEL ?? 'gpt-4o'),
         __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0'),
       },
       resolve: {

@@ -25,6 +25,8 @@ interface ResultsModalProps {
   actionLogs?: ActionLog[];
   onNextTrack?: () => void;
   onFeedbackApply?: (newParams: MasteringParams) => void;
+  onRecalcWithAI?: (provider: 'gemini' | 'openai') => Promise<void>;
+  hasOpenAI?: boolean;
 }
 
 export default function ResultsModal({
@@ -46,6 +48,8 @@ export default function ResultsModal({
   actionLogs = [],
   onNextTrack,
   onFeedbackApply,
+  onRecalcWithAI,
+  hasOpenAI = false,
 }: ResultsModalProps) {
   const { t } = useTranslation();
   const [slide, setSlide] = React.useState(0);
@@ -163,6 +167,8 @@ export default function ResultsModal({
                 audioBuffer={audioBuffer}
                 hideDownloadButton
                 onFeedbackApply={onFeedbackApply}
+                onRecalcWithAI={onRecalcWithAI}
+                hasOpenAI={hasOpenAI}
                 language={language}
               />
             </div>

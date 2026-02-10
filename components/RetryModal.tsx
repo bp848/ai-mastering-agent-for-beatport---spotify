@@ -13,14 +13,30 @@ const XIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+export type AIProviderChoice = 'gemini' | 'openai';
+
 interface RetryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRetry: (feedback: FeedbackType) => void;
+  /** 指定した AI でパラメータを再計算（未設定の場合は UI 非表示） */
+  onRecalcWithAI?: (provider: AIProviderChoice) => Promise<void>;
+  /** OpenAI が利用可能なとき true（OpenAI ボタンを表示） */
+  hasOpenAI?: boolean;
+  /** 再計算中はボタンを無効化 */
+  isRecalculating?: boolean;
   language?: 'ja' | 'en';
 }
 
-export const RetryModal: React.FC<RetryModalProps> = ({ isOpen, onClose, onRetry, language = 'ja' }) => {
+export const RetryModal: React.FC<RetryModalProps> = ({
+  isOpen,
+  onClose,
+  onRetry,
+  onRecalcWithAI,
+  hasOpenAI = false,
+  isRecalculating = false,
+  language = 'ja',
+}) => {
   if (!isOpen) return null;
 
   const title = language === 'ja' ? 'AI パラメータ・チューニング' : 'AI Parameter Tuning';
@@ -30,6 +46,11 @@ export const RetryModal: React.FC<RetryModalProps> = ({ isOpen, onClose, onRetry
   const footer = language === 'ja'
     ? 'フィードバックに基づき DSP を再キャリブレートします。'
     : 'AI AGENT WILL RE-CALIBRATE DSP ENGINE BASED ON YOUR FEEDBACK.';
+
+  const showRecalc = !!onRecalcWithAI;
+  const recalcLabel = language === 'ja' ? 'AIを選んで再計算' : 'Re-calculate with AI';
+  const geminiLabel = language === 'ja' ? 'Gemini で再計算' : 'Re-calc with Gemini';
+  const openaiLabel = language === 'ja' ? 'OpenAI で再計算' : 'Re-calc with OpenAI';
 
   return (
     <div
@@ -55,7 +76,37 @@ export const RetryModal: React.FC<RetryModalProps> = ({ isOpen, onClose, onRetry
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
+          {showRecalc && (
+            <section>
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{recalcLabel}</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onRecalcWithAI('gemini')}
+                  disabled={isRecalculating}
+                  className="px-4 py-2.5 rounded-xl border border-cyan-500/50 bg-cyan-500/10 text-cyan-400 font-mono text-sm hover:bg-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isRecalculating ? (language === 'ja' ? '再計算中...' : 'Re-calculating...') : geminiLabel}
+                </button>
+                {hasOpenAI && (
+                  <button
+                    type="button"
+                    onClick={() => onRecalcWithAI('openai')}
+                    disabled={isRecalculating}
+                    className="px-4 py-2.5 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-mono text-sm hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {isRecalculating ? (language === 'ja' ? '再計算中...' : 'Re-calculating...') : openaiLabel}
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
+          <section>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+              {language === 'ja' ? '違和感を選ぶ（プリセット補正）' : 'Choose feedback (preset adjustment)'}
+            </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {FEEDBACK_OPTIONS.map((option) => {
               const parts = option.label.split(' / ');
@@ -81,6 +132,7 @@ export const RetryModal: React.FC<RetryModalProps> = ({ isOpen, onClose, onRetry
               );
             })}
           </div>
+          </section>
         </div>
 
         <div className="p-4 bg-zinc-900/50 border-t border-zinc-800 text-center text-xs text-zinc-500 font-mono">
