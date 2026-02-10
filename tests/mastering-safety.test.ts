@@ -3,7 +3,7 @@ import { clampMasteringParams } from '../services/geminiService';
 import { applyFeedbackAdjustment } from '../services/feedbackService';
 
 describe('mastering safety guardrails', () => {
-  it('clamps over-aggressive gain and limiter ceiling', () => {
+  it('clamps aggressive gain and limiter ceiling while retaining headroom for impact', () => {
     const clamped = clampMasteringParams({
       gain_adjustment_db: 15,
       limiter_ceiling_db: 0,
@@ -14,11 +14,11 @@ describe('mastering safety guardrails', () => {
       width_amount: 1,
     });
 
-    expect(clamped.gain_adjustment_db).toBe(6);
-    expect(clamped.limiter_ceiling_db).toBe(-0.2);
+    expect(clamped.gain_adjustment_db).toBe(8);
+    expect(clamped.limiter_ceiling_db).toBe(-0.15);
   });
 
-  it('keeps not_loud feedback from forcing unsafe limiter settings', () => {
+  it('keeps not_loud feedback competitive without unsafe limiter settings', () => {
     const adjusted = applyFeedbackAdjustment(
       {
         gain_adjustment_db: 2,
@@ -32,7 +32,7 @@ describe('mastering safety guardrails', () => {
       'not_loud',
     );
 
-    expect(adjusted.gain_adjustment_db).toBe(3);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.2);
+    expect(adjusted.gain_adjustment_db).toBe(3.5);
+    expect(adjusted.limiter_ceiling_db).toBe(-0.15);
   });
 });

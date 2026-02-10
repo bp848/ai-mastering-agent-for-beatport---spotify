@@ -18,27 +18,17 @@ function applyAnalysisSafetyGuard(
     eq_adjustments: [...(params.eq_adjustments ?? [])],
   };
 
-  const alreadyHot = data.truePeak > -0.3;
-  const lowHeadroom = data.crestFactor < 9.5;
-  const distortedInput = data.distortionPercent >= 0.8;
-  const brittleTop = data.noiseFloorDb > -45;
+  const peakRisk = Math.max(0, data.truePeak + 0.2) / 0.8; // -0.2dBTP以上で上昇
+  const crestRisk = Math.max(0, (9.0 - data.crestFactor) / 3.0);
+  const distRisk = Math.max(0, (data.distortionPercent - 0.6) / 1.2);
+  const risk = Math.min(1, Math.max(peakRisk, crestRisk, distRisk));
 
-  if (alreadyHot || lowHeadroom || distortedInput) {
-    guarded.gain_adjustment_db = Math.min(guarded.gain_adjustment_db, 3.5);
-    guarded.limiter_ceiling_db = Math.min(guarded.limiter_ceiling_db, -0.6);
-    guarded.tube_drive_amount = Math.min(guarded.tube_drive_amount, 0.8);
-    guarded.exciter_amount = Math.min(guarded.exciter_amount, 0.04);
-    guarded.low_contour_amount = Math.min(guarded.low_contour_amount, 0.7);
-  }
-
-  if (brittleTop) {
-    guarded.exciter_amount = Math.min(guarded.exciter_amount, 0.03);
-    guarded.eq_adjustments.push({
-      type: 'highshelf',
-      frequency: 9500,
-      gain_db: -1.5,
-      q: 0.7,
-    });
+  if (risk > 0) {
+    guarded.gain_adjustment_db = Math.min(guarded.gain_adjustment_db, 8 - 4 * risk);
+    guarded.limiter_ceiling_db = Math.min(guarded.limiter_ceiling_db, -0.15 - 0.35 * risk);
+    guarded.tube_drive_amount = Math.min(guarded.tube_drive_amount, 2.2 - 1.2 * risk);
+    guarded.exciter_amount = Math.min(guarded.exciter_amount, 0.12 - 0.07 * risk);
+    guarded.low_contour_amount = Math.min(guarded.low_contour_amount, 1.0 - 0.3 * risk);
   }
 
   return guarded;
