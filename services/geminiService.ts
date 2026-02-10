@@ -1,6 +1,33 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
+import type { AudioAnalysisData, MasteringTarget, MasteringParams, EQAdjustment } from '../types';
+
+/** AI 出力を安全範囲にクランプし、精度・割れの原因を除去する */
+function clampMasteringParams(raw: MasteringParams): MasteringParams {
+  const safe: MasteringParams = {
+    gain_adjustment_db: Math.max(-3, Math.min(15, Number(raw.gain_adjustment_db) || 0)),
+    limiter_ceiling_db: Math.max(-6, Math.min(0, Number(raw.limiter_ceiling_db) ?? -0.1)),
+    eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
+    tube_drive_amount: Math.max(0, Math.min(3, Number(raw.tube_drive_amount) ?? 0)),
+    exciter_amount: Math.max(0, Math.min(0.15, Number(raw.exciter_amount) ?? 0)),
+    low_contour_amount: Math.max(0, Math.min(1, Number(raw.low_contour_amount) ?? 0)),
+    width_amount: Math.max(1.0, Math.min(1.4, Number(raw.width_amount) ?? 1)),
+  };
+  if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
+  return safe;
+}
+
+const VALID_EQ_TYPES: EQAdjustment['type'][] = ['peak', 'lowshelf', 'highshelf', 'lowpass', 'highpass'];
+
+function sanitizeEq(eq: Partial<EQAdjustment>): EQAdjustment {
+  const type = VALID_EQ_TYPES.includes(eq.type as EQAdjustment['type']) ? eq.type : 'peak';
+  return {
+    type: type as EQAdjustment['type'],
+    frequency: Math.max(20, Math.min(18000, Number(eq.frequency) || 1000)),
+    gain_db: Math.max(-6, Math.min(6, Number(eq.gain_db) ?? 0)),
+    q: Math.max(0.3, Math.min(8, Number(eq.q) ?? 1)),
+  };
+}
 
 const getPlatformSpecifics = (target: MasteringTarget) => {
   if (target === 'spotify') {
@@ -40,10 +67,10 @@ const getMasteringParamsSchema = () => {
           },
         },
         // ★ Signature Engine Parameters
-        tube_drive_amount:   { type: Type.NUMBER, description: 'Tube saturation drive (0.0–5.0). 0 = bypass. ~1.0–2.0 for subtle analog warmth; >3.0 for heavy coloring.' },
-        exciter_amount:      { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.20). Adds "sparkle" harmonics above 6 kHz.' },
+        tube_drive_amount:   { type: Type.NUMBER, description: 'Tube saturation drive (0.0–3.0). 0 = bypass if crest factor < 9. 1.0–2.0 for warmth. Avoid >2.5.' },
+        exciter_amount:      { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.15). Adds shimmer; keep low if highs already present.' },
         low_contour_amount:  { type: Type.NUMBER, description: 'Pultec sub-bass contour (0.0–1.0). 0 = bypass. ~0.5–0.8 tightens kick without mud.' },
-        width_amount:        { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.5). 1.0 = unchanged.' },
+        width_amount:        { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.4). Do not exceed 1.25 unless mix is very narrow.' },
       },
       required: [
         'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
@@ -70,55 +97,69 @@ const generatePrompt = (data: AudioAnalysisData, specifics: ReturnType<typeof ge
 
     return `
 # ROLE
-You are a mastering engineer whose only goal is **Beatport top chart competitiveness**. You give no deference to the mix—you suggest exactly what the track needs to compete. No softening, no "being nice"; only parameters that meet the standard.
+You are a world-class mastering engineer specializing in **${specifics.platformName}**. Your goal is not just loudness, but **CLARITY, PUNCH, and TRANSIENT PRESERVATION**.
+Avoid "digital harshness" and "muddy low-end" at all costs. You fix mix imbalances surgically before maximizing volume.
 
 # OBJECTIVE
-Output DSP parameters so this track meets **${specifics.platformName}**. The analysis below is objective (LUFS, true peak, crest factor, spectrum). Use it strictly.
+Output DSP parameters to meet **${specifics.platformName}** standards while retaining audio fidelity.
+Use the spectral analysis to achieve a "Commercial Tonal Balance."
 
 # TARGET (NON-NEGOTIABLE)
 - INTEGRATED LUFS: ${specifics.targetLufs} dB
 - TRUE PEAK: ${specifics.targetPeak} dBTP
 - CONTEXT: ${specifics.genreContext}
 
-# CURRENT ANALYSIS (USE AS-IS; DO NOT INTERPRET KINDLY)
-- Integrated LUFS: ${data.lufs.toFixed(2)}  → gap to target: ${(specifics.targetLufs - data.lufs).toFixed(1)} dB
+# CURRENT ANALYSIS
+- Integrated LUFS: ${data.lufs.toFixed(2)}
 - True Peak: ${data.truePeak.toFixed(2)} dBTP
-- Crest Factor: ${data.crestFactor.toFixed(2)}
+- Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10 indicate a compressed mix; Values > 14 indicate a dynamic mix)
 
-# FULL SPECTRUM ANALYSIS (ALL BANDS - DO NOT FOCUS ON BASS ALONE)
-- Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB (target: ~${targetProfile.subBass} dB)
-- Bass (60-250 Hz): ${bass.toFixed(1)} dB (target: ~${targetProfile.bass} dB)
-- Low-mid (250-1k Hz): ${lowMid.toFixed(1)} dB (target: ~${targetProfile.lowMid} dB) ← CLARITY ZONE
-- Mid (1k-4k Hz): ${mid.toFixed(1)} dB (target: ~${targetProfile.mid} dB) ← PRESENCE ZONE
-- High-mid (4k-8k Hz): ${highMid.toFixed(1)} dB (target: ~${targetProfile.highMid} dB) ← DEFINITION ZONE
-- High (8k-20k Hz): ${high.toFixed(1)} dB (target: ~${targetProfile.high} dB) ← AIR ZONE
+# FULL SPECTRUM ANALYSIS (Relative Balance)
+- Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB (target: ~${targetProfile.subBass})
+- Bass (60-250 Hz): ${bass.toFixed(1)} dB (target: ~${targetProfile.bass})
+- Low-mid (250-1k Hz): ${lowMid.toFixed(1)} dB (target: ~${targetProfile.lowMid}) ← MUD/BOXY ZONE
+- Mid (1k-4k Hz): ${mid.toFixed(1)} dB (target: ~${targetProfile.mid}) ← PRESENCE
+- High-mid (4k-8k Hz): ${highMid.toFixed(1)} dB (target: ~${targetProfile.highMid}) ← HARSHNESS ZONE
+- High (8k-20k Hz): ${high.toFixed(1)} dB (target: ~${targetProfile.high}) ← AIR
 
-# RULES (NO DEFERENCE - BALANCED APPROACH)
-1. GAIN: The track must reach ${specifics.targetLufs} LUFS. Add the gain required. Do not under-suggest to "be safe"; the limiter will catch peaks. If the mix is quiet, suggest the full gain needed.
-   **IMPORTANT**: The system will automatically verify the resulting LUFS via a simulation loop and adjust the gain if needed. You provide the best initial estimate.
+# RULES (QUALITY OVER VOLUME)
 
-2. LIMITER: Ceiling exactly ${specifics.targetPeak} dBTP.
+1. GAIN & DYNAMICS (CRITICAL):
+   - Calculate the gain needed to reach ${specifics.targetLufs} LUFS.
+   - **WARNING**: If the Crest Factor is low (< 10), the track is already dense. Do NOT over-compress. Rely more on the limiter ceiling than input gain to avoid distortion.
+   - If the mix is dynamic (Crest Factor > 14), you can push the gain harder.
 
-3. EQ (CRITICAL - BALANCED SPECTRUM, NOT JUST BASS BOOST):
-   - **DO NOT** simply boost bass. A professional master requires balanced frequency response across ALL bands.
-   - Analyze each band's relationship to the target profile above.
-   - If sub-bass is weak relative to bass, use a narrow peak filter (not a shelf) to add weight without muddying.
-   - If low-mid (250-1k) is recessed, this kills clarity—add presence here with a gentle boost (1-2 dB, Q 0.7-1.0).
-   - If mid (1k-4k) is weak, vocals/instruments lose definition—add 1-2 dB here with Q 0.8-1.2.
-   - If high-mid (4k-8k) is dull, transients lose punch—add air here with a shelf or peak (1-2 dB max).
-   - If high (8k-20k) is missing, the track sounds closed—add a high-shelf starting at 8-10k (1-2 dB max).
-   - **If bass is already strong but other bands are weak, prioritize fixing the weak bands first.**
-   - Keep gains conservative (±2 dB max per band, Q 0.5–1.5) but address clear imbalances.
-   - Use multiple small adjustments across bands rather than one large bass boost.
+2. LIMITER:
+   - Ceiling exactly ${specifics.targetPeak} dBTP.
 
-4. SIGNATURE SOUND (CHARACTER DSP - your artistic judgment):
-   - **tube_drive_amount** (0.0–5.0): Analog warmth via tube saturation. For clean mixes: 1.0–1.5. For aggressive Peak-Time Techno: 2.0–3.0. Set 0 only if the mix is already saturated/clipping.
-   - **exciter_amount** (0.0–0.20): High-freq harmonics above 6 kHz. If the high band analysis shows dullness, push toward 0.10–0.15. If highs are already present, keep ~0.04–0.06.
-   - **low_contour_amount** (0.0–1.0): Sub-bass tightening (Pultec trick). If crest factor is low or the kick lacks weight, increase toward 0.7–1.0. If bass is muddy, lower to 0.3–0.5.
-   - **width_amount** (1.0–1.5): Side signal multiplier. If stereo width < 40%: increase toward 1.3–1.5. If width > 70%: keep at 1.0–1.1 to avoid phase issues. Bass mono is fixed at 150 Hz internally.
+3. EQ STRATEGY (SUBTRACTIVE FIRST, THEN ADDITIVE):
+   - **STEP 1: CLEAN UP (MUD REMOVAL)**
+     - Check Low-mid (250-500Hz). If this is higher than target, CUT it (-1 to -2dB, Q 1.0) to clear up space for the Kick and Bass. This is the #1 cause of "bad sound."
+   - **STEP 2: CONTROL HARSHNESS**
+     - Check High-mid (3k-6k). If loud, use a gentle cut rather than boosting highs.
+   - **STEP 3: ENHANCE (GENTLE BOOSTS)**
+     - Only boost Sub-bass if strictly necessary. If Bass (60-250) is loud but Sub-bass is low, use a specific Shelf or Bell boost below 60Hz.
+     - Add "Air" (High Shelf > 10kHz) only if the track lacks sheen. Max +2dB.
+   - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
+
+4. SIGNATURE SOUND (DSP COLORATION):
+   - **tube_drive_amount** (0.0–3.0):
+     - Adds harmonics/density.
+     - **Logic**: If Crest Factor is < 9 (squashed mix), set to 0.0 or 0.5 to prevent distortion.
+     - If mix is clean/dynamic, set 1.0–2.0 for warmth.
+     - Avoid values > 2.5 unless specifically requested for "Hard Techno Distortion."
+   - **exciter_amount** (0.0–0.15):
+     - Adds high-end shimmer.
+     - If High band is already near target, keep low (0.02). Too much creates "digital fizz."
+   - **low_contour_amount** (0.0–1.0):
+     - Tightens low-end. High values (0.7+) make the kick punchy but lean.
+     - If Sub-bass is weak, set higher (0.6-0.8) to focus energy. If Sub-bass is already booming, set lower (0.2).
+   - **width_amount** (1.0–1.4):
+     - **CAUTION**: Do not exceed 1.25 unless the mix is extremely narrow. Wide bass causes phasing. Keep it subtle.
 
 # OUTPUT
-Valid JSON only (schema provided). No commentary—only parameters. Return an array of EQ adjustments that address the FULL spectrum balance, not just bass.
+Valid JSON only. No commentary.
+Return an array of EQ adjustments prioritizing **cutting mud** over **boosting bass**.
 `;
 };
 
@@ -142,7 +183,8 @@ export const getMasteringSuggestions = async (data: AudioAnalysisData, target: M
 
     const jsonText = response.text?.trim();
     if (!jsonText) throw new Error("error.gemini.invalid_params");
-    return JSON.parse(jsonText) as MasteringParams;
+    const parsed = JSON.parse(jsonText) as MasteringParams;
+    return clampMasteringParams(parsed);
   } catch (error) {
     console.error("Gemini calculation failed:", error);
     throw new Error("error.gemini.fail");

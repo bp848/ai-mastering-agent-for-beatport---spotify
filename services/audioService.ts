@@ -612,18 +612,27 @@ export const optimizeMasteringParams = async (
   source.start(0);
   const renderedBuffer = await offlineCtx.startRendering();
 
-  // --- RMS から LUFS を簡易推定 ---
-  let sumSquare = 0;
+  // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
   const data = renderedBuffer.getChannelData(0);
-  for (let i = 0; i < data.length; i++) sumSquare += data[i] * data[i];
-  const rms = Math.sqrt(sumSquare / data.length);
-  const measuredLUFS = 20 * Math.log10(rms) + 0.5; // 簡易補正
+  const sr = renderedBuffer.sampleRate;
+  const blockSamples = Math.max(1, Math.floor(0.4 * sr));
+  const blocks: number[] = [];
+  for (let i = 0; i + blockSamples <= data.length; i += blockSamples) {
+    let sumSq = 0;
+    for (let j = 0; j < blockSamples; j++) sumSq += data[i + j] * data[i + j];
+    const meanSq = sumSq / blockSamples;
+    if (meanSq > 1e-20) blocks.push(-0.691 + 10 * Math.log10(meanSq));
+  }
+  const measuredLUFS =
+    blocks.length === 0
+      ? -60
+      : 10 * Math.log10(blocks.reduce((acc, Lk) => acc + Math.pow(10, Lk / 10), 0) / blocks.length);
 
   // --- 補正実行: 0.1 dB 単位で検知・修正。ダイナミクスを崩さず最適バランスに着地 ---
   const diff = TARGET_LUFS - measuredLUFS;
   if (Math.abs(diff) > 0.5) {
     let newGain = optimizedParams.gain_adjustment_db + diff;
-    newGain = Math.max(-6, Math.min(12, newGain));
+    newGain = Math.max(-3, Math.min(15, newGain));
     optimizedParams.gain_adjustment_db = Math.round(newGain * 10) / 10; // 0.1 dB 単位
     console.log(
       `[Self-Correction] Gain ${aiParams.gain_adjustment_db} → ${optimizedParams.gain_adjustment_db} dB (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,

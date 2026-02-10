@@ -142,7 +142,7 @@ const Card: React.FC<{ plan: PlanCard; isJa: boolean }> = ({ plan, isJa }) => (
 );
 
 export default function PricingView() {
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const isJa = language === 'ja';
   const [tab, setTab] = useState<Tab>('shot');
 
@@ -154,12 +154,20 @@ export default function PricingView() {
 
   return (
     <div className="animate-fade-up space-y-8">
-      {/* ── Header ── */}
-      <div className="text-center space-y-2">
+      {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
+          <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
+            {isJa ? '無料' : 'Free'}
+          </span>
+        </div>
         <h2 className="text-xl sm:text-2xl font-extrabold text-white">
-          {isJa ? '料金プラン' : 'Pricing Plans'}
+          {t('pricing.title')}
         </h2>
-        <p className="text-sm text-zinc-400 max-w-lg mx-auto">
+        <p className="text-sm sm:text-base text-cyan-200/90 font-medium max-w-lg mx-auto">
+          {t('pricing.free_preview_cta')}
+        </p>
+        <p className="text-xs text-zinc-500 max-w-lg mx-auto">
           {isJa
             ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
             : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
