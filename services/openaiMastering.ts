@@ -1,6 +1,6 @@
 import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
 import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
-import { clampMasteringParams } from './geminiService';
+import { applySafetyGuard, clampMasteringParams } from './geminiService';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -47,5 +47,6 @@ export async function getMasteringSuggestionsOpenAI(
   if (!text) throw new Error("error.openai.invalid_params");
 
   const parsed = JSON.parse(text) as MasteringParams;
-  return { params: clampMasteringParams(parsed), rawResponseText: text };
+  const clamped = clampMasteringParams(parsed);
+  return { params: applySafetyGuard(clamped, data), rawResponseText: text };
 }
