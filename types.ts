@@ -44,6 +44,12 @@ export interface MasteringParams {
 
   // --- Target Logic (アルゴリズムが強制する目標値) ---
   target_lufs?: number;           // 目標音圧 (例: -8.0 LUFS)
+
+  // --- Self-Correction (フィードバックループ用。未指定時はフォールバック) ---
+  self_correction_lufs_tolerance_db?: number;
+  self_correction_max_gain_step_db?: number;
+  self_correction_max_boost_db?: number;
+  self_correction_max_peak_cut_db?: number;
 }
 
 // --- 楽曲管理プラットフォーム ---

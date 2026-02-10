@@ -251,59 +251,67 @@ export const analyzeAudioFile = async (file: File): Promise<{ analysisData: Audi
 
 
 // ==========================================
-// 1. DSP Helpers (Analog Emulation)
+// 1. DSP Helpers (Anti-aliasing / Analog-like)
 // ==========================================
 
 /**
- * 真空管サチュレーション — コンセプト体現
- * 偶数倍音: 正側をやや早く飽和させる非対称カーブで偶数次倍音を付加。
- * テープ感: ヒステリシスを静的近似した「粘り」＝ソフトな丸みで物質感を付与。
+ * Tube Saturation — tanh ベースでエイリアシングを抑え、偶数倍音用の非対称バイアス。
+ * ナイーブな線形カーブは高域で非調和歪みの原因になるため、滑らかな伝達関数に変更。
  */
+/** WaveShaperNode.curve 用。lib.dom の Float32Array<ArrayBuffer> と ArrayBufferLike の型不一致を回避 */
+const asCurve = (arr: Float32Array): NonNullable<WaveShaperNode['curve']> => arr as unknown as NonNullable<WaveShaperNode['curve']>;
+
 const makeTubeCurve = (amount: number): Float32Array => {
   const n = 65536;
   const curve = new Float32Array(n);
-  const scale = 2 / (n - 1);
-  const kMin = 0.05;
-  for (let i = 0; i < n; i++) {
-    const x = i * scale - 1;
-    const abs = Math.abs(x);
-    const sign = x >= 0 ? 1 : -1;
-    const k = Math.max(kMin, amount * (x >= 0 ? 0.92 : 1.08));
-    const denom = 1 - Math.exp(-k);
-    const saturated = denom >= 1e-6 ? sign * (1 - Math.exp(-abs * k)) / denom : x;
-    const tape = saturated * (1 - 0.08 * (saturated * saturated));
-    curve[i] = Math.max(-1, Math.min(1, tape));
-  }
-  return curve;
-};
-
-/** エキサイター（高次倍音生成） */
-const makeExciterCurve = (_amount: number): Float32Array => {
-  const n = 44100;
-  const curve = new Float32Array(n);
+  const drive = Math.max(0, amount * 2);
+  const bias = 0.1;
   for (let i = 0; i < n; i++) {
     const x = (i * 2) / n - 1;
-    curve[i] = (Math.abs(x) < 0.5)
-      ? x
-      : (x > 0 ? 0.5 + (x - 0.5) * 0.2 : -0.5 + (x + 0.5) * 0.2);
+    if (drive <= 0) {
+      curve[i] = x;
+    } else {
+      const k = 1 + drive;
+      curve[i] = Math.tanh(k * (x + bias * x)) / Math.tanh(k);
+    }
   }
   return curve;
 };
 
 /**
- * トランジェント・シェイパー & クリッパー — コンセプト体現
- * 人間の耳に聞こえないピークだけを瞬時に削り、アタック感を保護。
- * 閾値直上はごく緩やかな傾き（0.04）で、リミッターに頼らず音像を維持。
+ * Exciter — フォールディング歪みはエイリアシングが酷いため、
+ * ソフトな整流系カーブで高次倍音を付加しつつクランプ。
  */
-const makeClipperCurve = (threshold: number = 0.99): Float32Array => {
+const makeExciterCurve = (drive: number): Float32Array => {
   const n = 65536;
   const curve = new Float32Array(n);
-  const slope = 0.04; // 聞こえないピークのみ削る＝トランジェント保護
+  const d = Math.max(0, Math.min(1, drive * 0.25));
   for (let i = 0; i < n; i++) {
-    let x = (i * 2) / n - 1;
-    if (x > threshold) x = threshold + (x - threshold) * slope;
-    else if (x < -threshold) x = -threshold + (x + threshold) * slope;
-    curve[i] = x;
+    const x = (i * 2) / n - 1;
+    let y = x + d * (Math.abs(x) * x - x);
+    curve[i] = Math.max(-1, Math.min(1, y));
+  }
+  return curve;
+};
+
+/**
+ * Soft Clipper — リニアスロープ（ハードに近い）はトランジェントを潰しやすい。
+ * 閾値手前から tanh でスムーズに圧縮し、自然な粘りと True Peak 抑制。
+ */
+const makeClipperCurve = (kneeThreshold: number = 0.85): Float32Array => {
+  const n = 65536;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    const absX = Math.abs(x);
+    if (absX < kneeThreshold) {
+      curve[i] = x;
+    } else {
+      const diff = absX - kneeThreshold;
+      const headroom = 1 - kneeThreshold;
+      const compressed = kneeThreshold + headroom * Math.tanh(diff / headroom);
+      curve[i] = x > 0 ? compressed : -compressed;
+    }
   }
   return curve;
 };
@@ -318,6 +326,8 @@ const makeBrickwallCurve = (): Float32Array => {
   }
   return curve;
 };
+
+const dbToLinear = (db: number): number => Math.pow(10, db / 20);
 
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
@@ -368,12 +378,12 @@ export const buildMasteringChain = (
     rightInv.connect(sideRaw);
 
     const midShaper = ctx.createWaveShaper();
-    midShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount * 0.5, 2));
+    midShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount * 0.5, 2)));
     midShaper.oversample = '4x';
     midRaw.connect(midShaper);
 
     const sideShaper = ctx.createWaveShaper();
-    sideShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount, 4));
+    sideShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount, 4)));
     sideShaper.oversample = '4x';
     sideRaw.connect(sideShaper);
 
@@ -392,7 +402,7 @@ export const buildMasteringChain = (
     lastNode = msNorm;
   } else if (params.tube_drive_amount > 0) {
     const tubeShaper = ctx.createWaveShaper();
-    tubeShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount, 4));
+    tubeShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount, 4)));
     tubeShaper.oversample = '4x';
     lastNode.connect(tubeShaper);
     lastNode = tubeShaper;
@@ -438,8 +448,8 @@ export const buildMasteringChain = (
     hp.Q.value = 0.5;
 
     const shaper = ctx.createWaveShaper();
-    shaper.curve = makeExciterCurve(4.0);
-    shaper.oversample = '2x';
+    shaper.curve = asCurve(makeExciterCurve(4.0));
+    shaper.oversample = '4x';
 
     const gain = ctx.createGain();
     gain.gain.value = params.exciter_amount; // 0.0–0.2
@@ -503,33 +513,33 @@ export const buildMasteringChain = (
     }
   }
 
-  // [5] Neuro-Drive Module — コンセプト体現: 極限圧縮＋低域干渉排除＋12kHz Air、開放感とエネルギー密度
+  // [5] Neuro-Drive — 原音を尊重。圧縮・Air は控えめにブレンド（潰さない）
   const neuroDryPath = ctx.createGain();
   neuroDryPath.gain.value = 1.0;
   lastNode.connect(neuroDryPath);
 
   const hyperComp = ctx.createDynamicsCompressor();
-  hyperComp.threshold.value = -30;
-  hyperComp.ratio.value = 12;
-  hyperComp.attack.value = 0.005;
-  hyperComp.release.value = 0.25;
+  hyperComp.threshold.value = -26;
   hyperComp.knee.value = 10;
+  hyperComp.ratio.value = 3;
+  hyperComp.attack.value = 0.02;
+  hyperComp.release.value = 0.25;
   lastNode.connect(hyperComp);
 
   const energyFilter = ctx.createBiquadFilter();
   energyFilter.type = 'highpass';
-  energyFilter.frequency.value = 250; // 低域の干渉を排除（キック/ベース位相を混ぜない）
-  energyFilter.Q.value = 0.7;
+  energyFilter.frequency.value = 300;
+  energyFilter.Q.value = 0.5;
   hyperComp.connect(energyFilter);
 
   const airShelf = ctx.createBiquadFilter();
   airShelf.type = 'highshelf';
-  airShelf.frequency.value = 12000;
-  airShelf.gain.value = 3.0; // 12kHz+ Air（過剰ブーストで割れないよう控えめ）
+  airShelf.frequency.value = 10000;
+  airShelf.gain.value = 1.0;
   energyFilter.connect(airShelf);
 
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.16; // 原音とのバランス（割れ・歪みを抑える）
+  neuroWetGain.gain.value = 0.14;
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
@@ -540,28 +550,31 @@ export const buildMasteringChain = (
   // Make-up Gain — 自己補正ループが決めた gain_adjustment_db のみ。固定の +3dB 等は加えない。
   const targetGainDb = params.gain_adjustment_db ?? 0;
   const makeupGain = ctx.createGain();
-  makeupGain.gain.value = Math.pow(10, targetGainDb / 20);
+  makeupGain.gain.value = dbToLinear(targetGainDb);
   lastNode.connect(makeupGain);
   lastNode = makeupGain;
 
-  // [4] Transient Shaper & Clipper — コンセプト体現: 聞こえないピークのみ削り、トランジェントを鋭く保護
+  // [4] Soft Clipper → Limiter（ここでコード側の固定ゲインは入れない。AI のゲインをそのまま使う） — 閾値手前から tanh で丸め、リミッターは Attack 極短でトランジェント潰しを最小化。
+  const limiterCeilingDb = params.limiter_ceiling_db ?? -0.8;
+  const clipperThreshold = Math.max(0.92, Math.min(0.99, dbToLinear(limiterCeilingDb - 0.3)));
   const clipper = ctx.createWaveShaper();
-  clipper.curve = makeClipperCurve(0.99);
+  clipper.curve = asCurve(makeClipperCurve(clipperThreshold));
+  clipper.oversample = '4x';
   lastNode.connect(clipper);
   lastNode = clipper;
 
   const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
+  limiter.threshold.value = limiterCeilingDb;
   limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.005;
-  limiter.release.value = 0.12;
+  limiter.ratio.value = 8;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.15;
   lastNode.connect(limiter);
   lastNode = limiter;
 
   // 最終保証: どの曲でも絶対に割れない（DynamicsCompressor のオーバーシュート・浮動小数点誤差対策）
   const brickwall = ctx.createWaveShaper();
-  brickwall.curve = makeBrickwallCurve();
+  brickwall.curve = asCurve(makeBrickwallCurve());
   brickwall.oversample = '4x';
   lastNode.connect(brickwall);
   brickwall.connect(outputNode);
@@ -592,6 +605,7 @@ export const optimizeMasteringParams = async (
 ): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
   const TARGET_LUFS = aiParams.target_lufs ?? -9.0;
+  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -0.8, -0.3);
 
   // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
   const chunkDuration = 10;
@@ -662,19 +676,34 @@ export const optimizeMasteringParams = async (
   }
   const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
 
-  // --- 補正実行: 0.1 dB 単位で検知・修正。静かい 10 秒に合わせて上げすぎて割れないよう上乗せは最大 +3 dB ---
-  const MAX_SELF_CORRECTION_BOOST_DB = 3;
+  // --- 補正: 数字は AI が渡す params を優先。未指定時のみフォールバック（目標 LUFS に届くようにする） ---
+  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.5;
+  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 6;
+  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 3;
+  const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 3;
   const GAIN_CAP_DB = 12;
+  const GAIN_RESOLUTION = 20;
+
   const diff = TARGET_LUFS - measuredLUFS;
-  if (Math.abs(diff) > 0.5) {
-    let newGain = optimizedParams.gain_adjustment_db + diff;
+  let newGain = optimizedParams.gain_adjustment_db;
+
+  if (Math.abs(diff) > LUFS_THRESHOLD) {
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), MAX_GAIN_STEP_DB);
+    newGain += step;
     if (diff > 0) {
       newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);
     }
-    newGain = Math.max(-3, Math.min(GAIN_CAP_DB, newGain));
-    optimizedParams.gain_adjustment_db = Math.round(newGain * 10) / 10; // 0.1 dB 単位
+  }
+  if (measuredPeakDb > TARGET_TRUE_PEAK_DB - 0.05) {
+    const peakOverflowDb = measuredPeakDb - TARGET_TRUE_PEAK_DB;
+    const cut = Math.min(peakOverflowDb + 0.1, MAX_PEAK_CUT_STEP_DB);
+    newGain -= cut;
+  }
+  newGain = Math.max(-3, Math.min(GAIN_CAP_DB, newGain));
+  optimizedParams.gain_adjustment_db = Math.round(newGain * GAIN_RESOLUTION) / GAIN_RESOLUTION;
+  if (optimizedParams.gain_adjustment_db !== aiParams.gain_adjustment_db) {
     console.log(
-      `[Self-Correction] Gain ${aiParams.gain_adjustment_db} → ${optimizedParams.gain_adjustment_db} dB (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,
+      `[Self-Correction] Gain ${aiParams.gain_adjustment_db} → ${optimizedParams.gain_adjustment_db} dB (Target LUFS: ${TARGET_LUFS}, Measured LUFS: ${measuredLUFS.toFixed(2)}, Measured Peak: ${measuredPeakDb.toFixed(2)} dBFS)`,
     );
   }
 

@@ -52,6 +52,27 @@ body {
   background-attachment: fixed;
 }
 
+/* ── Clickable: ホバーで色変化・ポインター ── */
+button:not(:disabled),
+a[href],
+[role="button"],
+[role="option"],
+[role="tab"],
+[tabindex="0"],
+label[for],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, filter 0.15s;
+}
+button:not(:disabled):hover,
+a[href]:hover,
+[role="button"]:hover,
+[role="option"]:hover,
+[role="tab"]:hover {
+  filter: brightness(1.15);
+}
+
 /* ── Typography ── */
 h1, h2, h3, h4, h5, h6, button, [class*="font-bold"], [class*="font-extrabold"], [class*="font-black"] {
   font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
