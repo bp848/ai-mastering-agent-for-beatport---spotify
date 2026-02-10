@@ -551,7 +551,7 @@ export const buildMasteringChain = (
   lastNode = clipper;
 
   const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = params.limiter_ceiling_db ?? -0.2;
+  limiter.threshold.value = params.limiter_ceiling_db ?? -0.3;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
   limiter.attack.value = 0.005;
@@ -585,6 +585,19 @@ export interface OptimizeResult {
   measuredLufs: number;
   measuredPeakDb: number;
 }
+
+const computePeakSafeGain = (
+  currentGainDb: number,
+  measuredPeakDb: number,
+  limiterCeilingDb: number,
+): number => {
+  const targetPeakDb = Math.min(limiterCeilingDb, -0.3);
+  const overshootDb = measuredPeakDb - targetPeakDb;
+  if (overshootDb <= 0.05) return currentGainDb;
+  const safetyMarginDb = 0.25;
+  const corrected = currentGainDb - (overshootDb + safetyMarginDb);
+  return Math.round(corrected * 10) / 10;
+};
 
 export const optimizeMasteringParams = async (
   originalBuffer: AudioBuffer,
@@ -678,6 +691,15 @@ export const optimizeMasteringParams = async (
     );
   }
 
+  const peakSafeGainDb = computePeakSafeGain(
+    optimizedParams.gain_adjustment_db,
+    measuredPeakDb,
+    optimizedParams.limiter_ceiling_db ?? -0.3,
+  );
+  if (peakSafeGainDb < optimizedParams.gain_adjustment_db) {
+    optimizedParams.gain_adjustment_db = Math.max(-3, peakSafeGainDb);
+  }
+
   return {
     params: optimizedParams,
     measuredLufs: measuredLUFS,
@@ -713,4 +735,9 @@ export const applyMasteringAndExport = async (
   source.start(0);
   const renderedBuffer = await offlineCtx.startRendering();
   return bufferToWave(renderedBuffer);
+};
+
+
+export const __internal = {
+  computePeakSafeGain,
 };

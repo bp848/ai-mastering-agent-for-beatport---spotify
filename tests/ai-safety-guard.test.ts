@@ -4,7 +4,7 @@ import { __internal } from '../services/aiService';
 
 const baseParams: MasteringParams = {
   gain_adjustment_db: 8,
-  limiter_ceiling_db: -0.15,
+  limiter_ceiling_db: -0.3,
   eq_adjustments: [],
   tube_drive_amount: 2.8,
   exciter_amount: 0.15,
@@ -37,8 +37,8 @@ describe('applyAnalysisSafetyGuard', () => {
 
     expect(guarded.gain_adjustment_db).toBeLessThanOrEqual(4);
     expect(guarded.limiter_ceiling_db).toBeLessThanOrEqual(-0.5);
-    expect(guarded.tube_drive_amount).toBeLessThanOrEqual(1.2);
-    expect(guarded.exciter_amount).toBeLessThanOrEqual(0.06);
+    expect(guarded.tube_drive_amount).toBeLessThanOrEqual(1.0);
+    expect(guarded.exciter_amount).toBeLessThanOrEqual(0.05);
   });
 
   it('preserves punch for healthy source material', () => {
@@ -48,7 +48,7 @@ describe('applyAnalysisSafetyGuard', () => {
     );
 
     expect(guarded.gain_adjustment_db).toBe(8);
-    expect(guarded.limiter_ceiling_db).toBe(-0.15);
+    expect(guarded.limiter_ceiling_db).toBe(-0.3);
     expect(guarded.tube_drive_amount).toBe(2.8);
     expect(guarded.exciter_amount).toBe(0.15);
   });

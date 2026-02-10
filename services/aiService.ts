@@ -25,9 +25,9 @@ function applyAnalysisSafetyGuard(
 
   if (risk > 0) {
     guarded.gain_adjustment_db = Math.min(guarded.gain_adjustment_db, 8 - 4 * risk);
-    guarded.limiter_ceiling_db = Math.min(guarded.limiter_ceiling_db, -0.15 - 0.35 * risk);
-    guarded.tube_drive_amount = Math.min(guarded.tube_drive_amount, 2.2 - 1.2 * risk);
-    guarded.exciter_amount = Math.min(guarded.exciter_amount, 0.12 - 0.07 * risk);
+    guarded.limiter_ceiling_db = Math.min(guarded.limiter_ceiling_db, -0.3 - 0.3 * risk);
+    guarded.tube_drive_amount = Math.min(guarded.tube_drive_amount, 1.8 - 1.0 * risk);
+    guarded.exciter_amount = Math.min(guarded.exciter_amount, 0.09 - 0.05 * risk);
     guarded.low_contour_amount = Math.min(guarded.low_contour_amount, 1.0 - 0.3 * risk);
   }
 

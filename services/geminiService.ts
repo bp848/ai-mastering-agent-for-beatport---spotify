@@ -7,7 +7,7 @@ import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompt
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
     gain_adjustment_db: Math.max(-3, Math.min(8, Number(raw.gain_adjustment_db) || 0)),
-    limiter_ceiling_db: Math.max(-6, Math.min(-0.15, Number(raw.limiter_ceiling_db) ?? -0.2)),
+    limiter_ceiling_db: Math.max(-6, Math.min(-0.3, Number(raw.limiter_ceiling_db) ?? -0.3)),
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
     tube_drive_amount: Math.max(0, Math.min(3, Number(raw.tube_drive_amount) ?? 0)),
     exciter_amount: Math.max(0, Math.min(0.15, Number(raw.exciter_amount) ?? 0)),
