@@ -8,8 +8,7 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
     // 音割れの主因は「過大ゲイン」なので上限を強制的に低くする
     gain_adjustment_db: Math.max(-12, Math.min(6, Number(raw.gain_adjustment_db) || 0)),
-    // フォールバックで 0dB 近辺に寄せない（AIが欠損/NaNのときは安全側へ）
-    // 0dBTP 付近はWebAudioチェーンでは歪みが出やすいので、上限を -0.3dBTP に固定
+    // フォールバックで 0dB 近辺に寄せない。共有クランプ側も上限 -0.3 dB に統一
     limiter_ceiling_db: Math.max(-6, Math.min(-0.3, Number(raw.limiter_ceiling_db) ?? -1.0)),
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
     tube_drive_amount: Math.max(0, Math.min(3, Number(raw.tube_drive_amount) ?? 0)),
@@ -19,6 +18,25 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
   return safe;
+}
+
+/** 危険素材（ピーク過多・低クレスト・高歪み）のときのみリミッター・tube・exciter を強く抑える */
+export function applySafetyGuard(
+  params: MasteringParams,
+  analysis: AudioAnalysisData,
+): MasteringParams {
+  const peakHot = analysis.truePeak > -1; // dBTP が -1 より上はピーク過多
+  const lowCrest = analysis.crestFactor < 9 && analysis.crestFactor > 0;
+  const highDistortion = analysis.distortionPercent > 2;
+  if (!peakHot && !lowCrest && !highDistortion) return params;
+
+  const out = { ...params };
+  if (peakHot || lowCrest || highDistortion) {
+    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.3);
+    out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
+    out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
+  }
+  return out;
 }
 
 const VALID_EQ_TYPES: EQAdjustment['type'][] = ['peak', 'lowshelf', 'highshelf', 'lowpass', 'highpass'];
@@ -66,15 +84,19 @@ const getMasteringParamsSchema = () => {
     };
 }
 
-export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, _language: 'ja' | 'en'): Promise<MasteringParams> => {
+export interface MasteringSuggestionsResult {
+  params: MasteringParams;
+  rawResponseText: string;
+}
+
+export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, _language: 'ja' | 'en'): Promise<MasteringSuggestionsResult> => {
     const specifics = getPlatformSpecifics(target);
     const prompt = generateMasteringPrompt(data, specifics);
     const schema = getMasteringParamsSchema();
 
   try {
-    // Fixed: Always create a new GoogleGenAI instance right before the request as per guidelines to avoid stale keys.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Fixed: Use gemini-3-pro-preview for complex reasoning tasks as per guidelines.
+    const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -87,7 +109,8 @@ export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, tar
     const jsonText = response.text?.trim();
     if (!jsonText) throw new Error("error.gemini.invalid_params");
     const parsed = JSON.parse(jsonText) as MasteringParams;
-    return clampMasteringParams(parsed);
+    const clamped = clampMasteringParams(parsed);
+    return { params: applySafetyGuard(clamped, data), rawResponseText: jsonText };
   } catch (error) {
     console.error("Gemini calculation failed:", error);
     throw new Error("error.gemini.fail");

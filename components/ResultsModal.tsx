@@ -28,6 +28,8 @@ interface ResultsModalProps {
   onRecalcWithAI?: () => Promise<void>;
   /** マスター出力の実測値（耳以外の評価用） */
   masterMetrics?: { lufs: number; peakDb: number } | null;
+  /** AI が返した生の JSON テキスト（全文・省略なし） */
+  rawMasteringResponseText?: string | null;
 }
 
 export default function ResultsModal({
@@ -51,6 +53,7 @@ export default function ResultsModal({
   onFeedbackApply,
   onRecalcWithAI,
   masterMetrics = null,
+  rawMasteringResponseText = null,
 }: ResultsModalProps) {
   const { t } = useTranslation();
   const [slide, setSlide] = React.useState(1);
@@ -101,6 +104,24 @@ export default function ResultsModal({
                 isLoading={false}
                 masteringTarget={masteringTarget}
               />
+              {/* 診断API生数値（全文・省略なし） */}
+              <section className="rounded-xl bg-black/40 border border-white/10 p-4">
+                <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">
+                  {language === 'ja' ? '診断API生数値（省略なし）' : 'Diagnosis API raw values (full)'}
+                </p>
+                <pre className="p-3 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[320px] whitespace-pre-wrap break-all">
+                  {JSON.stringify(analysisData, null, 2)}
+                </pre>
+              </section>
+              {/* AI指示出力（全文） */}
+              <section className="rounded-xl bg-black/40 border border-white/10 p-4">
+                <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">
+                  {language === 'ja' ? 'AI指示出力（全文）' : 'AI output instruction (full text)'}
+                </p>
+                <pre className="p-3 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[320px] whitespace-pre-wrap break-all">
+                  {rawMasteringResponseText ?? (language === 'ja' ? '（マスタリング実行後に表示）' : '(Shown after mastering run)')}
+                </pre>
+              </section>
               {actionLogs.length > 0 && (
                 <Console logs={actionLogs} compact={false} />
               )}

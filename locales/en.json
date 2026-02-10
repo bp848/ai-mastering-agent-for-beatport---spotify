@@ -83,6 +83,7 @@
   "error.pyodide.not_ready": "Pyodide is not ready.",
   "error.pyodide.analysis_failed": "Python-based audio analysis failed. Check the browser console for details.",
   "error.gemini.safety": "The response from the AI was flagged as unsafe. Please modify the prompt and try again.",
+  "error.gemini.no_key": "Gemini API key is not set.",
   "error.gemini.fail": "Could not get mastering suggestion from AI.",
   "error.gemini.invalid_params": "The AI did not propose valid mastering parameters.",
   "log.pyodide.start": "Starting Pyodide load...",

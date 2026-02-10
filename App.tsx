@@ -52,6 +52,7 @@ const AppContent: React.FC = () => {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [showPostLoginBanner, setShowPostLoginBanner] = useState(false);
+  const [rawMasteringResponseText, setRawMasteringResponseText] = useState<string | null>(null);
   const { t, language } = useTranslation();
   const { addTrack } = usePlatform();
   const { session, loading: authLoading, signInWithGoogle } = useAuth();
@@ -69,6 +70,30 @@ const AppContent: React.FC = () => {
       }
     } catch (_) {}
   }, [session, authLoading]);
+
+  // 購入完了時: /thankyou で始まるページ または ?checkout=success で Google 広告コンバージョン「購入 (3)」を1回だけ送信
+  useEffect(() => {
+    const pathname = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const isThankYouPage = pathname.startsWith('/thankyou');
+    const isCheckoutSuccess = params.get('checkout') === 'success';
+    if (!isThankYouPage && !isCheckoutSuccess) return;
+    try {
+      const sentKey = 'gtag_purchase_conversion_sent';
+      if (sessionStorage.getItem(sentKey) === '1') return;
+      const gtag = (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag;
+      if (typeof gtag === 'function') {
+        gtag('event', 'conversion', {
+          send_to: 'AW-952809033/5-VLCPmdq_YbEMnsqsYD',
+          value: 1.0,
+          currency: 'JPY',
+          transaction_id: '',
+        });
+        sessionStorage.setItem(sentKey, '1');
+      }
+      if (isCheckoutSuccess) window.history.replaceState({}, '', pathname + window.location.hash);
+    } catch (_) {}
+  }, []);
 
   const addLog = useCallback((message: string) => {
     const locale = language === 'ja' ? 'ja-JP' : 'en-US';
@@ -112,6 +137,7 @@ const AppContent: React.FC = () => {
     setAnalysisData(null);
     setMasteringParams(null);
     setMasterMetrics(null);
+    setRawMasteringResponseText(null);
     setError('');
     setIsAnalyzing(true);
     setActionLogs([]);
@@ -174,7 +200,8 @@ const AppContent: React.FC = () => {
       addActionLog('AI', language === 'ja' ? 'AIエージェント: Beatport top基準への最適化パラメータ算出中...' : 'AI Agent: Calculating optimization parameters...', 'getMasteringSuggestions', 'info');
       addLog(t('log.gemini.request'));
 
-      const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language);
+      const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
+      setRawMasteringResponseText(rawResponseText);
 
       if (rawParams.eq_adjustments?.length) {
         rawParams.eq_adjustments.forEach((eq, i) => {
@@ -257,7 +284,8 @@ const AppContent: React.FC = () => {
         'getMasteringSuggestions',
         'info'
       );
-      const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language);
+      const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
+      setRawMasteringResponseText(rawResponseText);
       const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
@@ -354,6 +382,7 @@ const AppContent: React.FC = () => {
     setAnalysisData(null);
     setMasteringParams(null);
     setMasterMetrics(null);
+    setRawMasteringResponseText(null);
     setError('');
     setActionLogs([]);
     setShowResultsModal(false);
@@ -472,6 +501,7 @@ const AppContent: React.FC = () => {
             onFeedbackApply={setMasteringParams}
             onRecalcWithAI={isOpenAIAvailable() ? recalcParamsWithAI : undefined}
             masterMetrics={masterMetrics}
+            rawMasteringResponseText={rawMasteringResponseText}
           />
         )}
 

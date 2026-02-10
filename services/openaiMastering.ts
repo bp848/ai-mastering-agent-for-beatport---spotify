@@ -4,11 +4,17 @@ import { clampMasteringParams } from './geminiService';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
+export interface MasteringSuggestionsResult {
+  params: MasteringParams;
+  /** AI が返した生の JSON テキスト（全文・省略なし） */
+  rawResponseText: string;
+}
+
 export async function getMasteringSuggestionsOpenAI(
   data: AudioAnalysisData,
   target: MasteringTarget,
   _language: 'ja' | 'en'
-): Promise<MasteringParams> {
+): Promise<MasteringSuggestionsResult> {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
   if (!apiKey?.trim()) throw new Error("error.openai.no_key");
 
@@ -41,5 +47,5 @@ export async function getMasteringSuggestionsOpenAI(
   if (!text) throw new Error("error.openai.invalid_params");
 
   const parsed = JSON.parse(text) as MasteringParams;
-  return clampMasteringParams(parsed);
+  return { params: clampMasteringParams(parsed), rawResponseText: text };
 }

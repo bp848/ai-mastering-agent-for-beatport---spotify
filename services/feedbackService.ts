@@ -68,8 +68,7 @@ export const applyFeedbackAdjustment = (
       bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
-      // 0dBTP 近辺へ押し上げるのを避ける
-      newParams.limiter_ceiling_db = Math.min(newParams.limiter_ceiling_db, -1.0);
+      newParams.limiter_ceiling_db = -0.3;
       break;
 
     case 'muddy':
@@ -118,15 +117,17 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'squashed':
-      // 「潰れすぎ」= 目標を少し下げて自己補正で追従（無理な固定カットはしない）
+      // 「潰れすぎ」= 目標を少し下げて自己補正で追従。ceiling は -0.3 dB 固定で危険値に寄せない
       bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
+      newParams.limiter_ceiling_db = -0.3;
       break;
 
     case 'not_loud':
-      // 「まだ音圧が足りない」= 固定で +2dB などを足さず、目標を上げて自己補正に委ねる
+      // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -0.3 dB 固定で歪みを避ける
       bumpTargetLufs(+1.0);
+      newParams.limiter_ceiling_db = -0.3;
       break;
   }
 

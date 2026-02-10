@@ -555,7 +555,7 @@ export const buildMasteringChain = (
   lastNode = makeupGain;
 
   // [4] Soft Clipper → Limiter（ここでコード側の固定ゲインは入れない。AI のゲインをそのまま使う） — 閾値手前から tanh で丸め、リミッターは Attack 極短でトランジェント潰しを最小化。
-  const limiterCeilingDb = params.limiter_ceiling_db ?? -0.8;
+  const limiterCeilingDb = params.limiter_ceiling_db ?? -0.3;
   const clipperThreshold = Math.max(0.92, Math.min(0.99, dbToLinear(limiterCeilingDb - 0.3)));
   const clipper = ctx.createWaveShaper();
   clipper.curve = asCurve(makeClipperCurve(clipperThreshold));
@@ -588,6 +588,24 @@ export const buildMasteringChain = (
 // ==========================================
 
 /**
+ * レンダリング後の実測ピークが目標を超過している場合、
+ * ゲインを引き戻して安全な値にする。
+ * 「LUFS 合わせ後にピークだけ破綻」を防ぐ第3層の補正。
+ */
+export function computePeakSafeGain(
+  measuredPeakDb: number,
+  targetPeakDb: number,
+  currentGainDb: number,
+  options: { marginDb?: number; headroomDb?: number; maxCutDb?: number } = {},
+): number {
+  const { marginDb = 0.05, headroomDb = 0.1, maxCutDb = 6 } = options;
+  if (measuredPeakDb <= targetPeakDb - marginDb) return currentGainDb;
+  const overflowDb = measuredPeakDb - targetPeakDb + headroomDb;
+  const cut = Math.min(overflowDb, maxCutDb);
+  return currentGainDb - cut;
+}
+
+/**
  * AI の提案値を物理的な計測に基づいて補正する。
  * 高速な部分レンダリング（曲の中央 10 秒）を行い、
  * ターゲット LUFS との乖離を埋める。
@@ -608,7 +626,7 @@ export const optimizeMasteringParams = async (
   const optimizedParams = { ...aiParams };
   // target_lufs が渡らない場合は「安全側」に倒す（過大ゲインで割れないため）
   const TARGET_LUFS = aiParams.target_lufs ?? -14.0;
-  // ceiling は -0.3 より上（0dB側）にはしない
+  // ceiling は -0.3 dB に統一（過激な ceiling 指示を封じる）
   const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -0.3);
 
   // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
@@ -684,7 +702,7 @@ export const optimizeMasteringParams = async (
   const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.5;
   // 1回の補正で動かしすぎると歪みやすいので控えめに
   const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 3;
-  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 2;
+  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 6;
   // クリップしている場合はより強く引けるようにする
   const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
   const GAIN_CAP_DB = 6;
@@ -701,11 +719,10 @@ export const optimizeMasteringParams = async (
       newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);
     }
   }
-  if (measuredPeakDb > TARGET_TRUE_PEAK_DB - 0.05) {
-    const peakOverflowDb = measuredPeakDb - TARGET_TRUE_PEAK_DB;
-    const cut = Math.min(peakOverflowDb + 0.1, MAX_PEAK_CUT_STEP_DB);
-    newGain -= cut;
-  }
+  // 実測ピーク超過時は computePeakSafeGain でゲインを引き戻す（音割れ防止）
+  newGain = computePeakSafeGain(measuredPeakDb, TARGET_TRUE_PEAK_DB, newGain, {
+    maxCutDb: MAX_PEAK_CUT_STEP_DB,
+  });
   newGain = Math.max(GAIN_FLOOR_DB, Math.min(GAIN_CAP_DB, newGain));
   optimizedParams.gain_adjustment_db = Math.round(newGain * GAIN_RESOLUTION) / GAIN_RESOLUTION;
   if (optimizedParams.gain_adjustment_db !== aiParams.gain_adjustment_db) {
