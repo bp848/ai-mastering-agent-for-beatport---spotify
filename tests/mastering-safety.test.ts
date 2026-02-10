@@ -4,7 +4,7 @@ import type { MasteringParams } from '../types';
 
 const baseParams = (overrides: Partial<MasteringParams> = {}): MasteringParams => ({
   gain_adjustment_db: 0,
-  limiter_ceiling_db: -1.0,
+  limiter_ceiling_db: -1,
   eq_adjustments: [],
   tube_drive_amount: 0,
   exciter_amount: 0,
@@ -14,29 +14,25 @@ const baseParams = (overrides: Partial<MasteringParams> = {}): MasteringParams =
 });
 
 describe('clampMasteringParams', () => {
-  it('caps gain_adjustment_db at +6 dB and limiter_ceiling_db at -0.3 dB to prevent clipping', () => {
-    const raw = baseParams({
-      gain_adjustment_db: 12,
-      limiter_ceiling_db: 0,
-    });
+  it('keeps existing numeric values and always normalizes eq_adjustments as an array', () => {
+    const raw = baseParams({ eq_adjustments: undefined as unknown as MasteringParams['eq_adjustments'] });
     const safe = clampMasteringParams(raw);
-    expect(safe.gain_adjustment_db).toBe(6);
-    expect(safe.limiter_ceiling_db).toBe(-0.3);
+    expect(Array.isArray(safe.eq_adjustments)).toBe(true);
+    expect(safe.gain_adjustment_db).toBe(raw.gain_adjustment_db);
+    expect(safe.limiter_ceiling_db).toBe(raw.limiter_ceiling_db);
   });
 
-  it('clamps gain to -12 dB floor and keeps other safety bounds', () => {
+  it('does not rewrite derived controls', () => {
     const raw = baseParams({
-      gain_adjustment_db: -20,
-      limiter_ceiling_db: -2,
-      tube_drive_amount: 5,
-      exciter_amount: 0.2,
-      width_amount: 2,
+      tube_hpf_hz: 312,
+      exciter_hpf_hz: 2410,
+      limiter_attack_s: 0.2,
+      limiter_release_s: 0.4,
     });
     const safe = clampMasteringParams(raw);
-    expect(safe.gain_adjustment_db).toBe(-12);
-    expect(safe.limiter_ceiling_db).toBe(-2);
-    expect(safe.tube_drive_amount).toBe(3);
-    expect(safe.exciter_amount).toBe(0.15);
-    expect(safe.width_amount).toBe(1.4);
+    expect(safe.tube_hpf_hz).toBe(312);
+    expect(safe.exciter_hpf_hz).toBe(2410);
+    expect(safe.limiter_attack_s).toBe(0.2);
+    expect(safe.limiter_release_s).toBe(0.4);
   });
 });

@@ -1,14 +1,24 @@
-import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
+import type { AudioAnalysisData, MasteringTarget, MasteringParams, MasteringIntent } from '../types';
 import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
 import { applySafetyGuard, clampMasteringParams } from './geminiService';
+import { deriveMasteringParamsFromIntent } from './masteringDerivation';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 export interface MasteringSuggestionsResult {
   params: MasteringParams;
-  /** AI が返した生の JSON テキスト（全文・省略なし） */
   rawResponseText: string;
 }
+
+const normalizeIntent = (raw: Partial<MasteringIntent>): MasteringIntent => {
+  const kickRisk = raw.kickRisk === 'low' || raw.kickRisk === 'mid' || raw.kickRisk === 'high' ? raw.kickRisk : 'mid';
+  const transientRisk = raw.transientRisk === 'low' || raw.transientRisk === 'mid' || raw.transientRisk === 'high' ? raw.transientRisk : 'mid';
+  const bassDensity = raw.bassDensity === 'thin' || raw.bassDensity === 'normal' || raw.bassDensity === 'thick' ? raw.bassDensity : 'normal';
+  const highHarshness = raw.highHarshness === 'none' || raw.highHarshness === 'some' || raw.highHarshness === 'strong' ? raw.highHarshness : 'some';
+  const stereoNeed = raw.stereoNeed === 'narrow' || raw.stereoNeed === 'normal' || raw.stereoNeed === 'wide' ? raw.stereoNeed : 'normal';
+
+  return { kickRisk, transientRisk, bassDensity, highHarshness, stereoNeed };
+};
 
 export async function getMasteringSuggestionsOpenAI(
   data: AudioAnalysisData,
@@ -46,7 +56,9 @@ export async function getMasteringSuggestionsOpenAI(
   const text = json.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("error.openai.invalid_params");
 
-  const parsed = JSON.parse(text) as MasteringParams;
-  const clamped = clampMasteringParams(parsed);
+  const parsed = JSON.parse(text) as Partial<MasteringIntent>;
+  const intent = normalizeIntent(parsed);
+  const derived = deriveMasteringParamsFromIntent(intent, data);
+  const clamped = clampMasteringParams(derived);
   return { params: applySafetyGuard(clamped, data), rawResponseText: text };
 }

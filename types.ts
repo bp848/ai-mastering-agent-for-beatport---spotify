@@ -30,6 +30,15 @@ export interface EQAdjustment {
   type: 'peak' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass';
 }
 
+
+export interface MasteringIntent {
+  kickRisk: 'low' | 'mid' | 'high';
+  transientRisk: 'low' | 'mid' | 'high';
+  bassDensity: 'thin' | 'normal' | 'thick';
+  highHarshness: 'none' | 'some' | 'strong';
+  stereoNeed: 'narrow' | 'normal' | 'wide';
+}
+
 export interface MasteringParams {
   // --- 基本パラメータ ---
   gain_adjustment_db: number;
@@ -41,6 +50,13 @@ export interface MasteringParams {
   exciter_amount: number;         // 0.0–0.2  高域倍音付加量
   low_contour_amount: number;     // 0.0–1.0  Pultec式 低域処理量
   width_amount: number;           // 1.0–1.5  ステレオ幅
+
+  tube_hpf_hz?: number;
+  exciter_hpf_hz?: number;
+  transient_attack_s?: number;
+  transient_release_s?: number;
+  limiter_attack_s?: number;
+  limiter_release_s?: number;
 
   // --- Target Logic (アルゴリズムが強制する目標値) ---
   target_lufs?: number;           // 目標音圧 (例: -8.0 LUFS)
