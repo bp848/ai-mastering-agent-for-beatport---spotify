@@ -27,6 +27,8 @@ interface ResultsModalProps {
   onFeedbackApply?: (newParams: MasteringParams) => void;
   onRecalcWithAI?: (provider: 'gemini' | 'openai') => Promise<void>;
   hasOpenAI?: boolean;
+  /** マスター出力の実測値（耳以外の評価用） */
+  masterMetrics?: { lufs: number; peakDb: number } | null;
 }
 
 export default function ResultsModal({
@@ -50,13 +52,14 @@ export default function ResultsModal({
   onFeedbackApply,
   onRecalcWithAI,
   hasOpenAI = false,
+  masterMetrics = null,
 }: ResultsModalProps) {
   const { t } = useTranslation();
-  const [slide, setSlide] = React.useState(0);
+  const [slide, setSlide] = React.useState(1);
   const totalSlides = 2;
 
   React.useEffect(() => {
-    if (open) setSlide(0);
+    if (open) setSlide(1);
   }, [open]);
 
   if (!open) return null;
@@ -71,14 +74,10 @@ export default function ResultsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm safe-area-padding"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
     >
-      <div
-        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl">
         {/* スライドインジケーター */}
         <div className="flex items-center justify-center gap-2 py-3 border-b border-white/5 pt-[max(0.75rem,env(safe-area-inset-top))]">
           {[0, 1].map((i) => (
@@ -87,7 +86,7 @@ export default function ResultsModal({
               type="button"
               onClick={() => setSlide(i)}
               className={`w-2.5 h-2.5 rounded-full transition-all ${slide === i ? 'bg-cyan-500 scale-125' : 'bg-white/30 hover:bg-white/50'}`}
-              aria-label={i === 0 ? 'Analysis' : 'Preview'}
+              aria-label={i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? 'プレビュー・フィードバック' : 'Preview & Feedback')}
             />
           ))}
         </div>
@@ -118,44 +117,46 @@ export default function ResultsModal({
                 {t('flow.preview_then_download')}
               </p>
 
-              {/* 聞き比べの判断材料：耳以外の数値比較 */}
+              {/* 聞き比べの判断材料：耳＋数値（オリジナル vs マスター実測） */}
               <section className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
                 <p className="text-[13px] font-bold text-zinc-300 uppercase tracking-wider mb-3">
-                  {language === 'ja' ? '聞き比べの判断材料（数値）' : 'A/B comparison (metrics)'}
+                  {language === 'ja' ? '評価：耳と数値の両方で判断' : 'Evaluate: by ear and by numbers'}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[12px] text-zinc-400 mb-2 font-medium">
-                      {language === 'ja' ? 'オリジナル（分析値）' : 'Original (analysis)'}
+                  <div className="rounded-lg bg-zinc-900/50 p-3 border border-zinc-700/50">
+                    <p className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1">
+                      {language === 'ja' ? 'オリジナル（実測）' : 'Original (measured)'}
                     </p>
-                    <ul className="text-[13px] font-mono space-y-1">
-                      <li className="text-zinc-200">LUFS {analysisData.lufs.toFixed(1)}</li>
-                      <li className="text-zinc-200">TP {analysisData.truePeak.toFixed(1)} dB</li>
-                      <li className="text-zinc-200">Crest {analysisData.crestFactor.toFixed(1)}</li>
+                    <ul className="text-[14px] font-mono space-y-1 font-semibold text-zinc-200">
+                      <li>LUFS {analysisData.lufs.toFixed(1)}</li>
+                      <li>TP {analysisData.truePeak.toFixed(1)} dB</li>
+                      <li>Crest {analysisData.crestFactor.toFixed(1)}</li>
                     </ul>
                   </div>
-                  <div>
-                    <p className="text-[12px] text-cyan-400 mb-2 font-medium">
-                      {language === 'ja' ? 'マスター（目標/適用後）' : 'Master (target / applied)'}
+                  <div className="rounded-lg bg-cyan-950/40 p-3 border border-cyan-500/30">
+                    <p className="text-[11px] text-cyan-400 uppercase tracking-wider mb-1">
+                      {language === 'ja' ? 'マスター（実測）' : 'Master (measured)'}
                     </p>
-                    <ul className="text-[13px] font-mono space-y-1">
-                      <li className="text-cyan-200">
-                        LUFS {masteringTarget === 'beatport' ? '-7.0' : '-14.0'}
-                        <span className="text-zinc-400 text-[12px] ml-1">
-                          (+{masteringParams.gain_adjustment_db.toFixed(1)} dB)
-                        </span>
-                      </li>
-                      <li className="text-cyan-200">
-                        TP {(masteringParams.limiter_ceiling_db ?? -0.1).toFixed(1)} dB
-                      </li>
-                      <li className="text-zinc-400">—</li>
-                    </ul>
+                    {masterMetrics ? (
+                      <ul className="text-[14px] font-mono space-y-1 font-semibold text-cyan-200">
+                        <li>LUFS {masterMetrics.lufs.toFixed(1)}</li>
+                        <li>TP {masterMetrics.peakDb.toFixed(1)} dB</li>
+                        <li className="text-zinc-400 text-[12px]">
+                          {language === 'ja' ? '目標' : 'Target'} {masteringTarget === 'beatport' ? '-7.0' : '-14.0'} LUFS
+                        </li>
+                      </ul>
+                    ) : (
+                      <ul className="text-[13px] font-mono space-y-1 text-cyan-200/80">
+                        <li>LUFS {masteringTarget === 'beatport' ? '-7.0' : '-14.0'} (target)</li>
+                        <li>TP {(masteringParams.limiter_ceiling_db ?? -0.1).toFixed(1)} dB</li>
+                      </ul>
+                    )}
                   </div>
                 </div>
-                <p className="text-[12px] text-zinc-400 mt-2">
+                <p className="text-[12px] text-zinc-500 mt-3">
                   {language === 'ja'
-                    ? '再生中のリアルタイム Peak は下のメーターで確認。'
-                    : 'Check real-time peak in the meter below while playing.'}
+                    ? '下の「聴く」でマスターとオリジナルを切り替えて聞き比べ。再生中はリアルタイム Peak をメーターで確認。'
+                    : 'Use "Listen" below to switch Master vs Original. Check real-time peak in the meter while playing.'}
                 </p>
               </section>
 

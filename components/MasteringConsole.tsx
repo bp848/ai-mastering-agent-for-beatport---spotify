@@ -36,7 +36,6 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Float32Array(bufferLength);
-    const timeData = new Uint8Array(analyser.fftSize);
 
     const minLog = Math.log(20);
     const maxLog = Math.log(22050);
@@ -134,36 +133,14 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
       ctx.fill();
     };
 
-    const drawVectorScope = () => {
-      const cx = width / 2;
-      const cy = height / 2;
-      const r = 40;
-      ctx.beginPath();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-      for (let i = 0; i < 128; i++) {
-        const v = timeData[i * 2] / 128.0 - 1.0;
-        const angle = (i / 64) * Math.PI;
-        const radius = r + v * 20;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.stroke();
-    };
-
     const draw = () => {
       requestAnimationFrame(draw);
       analyser.getFloatFrequencyData(dataArray);
-      analyser.getByteTimeDomainData(timeData);
 
       ctx.fillStyle = '#09090b';
       ctx.fillRect(0, 0, width, height);
       drawProGrid();
       drawSmoothSpectrum();
-      drawVectorScope();
     };
 
     draw();

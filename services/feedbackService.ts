@@ -29,12 +29,28 @@ export const FEEDBACK_OPTIONS: { id: FeedbackType; label: string; icon: string }
  * ユーザーのフィードバックに基づいてパラメータを「物理的に」補正する。
  * AIの推論し直しではなく、確定的な数値操作で即座に再レンダリングする。
  */
+/** 数値が有効でない場合のデフォルト（NaN/undefined 対策） */
+const n = (v: number | undefined | null, fallback: number): number =>
+  (typeof v === 'number' && Number.isFinite(v)) ? v : fallback;
+
 export const applyFeedbackAdjustment = (
   currentParams: MasteringParams,
   feedback: FeedbackType,
 ): MasteringParams => {
+  const gain = n(currentParams.gain_adjustment_db, 0);
+  const tube = n(currentParams.tube_drive_amount, 0);
+  const exciter = n(currentParams.exciter_amount, 0);
+  const lowContour = n(currentParams.low_contour_amount, 0);
+  const width = n(currentParams.width_amount, 1);
+
   const newParams: MasteringParams = {
     ...currentParams,
+    gain_adjustment_db: gain,
+    tube_drive_amount: tube,
+    exciter_amount: exciter,
+    low_contour_amount: lowContour,
+    width_amount: width,
+    limiter_ceiling_db: n(currentParams.limiter_ceiling_db, -0.1),
     eq_adjustments: [...(currentParams.eq_adjustments || [])],
   };
 
@@ -50,45 +66,45 @@ export const applyFeedbackAdjustment = (
         { frequency: 250, gain_db: -3.0, q: 1.5, type: 'peak' },
         { frequency: 8000, gain_db: 2.0, q: 0.7, type: 'highshelf' },
       );
-      newParams.exciter_amount = Math.min(0.2, (newParams.exciter_amount ?? 0) + 0.05);
+      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
       break;
 
     case 'harsh':
       newParams.eq_adjustments.push(
         { frequency: 4000, gain_db: -2.5, q: 2.0, type: 'peak' },
       );
-      newParams.exciter_amount = Math.max(0, (newParams.exciter_amount ?? 0) - 0.05);
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.05);
       break;
 
     case 'vocals_buried':
       newParams.eq_adjustments.push(
         { frequency: 1500, gain_db: 2.0, q: 1.0, type: 'peak' },
       );
-      newParams.width_amount = Math.max(0.8, (newParams.width_amount ?? 1.0) - 0.2);
+      newParams.width_amount = Math.max(0.8, newParams.width_amount - 0.2);
       break;
 
     case 'weak_kick':
-      newParams.low_contour_amount = Math.min(1.0, (newParams.low_contour_amount ?? 0) + 0.3);
+      newParams.low_contour_amount = Math.min(1.0, newParams.low_contour_amount + 0.3);
       newParams.eq_adjustments.push(
         { frequency: 60, gain_db: 2.0, q: 1.0, type: 'peak' },
       );
       break;
 
     case 'boomy':
-      newParams.low_contour_amount = Math.max(0, (newParams.low_contour_amount ?? 0) - 0.3);
+      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.3);
       newParams.eq_adjustments.push(
         { frequency: 120, gain_db: -3.0, q: 1.5, type: 'peak' },
       );
       break;
 
     case 'thin':
-      newParams.tube_drive_amount = Math.min(5, newParams.tube_drive_amount + 1.0);
+      newParams.tube_drive_amount = Math.min(3, newParams.tube_drive_amount + 1.0);
       newParams.gain_adjustment_db += 1.0;
       break;
 
     case 'narrow':
-      newParams.width_amount = Math.min(1.8, (newParams.width_amount ?? 1.0) + 0.3);
-      newParams.exciter_amount = Math.min(0.2, (newParams.exciter_amount ?? 0) + 0.05);
+      newParams.width_amount = Math.min(1.4, newParams.width_amount + 0.3);
+      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
       break;
 
     case 'squashed':

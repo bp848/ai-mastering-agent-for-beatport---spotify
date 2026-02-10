@@ -35,6 +35,7 @@ const AppContent: React.FC = () => {
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [analysisData, setAnalysisData] = useState<AudioAnalysisData | null>(null);
   const [masteringParams, setMasteringParams] = useState<MasteringParams | null>(null);
+  const [masterMetrics, setMasterMetrics] = useState<{ lufs: number; peakDb: number } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);   // Phase 1-2
   const [isMastering, setIsMastering] = useState<boolean>(false);   // Phase 3-4
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -108,6 +109,7 @@ const AppContent: React.FC = () => {
     setAudioFile(file);
     setAnalysisData(null);
     setMasteringParams(null);
+    setMasterMetrics(null);
     setError('');
     setIsAnalyzing(true);
     setActionLogs([]);
@@ -196,7 +198,10 @@ const AppContent: React.FC = () => {
         ? `自己補正: 目標 ${targetLufsValue} LUFS（サビ10秒シミュレーション → ゲイン自動補正）`
         : `Self-correction: target ${targetLufsValue} LUFS (10s simulation → gain auto-adjust)`, 'optimizeMasteringParams', 'info');
 
-      const validatedParams = await optimizeMasteringParams(audioBuffer, rawParams);
+      const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
+      const validatedParams = optimizeResult.params;
+
+      setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
 
       const gainDelta = validatedParams.gain_adjustment_db - rawParams.gain_adjustment_db;
       if (Math.abs(gainDelta) > 0.1) {
@@ -253,8 +258,9 @@ const AppContent: React.FC = () => {
       const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language, { provider });
       const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
-      const validatedParams = await optimizeMasteringParams(audioBuffer, rawParams);
-      setMasteringParams(validatedParams);
+      const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
+      setMasteringParams(optimizeResult.params);
+      setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
       addActionLog(
         'DONE',
         language === 'ja' ? `${provider === 'openai' ? 'OpenAI' : 'Gemini'} で再計算完了` : `Re-calc done with ${provider === 'openai' ? 'OpenAI' : 'Gemini'}`,
@@ -328,6 +334,7 @@ const AppContent: React.FC = () => {
     setAudioBuffer(null);
     setAnalysisData(null);
     setMasteringParams(null);
+    setMasterMetrics(null);
     setError('');
     setActionLogs([]);
     setShowResultsModal(false);
@@ -438,6 +445,7 @@ const AppContent: React.FC = () => {
             onFeedbackApply={setMasteringParams}
             onRecalcWithAI={recalcParamsWithAI}
             hasOpenAI={isOpenAIAvailable()}
+            masterMetrics={masterMetrics}
           />
         )}
 

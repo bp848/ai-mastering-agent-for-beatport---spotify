@@ -308,6 +308,16 @@ const makeClipperCurve = (threshold: number = 0.99): Float32Array => {
   return curve;
 };
 
+/** 必ず ±1 に収める（割れ防止の最終保証）。DynamicsCompressor のオーバーシュート対策。 */
+const makeBrickwallCurve = (): Float32Array => {
+  const n = 65536;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / (n - 1) - 1;
+    curve[i] = Math.max(-1, Math.min(1, x));
+  }
+  return curve;
+};
 
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
@@ -515,11 +525,11 @@ export const buildMasteringChain = (
   const airShelf = ctx.createBiquadFilter();
   airShelf.type = 'highshelf';
   airShelf.frequency.value = 12000;
-  airShelf.gain.value = 4.5; // 12kHz+ Air で開放感・没入感
+  airShelf.gain.value = 3.0; // 12kHz+ Air（過剰ブーストで割れないよう控えめ）
   energyFilter.connect(airShelf);
 
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.22; // 絶妙なバランスで原音にミックス
+  neuroWetGain.gain.value = 0.16; // 原音とのバランス（割れ・歪みを抑える）
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
@@ -544,10 +554,17 @@ export const buildMasteringChain = (
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.005; // クリッパーが第一線、リミッターは安全網でトランジェントを潰さない
+  limiter.attack.value = 0.005;
   limiter.release.value = 0.12;
   lastNode.connect(limiter);
-  limiter.connect(outputNode);
+  lastNode = limiter;
+
+  // 最終保証: どの曲でも絶対に割れない（DynamicsCompressor のオーバーシュート・浮動小数点誤差対策）
+  const brickwall = ctx.createWaveShaper();
+  brickwall.curve = makeBrickwallCurve();
+  brickwall.oversample = '4x';
+  lastNode.connect(brickwall);
+  brickwall.connect(outputNode);
 };
 
 
@@ -563,10 +580,16 @@ export const buildMasteringChain = (
  * AI = 感性（EQ カーブ、サチュレーション量、ステレオ幅）
  * Code = 物理保証（LUFS、True Peak）
  */
+export interface OptimizeResult {
+  params: MasteringParams;
+  measuredLufs: number;
+  measuredPeakDb: number;
+}
+
 export const optimizeMasteringParams = async (
   originalBuffer: AudioBuffer,
   aiParams: MasteringParams,
-): Promise<MasteringParams> => {
+): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
   const TARGET_LUFS = aiParams.target_lufs ?? -9.0;
 
@@ -579,7 +602,7 @@ export const optimizeMasteringParams = async (
   );
   const length = endSample - startSample;
 
-  if (length <= 0) return aiParams;
+  if (length <= 0) return { params: aiParams, measuredLufs: -60, measuredPeakDb: -100 };
 
   const offlineCtx = new OfflineAudioContext(
     originalBuffer.numberOfChannels,
@@ -628,18 +651,38 @@ export const optimizeMasteringParams = async (
       ? -60
       : 10 * Math.log10(blocks.reduce((acc, Lk) => acc + Math.pow(10, Lk / 10), 0) / blocks.length);
 
-  // --- 補正実行: 0.1 dB 単位で検知・修正。ダイナミクスを崩さず最適バランスに着地 ---
+  // マスター実測 True Peak（全チャンネル・全サンプル）
+  let maxSample = 0;
+  for (let ch = 0; ch < renderedBuffer.numberOfChannels; ch++) {
+    const chan = renderedBuffer.getChannelData(ch);
+    for (let i = 0; i < chan.length; i++) {
+      const v = Math.abs(chan[i]);
+      if (v > maxSample) maxSample = v;
+    }
+  }
+  const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
+
+  // --- 補正実行: 0.1 dB 単位で検知・修正。静かい 10 秒に合わせて上げすぎて割れないよう上乗せは最大 +3 dB ---
+  const MAX_SELF_CORRECTION_BOOST_DB = 3;
+  const GAIN_CAP_DB = 12;
   const diff = TARGET_LUFS - measuredLUFS;
   if (Math.abs(diff) > 0.5) {
     let newGain = optimizedParams.gain_adjustment_db + diff;
-    newGain = Math.max(-3, Math.min(15, newGain));
+    if (diff > 0) {
+      newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);
+    }
+    newGain = Math.max(-3, Math.min(GAIN_CAP_DB, newGain));
     optimizedParams.gain_adjustment_db = Math.round(newGain * 10) / 10; // 0.1 dB 単位
     console.log(
       `[Self-Correction] Gain ${aiParams.gain_adjustment_db} → ${optimizedParams.gain_adjustment_db} dB (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,
     );
   }
 
-  return optimizedParams;
+  return {
+    params: optimizedParams,
+    measuredLufs: measuredLUFS,
+    measuredPeakDb: measuredPeakDb,
+  };
 };
 
 // ------------------------------------------------------------------

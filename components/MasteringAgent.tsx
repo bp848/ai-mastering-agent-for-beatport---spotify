@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { MasteringParams } from '../types';
 import { buildMasteringChain } from '../services/audioService';
 import { applyFeedbackAdjustment, type FeedbackType } from '../services/feedbackService';
+import { clampMasteringParams } from '../services/geminiService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 import MasteringConsole from './MasteringConsole';
@@ -18,13 +19,16 @@ import RetryModal from './RetryModal';
    4. Download with WAV specs
    ───────────────────────────────────────────────────────────────── */
 
-/* ── Waveform Overlay: 同一画面で Original（影）＋ Mastered（前面）を重ねて比較。高解像度ミニマックスで階段状を軽減 ─── */
+/* ── Waveform Overlay: オリジナル＋マスター重ね表示。再生位置プレイヘッドでプロが判断しやすい ─── */
 const WaveformOverlay: React.FC<{
   originalBuffer: AudioBuffer;
   gainDb: number;
   isHoldingOriginal: boolean;
-}> = ({ originalBuffer, gainDb, isHoldingOriginal }) => {
+  /** 再生位置（秒）。未再生時は null */
+  playbackPositionSec: number | null;
+}> = ({ originalBuffer, gainDb, isHoldingOriginal, playbackPositionSec }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const durationSec = originalBuffer.duration;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,6 +118,8 @@ const WaveformOverlay: React.FC<{
     }
   }, [originalBuffer, gainDb, isHoldingOriginal]);
 
+  const playheadPct = durationSec > 0 && playbackPositionSec != null ? (playbackPositionSec / durationSec) * 100 : 0;
+
   return (
     <div className="relative w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="absolute top-3 left-3 z-10 flex gap-2">
@@ -124,7 +130,16 @@ const WaveformOverlay: React.FC<{
           AI Mastered
         </span>
       </div>
-      <canvas ref={canvasRef} className="w-full h-44 sm:h-52 block" />
+      <div className="relative">
+        <canvas ref={canvasRef} className="w-full h-44 sm:h-52 block" />
+        {playbackPositionSec != null && (
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 pointer-events-none z-10 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+            style={{ left: `${playheadPct}%` }}
+            aria-hidden
+          />
+        )}
+      </div>
     </div>
   );
 };
@@ -298,12 +313,12 @@ const AudioPreview: React.FC<{
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const startTimeRef = useRef<number>(0);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  /** GR メーター用: リミッター「前」の信号レベルを計測するサイドチェーン */
   const grAnalyserRef = useRef<AnalyserNode | null>(null);
   const nodesRef = useRef<{ bypassGain: GainNode | null; masteredGain: GainNode | null }>({ bypassGain: null, masteredGain: null });
-  /** スペクトラム用: グラフ準備完了で MasteringConsole が描画を開始できる */
   const [graphReady, setGraphReady] = useState(false);
+  const [playbackPositionSec, setPlaybackPositionSec] = useState<number | null>(null);
 
   const setupAudioGraph = useCallback(() => {
     if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close().catch(() => {});
@@ -389,29 +404,57 @@ const AudioPreview: React.FC<{
     if (!ctx || !src) return;
     if (ctx.state === 'suspended') await ctx.resume();
     try {
+      startTimeRef.current = ctx.currentTime;
       src.start(0);
       setIsPlaying(true);
     } catch (_) {
       setupAudioGraph();
       const retry = sourceRef.current;
-      if (retry) { retry.start(0); setIsPlaying(true); }
+      if (retry) { startTimeRef.current = ctx.currentTime; retry.start(0); setIsPlaying(true); }
     }
   }, [isPlaying, setupAudioGraph]);
+
+  useEffect(() => {
+    if (!isPlaying) { setPlaybackPositionSec(null); return; }
+    const ctx = audioContextRef.current;
+    const duration = audioBuffer.duration;
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      if (!ctx) return;
+      const elapsed = ctx.currentTime - startTimeRef.current;
+      const pos = duration > 0 ? elapsed % duration : 0;
+      setPlaybackPositionSec(pos);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, audioBuffer.duration]);
 
   const estimatedSize = formatBytes(estimateMasteredWavBytes(audioBuffer));
   const duration = formatDuration(audioBuffer.duration);
 
   return (
     <div className="space-y-5">
-      {/* ── プレビュー再生（最上部で見つけやすく） ── */}
+      {/* ── プレビュー再生：何を聴いているか常に明確 ── */}
       <section className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4">
         <p className="text-[13px] font-bold text-cyan-400 mb-3 uppercase tracking-wider">
-          {ja ? 'プレビュー再生' : 'Preview Playback'}
+          {ja ? '聞き比べ' : 'A/B Listen'}
         </p>
-        <div className="flex flex-col sm:flex-row items-center gap-4">
+        {/* 現在聴いている音源を大きく表示 */}
+        <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-black/30 border border-white/10">
+          <span className="text-[11px] text-zinc-500 uppercase tracking-wider shrink-0">
+            {ja ? '現在再生' : 'Now playing'}
+          </span>
+          <span
+            className={`text-lg font-bold font-mono tabular-nums ${isHoldingOriginal ? 'text-amber-400' : 'text-cyan-400'}`}
+          >
+            {isHoldingOriginal ? (ja ? 'オリジナル' : 'Original') : (ja ? 'マスタリング後' : 'Mastered')}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={togglePlay}
-            className="w-16 h-16 rounded-full flex items-center justify-center hover:scale-105 transition-all touch-manipulation shrink-0 order-first"
+            className="w-14 h-14 rounded-full flex items-center justify-center hover:scale-105 transition-all touch-manipulation shrink-0"
             style={{
               background: isPlaying ? 'rgba(255,255,255,0.1)' : '#22d3ee',
               color: isPlaying ? '#22d3ee' : '#000',
@@ -422,38 +465,37 @@ const AudioPreview: React.FC<{
             }}
             aria-label={isPlaying ? (ja ? '一時停止' : 'Pause') : (ja ? '再生' : 'Play')}
           >
-            <span className="w-8 h-8">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
+            <span className="w-7 h-7">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
           </button>
-          <div className="flex-1 text-left">
-            <p className="text-[12px] text-zinc-300">
-              {ja ? '下のボタンを押してマスタリング後の音を聴けます。長押しでオリジナルと比較。' : 'Press to hear the mastered track. Hold the compare button for original.'}
-            </p>
-          </div>
           <button
-            onMouseDown={() => setIsHoldingOriginal(true)}
-            onMouseUp={() => setIsHoldingOriginal(false)}
-            onMouseLeave={() => setIsHoldingOriginal(false)}
-            onTouchStart={(e) => { e.preventDefault(); setIsHoldingOriginal(true); }}
-            onTouchEnd={(e) => { e.preventDefault(); setIsHoldingOriginal(false); }}
-            onTouchCancel={() => setIsHoldingOriginal(false)}
-            onContextMenu={(e) => e.preventDefault()}
-            className="w-full sm:w-auto px-5 py-3 rounded-xl font-mono text-[11px] uppercase tracking-wider select-none transition-all touch-manipulation border border-white/10 hover:border-cyan-500/40"
-            style={{
-              background: isHoldingOriginal ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
-              color: isHoldingOriginal ? '#fff' : '#71717a',
-            }}
+            type="button"
+            onClick={() => setIsHoldingOriginal(false)}
+            className={`px-4 py-2.5 rounded-xl font-mono text-sm font-medium transition-all touch-manipulation border ${!isHoldingOriginal ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' : 'bg-white/5 border-white/10 text-zinc-400 hover:border-cyan-500/40'}`}
           >
-            {ja ? '長押しでオリジナルと比較' : 'Hold to Compare Original'}
+            {ja ? '聴く: マスタリング後' : 'Listen: Mastered'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsHoldingOriginal(true)}
+            className={`px-4 py-2.5 rounded-xl font-mono text-sm font-medium transition-all touch-manipulation border ${isHoldingOriginal ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-white/5 border-white/10 text-zinc-400 hover:border-amber-500/40'}`}
+          >
+            {ja ? '聴く: オリジナル' : 'Listen: Original'}
           </button>
         </div>
       </section>
 
-      {/* ── Waveform Overlay ── */}
+      {/* ── 波形: オリジナル＋マスター重ね。縦線＝再生位置 ── */}
+      <div className="space-y-1">
+        <p className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">
+          {ja ? '波形（Original + Master 重ね）・再生位置' : 'Waveform (Original + Master overlay) · Playhead'}
+        </p>
       <WaveformOverlay
         originalBuffer={audioBuffer}
         gainDb={params.gain_adjustment_db}
         isHoldingOriginal={isHoldingOriginal}
+        playbackPositionSec={playbackPositionSec}
       />
+      </div>
 
       {/* ── Meters Row ── */}
       <div className="flex items-stretch gap-3">
@@ -528,9 +570,10 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
     async (feedback: FeedbackType) => {
       if (!params || !onFeedbackApply) return;
       setIsRetryOpen(false);
-      await new Promise((r) => setTimeout(r, 800));
-      const newParams = applyFeedbackAdjustment(params, feedback);
-      onFeedbackApply(newParams);
+      await new Promise((r) => setTimeout(r, 300));
+      const adjusted = applyFeedbackAdjustment(params, feedback);
+      const clamped = clampMasteringParams(adjusted);
+      onFeedbackApply(clamped);
     },
     [params, onFeedbackApply],
   );

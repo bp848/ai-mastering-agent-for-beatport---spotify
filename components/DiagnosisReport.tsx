@@ -89,6 +89,85 @@ const DiagLine: React.FC<DiagLineProps> = ({ label, status, detail, value }) => 
   );
 };
 
+/** 視覚ゲージ: 現在値をスライダー状のバーで表示（目標がひと目で分かる） */
+const MetricGauge: React.FC<{
+  label: string;
+  value: number;
+  valueLabel: string;
+  status: 'good' | 'warn' | 'bad';
+  min: number;
+  max: number;
+  targetValue: number;
+  targetLabel: string;
+}> = ({ label, value, valueLabel, status, min, max, targetValue, targetLabel }) => {
+  const range = max - min;
+  const pct = Math.max(0, Math.min(100, ((value - min) / range) * 100));
+  const targetPct = Math.max(0, Math.min(100, ((targetValue - min) / range) * 100));
+  const barColor = status === 'good' ? 'bg-green-500' : status === 'warn' ? 'bg-amber-500' : 'bg-red-500';
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-baseline">
+        <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+        <span className={`text-sm font-bold font-mono tabular-nums ${statusColors[status].text}`}>{valueLabel}</span>
+      </div>
+      <div className="relative h-4 rounded-full bg-zinc-800 overflow-hidden">
+        {/* 目標ゾーン（薄い縦線） */}
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-white/40 -translate-x-1/2"
+          style={{ left: `${targetPct}%` }}
+          title={targetLabel}
+        />
+        {/* 現在値マーカー（太め） */}
+        <div
+          className={`absolute top-0 w-2 h-full rounded-full ${barColor} shadow-lg -translate-x-1/2 z-10`}
+          style={{ left: `${pct}%` }}
+        />
+      </div>
+      <p className="text-[9px] text-zinc-500 font-mono">{targetLabel}</p>
+    </div>
+  );
+};
+
+/** 周波数帯域を横棒で一覧表示（バランスが一目で分かる） */
+const SpectrumBars: React.FC<{ bands: { name: string; level: number }[]; language: string }> = ({ bands, language }) => {
+  if (!bands.length) return null;
+  const maxDb = 0;
+  const minDb = -48;
+  const range = maxDb - minDb;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] font-medium text-zinc-400">
+        {language === 'ja' ? '周波数バランス（一目でチェック）' : 'Frequency balance (at a glance)'}
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {bands.map((b) => {
+          const level = Math.max(minDb, Math.min(maxDb, b.level));
+          const pct = ((level - minDb) / range) * 100;
+          const isLow = level < -18;
+          const isHigh = level > -6;
+          const barColor = isLow ? 'bg-amber-500/60' : isHigh ? 'bg-cyan-500/60' : 'bg-green-500/50';
+          return (
+            <div key={b.name} className="space-y-0.5">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-zinc-500 font-mono">{b.name}</span>
+                <span className="text-zinc-400 font-mono tabular-nums">{b.level.toFixed(0)} dB</span>
+              </div>
+              <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${barColor}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 /* ── メインコンポーネント ────────────────────────────── */
 const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, isMastering, language }) => {
   const ja = language === 'ja';
@@ -148,6 +227,50 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
             ? `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} 基準 — 7項目を検査`
             : `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} — 7 metrics inspected`}
         </p>
+      </div>
+
+      {/* ── 視覚メトリクス（数値だけじゃない・ひと目で判断） ── */}
+      <div className="glass rounded-2xl p-5 sm:p-6 space-y-5">
+        <p className="text-[13px] font-bold text-white">
+          {ja ? 'ひと目で分かるメトリクス' : 'Metrics at a glance'}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <MetricGauge
+            label={ja ? 'ラウドネス (LUFS)' : 'Loudness (LUFS)'}
+            value={data.lufs}
+            valueLabel={`${data.lufs.toFixed(1)}`}
+            status={loudnessStatus}
+            min={target === 'beatport' ? -20 : -24}
+            max={target === 'beatport' ? -4 : -8}
+            targetValue={targetLufs}
+            targetLabel={ja ? `目標 ${targetLufs} LUFS` : `Target ${targetLufs} LUFS`}
+          />
+          <MetricGauge
+            label={ja ? 'トゥルーピーク' : 'True Peak'}
+            value={data.truePeak}
+            valueLabel={`${data.truePeak.toFixed(1)} dBTP`}
+            status={peakStatus}
+            min={-6}
+            max={target === 'beatport' ? 1 : 0}
+            targetValue={target === 'beatport' ? -0.1 : -1}
+            targetLabel={ja ? `目標 ${target === 'beatport' ? '-0.1' : '-1'} dBTP` : `Target ${target === 'beatport' ? '-0.1' : '-1'} dBTP`}
+          />
+          <MetricGauge
+            label={ja ? 'ダイナミクス (Crest)' : 'Dynamics (Crest)'}
+            value={data.crestFactor}
+            valueLabel={`${data.crestFactor.toFixed(1)}`}
+            status={dynamicStatus}
+            min={2}
+            max={15}
+            targetValue={target === 'beatport' ? 6.5 : 12}
+            targetLabel={ja ? `目安 ${target === 'beatport' ? '6〜10' : '9〜15'}` : `Ref ${target === 'beatport' ? '6-10' : '9-15'}`}
+          />
+        </div>
+        {data.frequencyData?.length > 0 && (
+          <div className="pt-3 border-t border-white/10">
+            <SpectrumBars bands={data.frequencyData} language={ja ? 'ja' : 'en'} />
+          </div>
+        )}
       </div>
 
       {/* ── Diagnosis Lines ──────────────────────── */}
