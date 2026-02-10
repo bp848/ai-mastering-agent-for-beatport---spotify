@@ -21,10 +21,12 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
     if (!ctx) return;
 
     const analyser = analyserRef.current;
-    analyser.fftSize = 4096;
-    analyser.smoothingTimeConstant = 0.85;
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0.8;
+    analyser.minDecibels = -70;
+    analyser.maxDecibels = 0;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
@@ -33,7 +35,7 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
     const height = rect.height;
 
     const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const dataArray = new Float32Array(bufferLength);
     const timeData = new Uint8Array(analyser.fftSize);
 
     const minLog = Math.log(20);
@@ -89,38 +91,36 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
       });
     };
 
+    const dbFloor = analyser.minDecibels;
+    const dbCeil = analyser.maxDecibels;
+    const dbRange = dbCeil - dbFloor;
+
     const drawSmoothSpectrum = () => {
       const points: { x: number; y: number }[] = [];
-      const slice = 4;
-      for (let i = 0; i < width; i += slice) {
+      for (let i = 0; i <= width; i += 1) {
         const percent = i / width;
         const freq = Math.exp(minLog + (maxLog - minLog) * percent);
-        const index = Math.floor((freq / 22050) * bufferLength);
-        if (index < bufferLength) {
-          const val = dataArray[index];
-          const y = height - (val / 255) * height;
-          points.push({ x: i, y });
-        }
+        const index = Math.min(Math.floor((freq / 22050) * bufferLength), bufferLength - 1);
+        const linear = dataArray[index];
+        const db = linear <= 1e-8 ? dbFloor : Math.max(dbFloor, Math.min(dbCeil, 20 * Math.log10(linear)));
+        const norm = (db - dbFloor) / dbRange;
+        const y = height - norm * height;
+        points.push({ x: i, y });
       }
       if (points.length < 2) return;
 
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length - 2; i++) {
+      for (let i = 1; i < points.length - 1; i++) {
         const xc = (points[i].x + points[i + 1].x) / 2;
         const yc = (points[i].y + points[i + 1].y) / 2;
         ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
       }
-      ctx.quadraticCurveTo(
-        points[points.length - 2].x,
-        points[points.length - 2].y,
-        points[points.length - 1].x,
-        points[points.length - 1].y
-      );
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
 
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#22d3ee';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.shadowColor = '#22d3ee';
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -128,7 +128,7 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
       ctx.lineTo(width, height);
       ctx.lineTo(0, height);
       const grad = ctx.createLinearGradient(0, 0, 0, height);
-      grad.addColorStop(0, 'rgba(34, 211, 238, 0.2)');
+      grad.addColorStop(0, 'rgba(34, 211, 238, 0.25)');
       grad.addColorStop(1, 'rgba(34, 211, 238, 0.0)');
       ctx.fillStyle = grad;
       ctx.fill();
@@ -156,7 +156,7 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
 
     const draw = () => {
       requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
+      analyser.getFloatFrequencyData(dataArray);
       analyser.getByteTimeDomainData(timeData);
 
       ctx.fillStyle = '#09090b';
@@ -177,7 +177,7 @@ export const MasteringConsole: React.FC<Props> = ({ analyserRef, isPlaying, grap
           className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-cyan-400 animate-pulse' : 'bg-zinc-700'}`}
         />
         <span className="text-[10px] text-zinc-400 font-mono tracking-widest">
-          FREQUENCY ANALYZER
+          FREQUENCY ANALYZER <span className="text-zinc-500 font-normal">(dB)</span>
         </span>
       </div>
     </div>

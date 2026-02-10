@@ -399,6 +399,51 @@ const AudioPreview: React.FC<{
 
   return (
     <div className="space-y-5">
+      {/* ── プレビュー再生（最上部で見つけやすく） ── */}
+      <section className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4">
+        <p className="text-[13px] font-bold text-cyan-400 mb-3 uppercase tracking-wider">
+          {ja ? 'プレビュー再生' : 'Preview Playback'}
+        </p>
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <button
+            onClick={togglePlay}
+            className="w-16 h-16 rounded-full flex items-center justify-center hover:scale-105 transition-all touch-manipulation shrink-0 order-first"
+            style={{
+              background: isPlaying ? 'rgba(255,255,255,0.1)' : '#22d3ee',
+              color: isPlaying ? '#22d3ee' : '#000',
+              boxShadow: isPlaying
+                ? 'inset 0 0 10px rgba(0,0,0,0.4), 0 0 15px rgba(34,211,238,0.15)'
+                : '0 0 24px rgba(34,211,238,0.4), 0 4px 12px rgba(0,0,0,0.4)',
+              border: isPlaying ? '1px solid rgba(34,211,238,0.3)' : 'none',
+            }}
+            aria-label={isPlaying ? (ja ? '一時停止' : 'Pause') : (ja ? '再生' : 'Play')}
+          >
+            <span className="w-8 h-8">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
+          </button>
+          <div className="flex-1 text-left">
+            <p className="text-[12px] text-zinc-300">
+              {ja ? '下のボタンを押してマスタリング後の音を聴けます。長押しでオリジナルと比較。' : 'Press to hear the mastered track. Hold the compare button for original.'}
+            </p>
+          </div>
+          <button
+            onMouseDown={() => setIsHoldingOriginal(true)}
+            onMouseUp={() => setIsHoldingOriginal(false)}
+            onMouseLeave={() => setIsHoldingOriginal(false)}
+            onTouchStart={(e) => { e.preventDefault(); setIsHoldingOriginal(true); }}
+            onTouchEnd={(e) => { e.preventDefault(); setIsHoldingOriginal(false); }}
+            onTouchCancel={() => setIsHoldingOriginal(false)}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full sm:w-auto px-5 py-3 rounded-xl font-mono text-[11px] uppercase tracking-wider select-none transition-all touch-manipulation border border-white/10 hover:border-cyan-500/40"
+            style={{
+              background: isHoldingOriginal ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+              color: isHoldingOriginal ? '#fff' : '#71717a',
+            }}
+          >
+            {ja ? '長押しでオリジナルと比較' : 'Hold to Compare Original'}
+          </button>
+        </div>
+      </section>
+
       {/* ── Waveform Overlay ── */}
       <WaveformOverlay
         originalBuffer={audioBuffer}
@@ -408,14 +453,12 @@ const AudioPreview: React.FC<{
 
       {/* ── Meters Row ── */}
       <div className="flex items-stretch gap-3">
-        {/* Peak + Level Meter */}
         <div className="flex-1 space-y-2">
           <LivePeakMeter analyserRef={analyserRef} isPlaying={isPlaying} />
           <p className="text-[12px] text-zinc-400 font-mono">
             {ja ? 'リアルタイム ピーク' : 'Real-time Peak'}
           </p>
         </div>
-        {/* GR Meter (sidechain: pre-limiter level) */}
         <GainReductionMeter
           preLimiterAnalyserRef={grAnalyserRef}
           isPlaying={isPlaying}
@@ -423,48 +466,8 @@ const AudioPreview: React.FC<{
         />
       </div>
 
-      {/* ── 一枚のガラス製コンソール（ベジェ曲線・スペクトラム＋M/S 統合） ── */}
+      {/* ── 周波数スペクトラム（対数・dB表示） ── */}
       <MasteringConsole analyserRef={analyserRef} isPlaying={isPlaying} graphReady={graphReady} />
-
-      {/* ── Controls (VST-style) ── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Play */}
-        <button
-          onClick={togglePlay}
-          className="w-14 h-14 rounded-full flex items-center justify-center hover:scale-105 transition-all touch-manipulation shrink-0"
-          style={{
-            background: isPlaying ? 'rgba(255,255,255,0.1)' : '#22d3ee',
-            color: isPlaying ? '#22d3ee' : '#000',
-            boxShadow: isPlaying
-              ? 'inset 0 0 10px rgba(0,0,0,0.4), 0 0 15px rgba(34,211,238,0.15)'
-              : '0 0 20px rgba(34,211,238,0.3), 0 4px 12px rgba(0,0,0,0.4)',
-            border: isPlaying ? '1px solid rgba(34,211,238,0.3)' : 'none',
-          }}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        >
-          <span className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</span>
-        </button>
-
-        {/* Hold-to-Compare */}
-        <button
-          onMouseDown={() => setIsHoldingOriginal(true)}
-          onMouseUp={() => setIsHoldingOriginal(false)}
-          onMouseLeave={() => setIsHoldingOriginal(false)}
-          onTouchStart={(e) => { e.preventDefault(); setIsHoldingOriginal(true); }}
-          onTouchEnd={(e) => { e.preventDefault(); setIsHoldingOriginal(false); }}
-          onTouchCancel={() => setIsHoldingOriginal(false)}
-          onContextMenu={(e) => e.preventDefault()}
-          className="flex-1 w-full sm:w-auto px-6 py-3.5 rounded-xl font-mono text-[10px] uppercase tracking-[0.15em] select-none transition-all touch-manipulation"
-          style={{
-            background: isHoldingOriginal ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
-            border: isHoldingOriginal ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.08)',
-            color: isHoldingOriginal ? '#fff' : '#71717a',
-            boxShadow: isHoldingOriginal ? 'inset 0 0 20px rgba(255,255,255,0.05)' : 'none',
-          }}
-        >
-          {ja ? '長押しでオリジナルと比較' : 'Hold to Compare Original'}
-        </button>
-      </div>
 
       {/* ── Module Badges (機材ラック風: LABEL | VALUE) ── */}
       <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
