@@ -1,8 +1,5 @@
 import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
-import { getMasteringSuggestionsGemini } from './geminiService';
 import { getMasteringSuggestionsOpenAI } from './openaiMastering';
-
-export type AIProvider = 'gemini' | 'openai';
 
 export function isOpenAIAvailable(): boolean {
   const key = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
@@ -10,19 +7,15 @@ export function isOpenAIAvailable(): boolean {
 }
 
 /**
- * マスタリング用 AI 提案を取得。
- * options.provider が指定されていればそのプロバイダー、未指定なら
- * VITE_OPENAI_API_KEY が設定されていれば OpenAI、なければ Gemini。
+ * マスタリング用 AI 提案を取得（OpenAI のみ）。
+ * ブラウザに秘密鍵を持たせる設計は本来推奨されませんが、
+ * ここでは「常に割れる」状態を止めるため、プロバイダー分岐を廃止して安定化します。
  */
 export async function getMasteringSuggestions(
   data: AudioAnalysisData,
   target: MasteringTarget,
   language: 'ja' | 'en',
-  options?: { provider?: AIProvider }
 ): Promise<MasteringParams> {
-  const provider = options?.provider ?? (isOpenAIAvailable() ? 'openai' : 'gemini');
-  if (provider === 'openai') {
-    return getMasteringSuggestionsOpenAI(data, target, language);
-  }
-  return getMasteringSuggestionsGemini(data, target, language);
+  if (!isOpenAIAvailable()) throw new Error("error.openai.no_key");
+  return getMasteringSuggestionsOpenAI(data, target, language);
 }

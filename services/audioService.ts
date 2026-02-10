@@ -566,9 +566,11 @@ export const buildMasteringChain = (
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = limiterCeilingDb;
   limiter.knee.value = 0;
-  limiter.ratio.value = 8;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.15;
+  // WebAudio の DynamicsCompressor は「完全なブリックウォール」ではないため、
+  // 比率とアタックを強めてピークの突き抜けを抑える
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.12;
   lastNode.connect(limiter);
   lastNode = limiter;
 
@@ -604,8 +606,10 @@ export const optimizeMasteringParams = async (
   aiParams: MasteringParams,
 ): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
-  const TARGET_LUFS = aiParams.target_lufs ?? -9.0;
-  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -0.8, -0.3);
+  // target_lufs が渡らない場合は「安全側」に倒す（過大ゲインで割れないため）
+  const TARGET_LUFS = aiParams.target_lufs ?? -14.0;
+  // ceiling は -0.3 より上（0dB側）にはしない
+  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -0.3);
 
   // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
   const chunkDuration = 10;
@@ -678,10 +682,13 @@ export const optimizeMasteringParams = async (
 
   // --- 補正: 数字は AI が渡す params を優先。未指定時のみフォールバック（目標 LUFS に届くようにする） ---
   const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.5;
-  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 6;
-  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 3;
-  const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 3;
-  const GAIN_CAP_DB = 12;
+  // 1回の補正で動かしすぎると歪みやすいので控えめに
+  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 3;
+  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 2;
+  // クリップしている場合はより強く引けるようにする
+  const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
+  const GAIN_CAP_DB = 6;
+  const GAIN_FLOOR_DB = -12;
   const GAIN_RESOLUTION = 20;
 
   const diff = TARGET_LUFS - measuredLUFS;
@@ -699,7 +706,7 @@ export const optimizeMasteringParams = async (
     const cut = Math.min(peakOverflowDb + 0.1, MAX_PEAK_CUT_STEP_DB);
     newGain -= cut;
   }
-  newGain = Math.max(-3, Math.min(GAIN_CAP_DB, newGain));
+  newGain = Math.max(GAIN_FLOOR_DB, Math.min(GAIN_CAP_DB, newGain));
   optimizedParams.gain_adjustment_db = Math.round(newGain * GAIN_RESOLUTION) / GAIN_RESOLUTION;
   if (optimizedParams.gain_adjustment_db !== aiParams.gain_adjustment_db) {
     console.log(

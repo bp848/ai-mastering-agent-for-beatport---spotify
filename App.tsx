@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
-import { getMasteringSuggestions, isOpenAIAvailable, type AIProvider } from './services/aiService';
+import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
 import FileUpload from './components/FileUpload';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import MasteringAgent from './components/MasteringAgent';
@@ -18,6 +18,7 @@ import { PlatformProvider, usePlatform } from './contexts/PlatformContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import DownloadGateModal from './components/DownloadGateModal';
+import PaywallModal from './components/PaywallModal';
 import ResultsModal from './components/ResultsModal';
 import HeroEngine from './components/HeroEngine';
 import AnalysisTerminal from './components/AnalysisTerminal';
@@ -48,6 +49,7 @@ const AppContent: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
   const [showDownloadGate, setShowDownloadGate] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [showPostLoginBanner, setShowPostLoginBanner] = useState(false);
   const { t, language } = useTranslation();
@@ -242,7 +244,7 @@ const AppContent: React.FC = () => {
   }, [analysisData, audioBuffer, masteringTarget, t, language, addLog, addActionLog]);
 
   /** リトライ時: 指定した AI でパラメータを再計算し結果を更新 */
-  const recalcParamsWithAI = useCallback(async (provider: AIProvider) => {
+  const recalcParamsWithAI = useCallback(async () => {
     if (!analysisData || !audioBuffer) return;
     setIsMastering(true);
     setError('');
@@ -250,12 +252,12 @@ const AppContent: React.FC = () => {
       addActionLog(
         'AI',
         language === 'ja'
-          ? `AI再計算: ${provider === 'openai' ? 'OpenAI' : 'Gemini'} でパラメータを再取得中...`
-          : `Re-calculating with ${provider === 'openai' ? 'OpenAI' : 'Gemini'}...`,
+          ? 'AI再計算: OpenAI でパラメータを再取得中...'
+          : 'Re-calculating with OpenAI...',
         'getMasteringSuggestions',
         'info'
       );
-      const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language, { provider });
+      const rawParams = await getMasteringSuggestions(analysisData, masteringTarget, language);
       const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
@@ -263,7 +265,7 @@ const AppContent: React.FC = () => {
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
       addActionLog(
         'DONE',
-        language === 'ja' ? `${provider === 'openai' ? 'OpenAI' : 'Gemini'} で再計算完了` : `Re-calc done with ${provider === 'openai' ? 'OpenAI' : 'Gemini'}`,
+        language === 'ja' ? 'OpenAI で再計算完了' : 'Re-calc done with OpenAI',
         undefined,
         'success'
       );
@@ -284,6 +286,23 @@ const AppContent: React.FC = () => {
     if (!masteringParams || !audioBuffer || !audioFile) return;
     if (!session?.user) {
       setShowDownloadGate(true);
+      return;
+    }
+    const accessToken = session.access_token;
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    let serverAllowed = false;
+    try {
+      const res = await fetch(`${base}/api/check-download-entitlement`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      serverAllowed = res.ok && data?.allowed === true;
+    } catch (_) {
+      serverAllowed = false;
+    }
+    if (!serverAllowed) {
+      setShowPaywall(true);
       return;
     }
     try {
@@ -419,6 +438,12 @@ const AppContent: React.FC = () => {
           onSignInWithGoogle={signInWithGoogle}
         />
 
+        <PaywallModal
+          open={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onGoToPricing={() => setSection('pricing')}
+        />
+
         {analysisData && masteringParams && (
           <ResultsModal
             open={showResultsModal}
@@ -445,8 +470,7 @@ const AppContent: React.FC = () => {
             actionLogs={actionLogs}
             onNextTrack={handleNextTrack}
             onFeedbackApply={setMasteringParams}
-            onRecalcWithAI={recalcParamsWithAI}
-            hasOpenAI={isOpenAIAvailable()}
+            onRecalcWithAI={isOpenAIAvailable() ? recalcParamsWithAI : undefined}
             masterMetrics={masterMetrics}
           />
         )}
@@ -534,6 +558,20 @@ const AppContent: React.FC = () => {
 
         <footer className="mt-8 sm:mt-12 py-4 sm:py-6 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 flex-wrap gap-2">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <a className="hover:text-cyan-400 transition-colors" href="/operator.html" target="_blank" rel="noreferrer">
+              {language === 'ja' ? '運営者情報' : 'Operator'}
+            </a>
+            <a className="hover:text-cyan-400 transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
+              {language === 'ja' ? '利用規約' : 'Terms'}
+            </a>
+            <a className="hover:text-cyan-400 transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
+              {language === 'ja' ? 'プライバシー' : 'Privacy'}
+            </a>
+            <a className="hover:text-cyan-400 transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
+              {language === 'ja' ? '返金ポリシー' : 'Refunds'}
+            </a>
+          </div>
           <p className="font-mono tabular-nums">v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}</p>
         </footer>
       </div>

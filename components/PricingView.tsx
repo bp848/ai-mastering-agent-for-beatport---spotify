@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { createCheckoutSession } from '../services/stripeCheckout';
 
 /* ══════════════════════════════════════════════════════════════════
    PricingView — SaaS-standard Tier Card Layout
@@ -96,7 +98,14 @@ const ENTERPRISE_CARDS: PlanCard[] = [
   },
 ];
 
-const Card: React.FC<{ plan: PlanCard; isJa: boolean }> = ({ plan, isJa }) => (
+const Card: React.FC<{
+  plan: PlanCard;
+  isJa: boolean;
+  onSelect: (plan: PlanCard) => void;
+  loading?: boolean;
+  isLoggedIn?: boolean;
+  signInLabel?: string;
+}> = ({ plan, isJa, onSelect, loading, isLoggedIn, signInLabel }) => (
   <div className={`relative flex flex-col rounded-2xl p-6 transition-all ${
     plan.best
       ? 'glass-elevated glow-cyan scale-[1.02]'
@@ -130,21 +139,50 @@ const Card: React.FC<{ plan: PlanCard; isJa: boolean }> = ({ plan, isJa }) => (
     </ul>
     <button
       type="button"
-      className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation ${
+      onClick={() => onSelect(plan)}
+      disabled={loading}
+      className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
         plan.best
           ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/20'
           : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
       }`}
     >
-      {isJa ? '選択する' : 'Select'}
+      {loading ? (isJa ? '送信中...' : 'Loading...') : isLoggedIn ? (isJa ? '選択する' : 'Select') : (signInLabel ?? (isJa ? 'ログインして購入' : 'Sign in to purchase'))}
     </button>
   </div>
 );
 
 export default function PricingView() {
   const { language, t } = useTranslation();
+  const { session, signInWithGoogle } = useAuth();
   const isJa = language === 'ja';
   const [tab, setTab] = useState<Tab>('shot');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSelectPlan = useCallback(
+    async (plan: PlanCard) => {
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        signInWithGoogle();
+        return;
+      }
+      setError(null);
+      setLoading(true);
+      try {
+        const { url } = await createCheckoutSession(
+          accessToken,
+          plan.price,
+          isJa ? plan.name : plan.nameEn
+        );
+        window.location.href = url;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Checkout failed');
+        setLoading(false);
+      }
+    },
+    [session?.access_token, signInWithGoogle, isJa]
+  );
 
   const tabs: { id: Tab; label: string; labelEn: string }[] = [
     { id: 'shot', label: 'ショット（都度払い）', labelEn: 'One-time (Shot)' },
@@ -194,20 +232,56 @@ export default function PricingView() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 text-center">
+          {error}
+        </div>
+      )}
+
       {/* ── Cards Grid ── */}
       {tab === 'shot' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-          {SHOT_CARDS.map((p) => <Card key={p.name} plan={p} isJa={isJa} />)}
+          {SHOT_CARDS.map((p) => (
+            <Card
+              key={p.name}
+              plan={p}
+              isJa={isJa}
+              onSelect={handleSelectPlan}
+              loading={loading}
+              isLoggedIn={!!session}
+              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+            />
+          ))}
         </div>
       )}
       {tab === 'volume' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
-          {SUBSCRIPTION_CARDS.map((p) => <Card key={p.name} plan={p} isJa={isJa} />)}
+          {SUBSCRIPTION_CARDS.map((p) => (
+            <Card
+              key={p.name}
+              plan={p}
+              isJa={isJa}
+              onSelect={handleSelectPlan}
+              loading={loading}
+              isLoggedIn={!!session}
+              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+            />
+          ))}
         </div>
       )}
       {tab === 'subscription' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {ENTERPRISE_CARDS.map((p) => <Card key={p.name} plan={p} isJa={isJa} />)}
+          {ENTERPRISE_CARDS.map((p) => (
+            <Card
+              key={p.name}
+              plan={p}
+              isJa={isJa}
+              onSelect={handleSelectPlan}
+              loading={loading}
+              isLoggedIn={!!session}
+              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+            />
+          ))}
         </div>
       )}
 

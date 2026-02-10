@@ -25,8 +25,7 @@ interface ResultsModalProps {
   actionLogs?: ActionLog[];
   onNextTrack?: () => void;
   onFeedbackApply?: (newParams: MasteringParams) => void;
-  onRecalcWithAI?: (provider: 'gemini' | 'openai') => Promise<void>;
-  hasOpenAI?: boolean;
+  onRecalcWithAI?: () => Promise<void>;
   /** マスター出力の実測値（耳以外の評価用） */
   masterMetrics?: { lufs: number; peakDb: number } | null;
 }
@@ -51,7 +50,6 @@ export default function ResultsModal({
   onNextTrack,
   onFeedbackApply,
   onRecalcWithAI,
-  hasOpenAI = false,
   masterMetrics = null,
 }: ResultsModalProps) {
   const { t } = useTranslation();
@@ -171,7 +169,6 @@ export default function ResultsModal({
                 hideDownloadButton
                 onFeedbackApply={onFeedbackApply}
                 onRecalcWithAI={onRecalcWithAI}
-                hasOpenAI={hasOpenAI}
                 language={language}
               />
             </div>

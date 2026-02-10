@@ -33,12 +33,12 @@ export async function getMasteringSuggestionsOpenAI(
   if (!res.ok) {
     const err = await res.text();
     console.error('OpenAI API error:', res.status, err);
-    throw new Error("error.gemini.fail");
+    throw new Error("error.openai.fail");
   }
 
   const json = await res.json();
   const text = json.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("error.gemini.invalid_params");
+  if (!text) throw new Error("error.openai.invalid_params");
 
   const parsed = JSON.parse(text) as MasteringParams;
   return clampMasteringParams(parsed);

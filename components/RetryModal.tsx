@@ -13,16 +13,12 @@ const XIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-export type AIProviderChoice = 'gemini' | 'openai';
-
 interface RetryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRetry: (feedback: FeedbackType) => void;
   /** 指定した AI でパラメータを再計算（未設定の場合は UI 非表示） */
-  onRecalcWithAI?: (provider: AIProviderChoice) => Promise<void>;
-  /** OpenAI が利用可能なとき true（OpenAI ボタンを表示） */
-  hasOpenAI?: boolean;
+  onRecalcWithAI?: () => Promise<void>;
   /** 再計算中はボタンを無効化 */
   isRecalculating?: boolean;
   language?: 'ja' | 'en';
@@ -33,7 +29,6 @@ export const RetryModal: React.FC<RetryModalProps> = ({
   onClose,
   onRetry,
   onRecalcWithAI,
-  hasOpenAI = false,
   isRecalculating = false,
   language = 'ja',
 }) => {
@@ -48,8 +43,7 @@ export const RetryModal: React.FC<RetryModalProps> = ({
     : 'AI AGENT WILL RE-CALIBRATE DSP ENGINE BASED ON YOUR FEEDBACK.';
 
   const showRecalc = !!onRecalcWithAI;
-  const recalcLabel = language === 'ja' ? 'AIを選んで再計算' : 'Re-calculate with AI';
-  const geminiLabel = language === 'ja' ? 'Gemini で再計算' : 'Re-calc with Gemini';
+  const recalcLabel = language === 'ja' ? 'AIで再計算' : 'Re-calculate with AI';
   const openaiLabel = language === 'ja' ? 'OpenAI で再計算' : 'Re-calc with OpenAI';
 
   return (
@@ -83,22 +77,12 @@ export const RetryModal: React.FC<RetryModalProps> = ({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => onRecalcWithAI('gemini')}
+                  onClick={() => onRecalcWithAI()}
                   disabled={isRecalculating}
                   className="px-4 py-2.5 rounded-xl border border-cyan-500/50 bg-cyan-500/10 text-cyan-400 font-mono text-sm hover:bg-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  {isRecalculating ? (language === 'ja' ? '再計算中...' : 'Re-calculating...') : geminiLabel}
+                  {isRecalculating ? (language === 'ja' ? '再計算中...' : 'Re-calculating...') : openaiLabel}
                 </button>
-                {hasOpenAI && (
-                  <button
-                    type="button"
-                    onClick={() => onRecalcWithAI('openai')}
-                    disabled={isRecalculating}
-                    className="px-4 py-2.5 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-mono text-sm hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    {isRecalculating ? (language === 'ja' ? '再計算中...' : 'Re-calculating...') : openaiLabel}
-                  </button>
-                )}
               </div>
             </section>
           )}
