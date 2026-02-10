@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import type { AudioAnalysisData, MasteringTarget } from '../types';
 import PlatformSelector from './PlatformSelector';
 
@@ -173,6 +173,29 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
   const ja = language === 'ja';
   const targetLufs = target === 'beatport' ? -7.0 : -14.0;
   const lufsGap = targetLufs - data.lufs;
+  const [copied, setCopied] = React.useState(false);
+
+  const copyReportToClipboard = useCallback(() => {
+    const targetPeak = target === 'beatport' ? '-0.1' : '-1';
+    const lines = [
+      ja ? '=== 診断レポート（判断用） ===' : '=== Diagnosis Report (for decision) ===',
+      `${ja ? 'ラウドネス' : 'Loudness'}: ${data.lufs.toFixed(1)} LUFS | ${ja ? '目標' : 'Target'} ${targetLufs} LUFS | ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`,
+      `${ja ? 'トゥルーピーク' : 'True Peak'}: ${data.truePeak.toFixed(1)} dBTP | ${ja ? '目標' : 'Target'} ≤${targetPeak} dBTP`,
+      `${ja ? 'ダイナミクス' : 'Dynamics'}: ${data.crestFactor.toFixed(1)} (Crest)`,
+      `${ja ? '位相相関' : 'Phase'}: ${data.phaseCorrelation.toFixed(3)}`,
+      `${ja ? '歪み' : 'Distortion'}: ${data.distortionPercent.toFixed(2)}%`,
+      `${ja ? 'ノイズフロア' : 'Noise Floor'}: ${data.noiseFloorDb.toFixed(1)} dB`,
+      `${ja ? 'ステレオ幅' : 'Stereo'}: ${data.stereoWidth.toFixed(0)}%`,
+      '',
+      `${ja ? 'マスタリング後想定' : 'Post-master target'}: ${targetLufs} LUFS, True Peak ≤${targetPeak} dBTP (Brickwall)`,
+      `Chain: Tube Sat → Pultec EQ → M/S → Glue Comp → Neuro-Drive → Soft Clip → Limiter → Brickwall (±1)`,
+    ];
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }, [data, target, ja, lufsGap]);
 
   // ── 各指標の判定 ──
   const loudnessStatus = Math.abs(lufsGap) <= 2 ? 'good' : Math.abs(lufsGap) <= 5 ? 'warn' : 'bad';
@@ -199,7 +222,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
         <PlatformSelector currentTarget={target} onTargetChange={onTargetChange} />
       </div>
 
-      {/* ── Compact header: small score badge + summary (no huge donut) ── */}
+      {/* ── Compact header: small score badge + summary ── */}
       <div className="glass-elevated rounded-2xl p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -227,6 +250,78 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
             ? `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} 基準 — 7項目を検査`
             : `${target === 'beatport' ? 'Beatport Top' : 'Spotify'} — 7 metrics inspected`}
         </p>
+      </div>
+
+      {/* ── プロ用サマリ: 指標・現在値・目標・判定（判断材料を一覧で） ── */}
+      <div className="glass rounded-2xl p-4 sm:p-5 overflow-x-auto">
+        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-3">
+          {ja ? '判断用サマリ（現在値 vs 目標）' : 'Summary for decision (current vs target)'}
+        </p>
+        <table className="w-full text-left border-collapse min-w-[420px]">
+          <thead>
+            <tr className="text-[10px] text-zinc-500 border-b border-white/10">
+              <th className="py-2 pr-3 font-semibold">{ja ? '指標' : 'Metric'}</th>
+              <th className="py-2 pr-3 font-mono font-semibold">{ja ? '現在値' : 'Current'}</th>
+              <th className="py-2 pr-3 font-mono font-semibold">{ja ? '目標' : 'Target'}</th>
+              <th className="py-2 font-semibold">{ja ? '判定' : 'Status'}</th>
+            </tr>
+          </thead>
+          <tbody className="text-[12px]">
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? 'ラウドネス' : 'Loudness'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.lufs.toFixed(1)} LUFS</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">{targetLufs} LUFS</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${loudnessStatus === 'good' ? 'bg-green-500' : loudnessStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {loudnessStatus === 'good' ? (ja ? '適合' : 'Pass') : loudnessStatus === 'warn' ? (ja ? '要調整' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? 'トゥルーピーク' : 'True Peak'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.truePeak.toFixed(1)} dBTP</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">{target === 'beatport' ? '-0.1' : '-1'} dBTP</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${peakStatus === 'good' ? 'bg-green-500' : peakStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {peakStatus === 'good' ? (ja ? 'OK' : 'Pass') : peakStatus === 'warn' ? (ja ? '注意' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? 'ダイナミクス (Crest)' : 'Dynamics (Crest)'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.crestFactor.toFixed(1)}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">{target === 'beatport' ? '6–10' : '9–15'}</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${dynamicStatus === 'good' ? 'bg-green-500' : dynamicStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {dynamicStatus === 'good' ? (ja ? '良好' : 'Pass') : dynamicStatus === 'warn' ? (ja ? '要確認' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? '位相相関' : 'Phase Corr.'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.phaseCorrelation.toFixed(3)}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">&gt;0.5</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${phaseStatus === 'good' ? 'bg-green-500' : phaseStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {phaseStatus === 'good' ? (ja ? 'OK' : 'Pass') : phaseStatus === 'warn' ? (ja ? '注意' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? '歪み (THD近似)' : 'Distortion'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.distortionPercent.toFixed(2)}%</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">&lt;0.1%</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${distortionStatus === 'good' ? 'bg-green-500' : distortionStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {distortionStatus === 'good' ? (ja ? 'クリーン' : 'Pass') : distortionStatus === 'warn' ? (ja ? '注意' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-2 pr-3 text-zinc-300">{ja ? 'ノイズフロア' : 'Noise Floor'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{data.noiseFloorDb.toFixed(1)} dB</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">&lt;-60 dB</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${noiseStatus === 'good' ? 'bg-green-500' : noiseStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {noiseStatus === 'good' ? (ja ? 'OK' : 'Pass') : noiseStatus === 'warn' ? (ja ? '注意' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 text-zinc-300">{ja ? 'ステレオ幅 (低域)' : 'Stereo (low)'}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-white">{stereoWidth.toFixed(0)}%</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-zinc-400">&lt;50%</td>
+              <td className="py-2"><span className={`inline-block w-2 h-2 rounded-full ${bassMonoStatus === 'good' ? 'bg-green-500' : bassMonoStatus === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} /> {bassMonoStatus === 'good' ? (ja ? '適正' : 'Pass') : bassMonoStatus === 'warn' ? (ja ? '要確認' : 'Warn') : (ja ? '要対応' : 'Fail')}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p className="text-[10px] text-zinc-500 mt-3 font-mono">
+          {ja ? 'マスタリング後想定: ' : 'Post-master target: '}
+          {targetLufs} LUFS 前後、True Peak ≤ {target === 'beatport' ? '-0.1' : '-1'} dBTP（Brickwall でクリップ防止）
+        </p>
+        <button
+          type="button"
+          onClick={copyReportToClipboard}
+          className="mt-3 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/20 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          {copied ? (ja ? 'コピーしました' : 'Copied') : (ja ? 'レポートをコピー（判断・共有用）' : 'Copy report (evidence / share)')}
+        </button>
       </div>
 
       {/* ── 視覚メトリクス（数値だけじゃない・ひと目で判断） ── */}
@@ -327,7 +422,10 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
             })()}
           </p>
           <p className="text-[10px] text-zinc-600 font-mono">
-            Tube Sat → Pultec EQ → M/S → Glue Comp → Neuro-Drive → Soft Clip → Limiter
+            Tube Sat → Pultec EQ → M/S → Glue Comp → Neuro-Drive → Soft Clip → Limiter → Brickwall (±1)
+          </p>
+          <p className="text-[9px] text-zinc-500 mt-1">
+            {ja ? 'Brickwall: 出力を ±1 に保証。クリップ・割れ防止。' : 'Brickwall: Output guaranteed ±1. No clip/distortion.'}
           </p>
         </div>
 
