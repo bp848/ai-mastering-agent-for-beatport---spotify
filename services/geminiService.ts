@@ -1,22 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { AudioAnalysisData, MasteringTarget, MasteringParams, MasteringIntent } from '../types';
-import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
-import { deriveMasteringParamsFromIntent } from './masteringDerivation';
-
-const normalizeIntent = (raw: Partial<MasteringIntent>): MasteringIntent => {
-  const risk = ['low', 'mid', 'high'] as const;
-  const bass = ['thin', 'normal', 'thick'] as const;
-  const harsh = ['none', 'some', 'strong'] as const;
-  const stereo = ['narrow', 'normal', 'wide'] as const;
-
-  return {
-    kickRisk: risk.includes(raw.kickRisk as (typeof risk)[number]) ? (raw.kickRisk as (typeof risk)[number]) : 'mid',
-    transientRisk: risk.includes(raw.transientRisk as (typeof risk)[number]) ? (raw.transientRisk as (typeof risk)[number]) : 'mid',
-    bassDensity: bass.includes(raw.bassDensity as (typeof bass)[number]) ? (raw.bassDensity as (typeof bass)[number]) : 'normal',
-    highHarshness: harsh.includes(raw.highHarshness as (typeof harsh)[number]) ? (raw.highHarshness as (typeof harsh)[number]) : 'some',
-    stereoNeed: stereo.includes(raw.stereoNeed as (typeof stereo)[number]) ? (raw.stereoNeed as (typeof stereo)[number]) : 'normal',
-  };
-};
+import { GoogleGenAI } from "@google/genai";
+import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
+import { deriveMasteringParamsFromDecision } from './masteringDerivation';
+import { resolveMasteringDecision } from './aiDebateService';
 
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   return {
@@ -46,54 +31,23 @@ export function applySafetyGuard(params: MasteringParams, analysis: AudioAnalysi
   return safe;
 }
 
-const getMasteringIntentSchema = () => ({
-  type: Type.OBJECT,
-  properties: {
-    kickRisk: { type: Type.STRING, enum: ['low', 'mid', 'high'] },
-    transientRisk: { type: Type.STRING, enum: ['low', 'mid', 'high'] },
-    bassDensity: { type: Type.STRING, enum: ['thin', 'normal', 'thick'] },
-    highHarshness: { type: Type.STRING, enum: ['none', 'some', 'strong'] },
-    stereoNeed: { type: Type.STRING, enum: ['narrow', 'normal', 'wide'] },
-  },
-  required: ['kickRisk', 'transientRisk', 'bassDensity', 'highHarshness', 'stereoNeed'],
-});
-
 export interface MasteringSuggestionsResult {
   params: MasteringParams;
   rawResponseText: string;
 }
 
 export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, _language: 'ja' | 'en'): Promise<MasteringSuggestionsResult> => {
-  const specifics = getPlatformSpecifics(target);
-  const prompt = generateMasteringPrompt(data, specifics);
-  const schema = getMasteringIntentSchema();
-
   try {
-    const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
-    });
-
-    const jsonText = response.text?.trim();
-    if (!jsonText) throw new Error("error.gemini.invalid_params");
-    const parsed = JSON.parse(jsonText) as Partial<MasteringIntent>;
-    const intent = normalizeIntent(parsed);
-    const derived = deriveMasteringParamsFromIntent(intent, data);
+    const result = await resolveMasteringDecision(data, target);
+    const derived = deriveMasteringParamsFromDecision(result.decision, data);
     const safe = applySafetyGuard(clampMasteringParams(derived), data);
-    return { params: safe, rawResponseText: jsonText };
+    return { params: safe, rawResponseText: JSON.stringify(result.trace) };
   } catch (error) {
     console.error("Gemini calculation failed:", error);
     throw new Error("error.gemini.fail");
   }
 };
 
-/** @deprecated Use getMasteringSuggestions from aiService for provider switch. */
 export const getMasteringSuggestions = getMasteringSuggestionsGemini;
 
 export interface SnsSuggestionInput {

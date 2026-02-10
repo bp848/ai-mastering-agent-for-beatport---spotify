@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { deriveMasteringParamsFromIntent } from '../services/masteringDerivation';
-import { generateMasteringPrompt, getPlatformSpecifics } from '../services/masteringPrompts';
-import type { AudioAnalysisData, MasteringIntent } from '../types';
+import { deriveMasteringParamsFromDecision } from '../services/masteringDerivation';
+import {
+  generateConsensusPrompt,
+  generateGeminiInitialPrompt,
+  generateGptReviewPrompt,
+  getPlatformSpecifics,
+} from '../services/masteringPrompts';
+import type { AIDecision, AudioAnalysisData } from '../types';
 
 const analysis: AudioAnalysisData = {
   lufs: -10,
@@ -25,17 +30,18 @@ const analysis: AudioAnalysisData = {
   ],
 };
 
-const intent: MasteringIntent = {
-  kickRisk: 'high',
-  transientRisk: 'mid',
-  bassDensity: 'thick',
-  highHarshness: 'some',
-  stereoNeed: 'wide',
+const decision: AIDecision = {
+  kickSafety: 'danger',
+  saturationNeed: 'moderate',
+  transientHandling: 'control',
+  highFreqTreatment: 'polish',
+  stereoIntent: 'wide',
+  confidence: 0.7,
 };
 
-describe('deriveMasteringParamsFromIntent', () => {
-  it('derives all DSP values from analysis+intent and outputs finite params', () => {
-    const params = deriveMasteringParamsFromIntent(intent, analysis);
+describe('deriveMasteringParamsFromDecision', () => {
+  it('derives all DSP values from analysis+decision and outputs finite params', () => {
+    const params = deriveMasteringParamsFromDecision(decision, analysis);
     expect(Number.isFinite(params.gain_adjustment_db)).toBe(true);
     expect(Number.isFinite(params.limiter_ceiling_db)).toBe(true);
     expect(Number.isFinite(params.tube_drive_amount)).toBe(true);
@@ -45,20 +51,29 @@ describe('deriveMasteringParamsFromIntent', () => {
     expect(params.eq_adjustments.length).toBeGreaterThan(0);
   });
 
-  it('changes derived result when intent changes', () => {
-    const wide = deriveMasteringParamsFromIntent(intent, analysis);
-    const narrow = deriveMasteringParamsFromIntent({ ...intent, stereoNeed: 'narrow', highHarshness: 'strong' }, analysis);
+  it('changes derived result when decision changes', () => {
+    const wide = deriveMasteringParamsFromDecision(decision, analysis);
+    const narrow = deriveMasteringParamsFromDecision(
+      { ...decision, stereoIntent: 'monoSafe', highFreqTreatment: 'restrain' },
+      analysis,
+    );
     expect(wide.width_amount).not.toBe(narrow.width_amount);
     expect(wide.exciter_amount).not.toBe(narrow.exciter_amount);
   });
 });
 
-describe('generateMasteringPrompt', () => {
-  it('requests qualitative JSON categories and disallows numeric return instructions', () => {
-    const prompt = generateMasteringPrompt(analysis, getPlatformSpecifics('spotify'));
-    expect(prompt).toContain('"kickRisk": "low" | "mid" | "high"');
-    expect(prompt).toContain('Do not return numeric values.');
-    expect(prompt).not.toContain('Hz');
-    expect(prompt).not.toContain('ms');
+describe('mastering prompts', () => {
+  it('requests qualitative decision categories for Gemini', () => {
+    const prompt = generateGeminiInitialPrompt(analysis, getPlatformSpecifics('spotify'));
+    expect(prompt).toContain('"kickSafety": "safe" | "borderline" | "danger"');
+    expect(prompt).toContain('Do not output dB, Hz, or ms.');
+  });
+
+  it('includes review and consensus context payloads', () => {
+    const specifics = getPlatformSpecifics('beatport');
+    const review = generateGptReviewPrompt(analysis, specifics, decision);
+    const consensus = generateConsensusPrompt(specifics, decision, { ...decision, confidence: 0.3 });
+    expect(review).toContain('Gemini decision');
+    expect(consensus).toContain('GPT decision');
   });
 });

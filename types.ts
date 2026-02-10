@@ -30,13 +30,13 @@ export interface EQAdjustment {
   type: 'peak' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass';
 }
 
-
-export interface MasteringIntent {
-  kickRisk: 'low' | 'mid' | 'high';
-  transientRisk: 'low' | 'mid' | 'high';
-  bassDensity: 'thin' | 'normal' | 'thick';
-  highHarshness: 'none' | 'some' | 'strong';
-  stereoNeed: 'narrow' | 'normal' | 'wide';
+export interface AIDecision {
+  kickSafety: 'safe' | 'borderline' | 'danger';
+  saturationNeed: 'none' | 'light' | 'moderate';
+  transientHandling: 'preserve' | 'soften' | 'control';
+  highFreqTreatment: 'leave' | 'polish' | 'restrain';
+  stereoIntent: 'monoSafe' | 'balanced' | 'wide';
+  confidence: number;
 }
 
 export interface MasteringParams {
@@ -46,10 +46,10 @@ export interface MasteringParams {
   limiter_ceiling_db: number;
 
   // --- Signature Engine Parameters (AI が決定する「色気」) ---
-  tube_drive_amount: number;      // 0.0–5.0  真空管サチュレーション量
-  exciter_amount: number;         // 0.0–0.2  高域倍音付加量
-  low_contour_amount: number;     // 0.0–1.0  Pultec式 低域処理量
-  width_amount: number;           // 1.0–1.5  ステレオ幅
+  tube_drive_amount: number;
+  exciter_amount: number;
+  low_contour_amount: number;
+  width_amount: number;
 
   tube_hpf_hz?: number;
   exciter_hpf_hz?: number;
@@ -59,7 +59,7 @@ export interface MasteringParams {
   limiter_release_s?: number;
 
   // --- Target Logic (アルゴリズムが強制する目標値) ---
-  target_lufs?: number;           // 目標音圧 (例: -8.0 LUFS)
+  target_lufs?: number;
 
   // --- Self-Correction (フィードバックループ用。未指定時はフォールバック) ---
   self_correction_lufs_tolerance_db?: number;
@@ -91,46 +91,16 @@ export interface LibraryTrack {
   genre: string;
   isrc: string;
   releaseDate: string;
-  artworkUrl: string; // データURL or 空
-  fileName: string;
-  masteringTarget: MasteringTarget | null;
-  createdAt: string; // ISO
-}
-
-/** プレイリスト入りチェック（グラウンディング） */
-export interface PlaylistCheckItem {
-  id: string;
-  trackId: string;
-  platform: 'spotify' | 'beatport' | 'apple' | 'other';
-  playlistName: string;
-  checked: boolean;
-  checkedAt: string | null; // ISO
-}
-
-/** メールマーケティング用コンタクト */
-export interface EmailContact {
-  id: string;
-  email: string;
-  name: string;
-  addedAt: string; // ISO
-}
-
-// --- 楽曲管理プラットフォーム用 ---
-export interface LibraryTrack {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
-  genre: string;
-  isrc: string;
-  releaseDate: string;
   artworkUrl: string;
   notes: string;
+  fileName?: string;
+  masteringTarget?: MasteringTarget | null;
   createdAt: string;
 }
 
 export type PlaylistPlatform = 'spotify' | 'beatport' | 'apple' | 'other';
 
+/** プレイリスト入りチェック（グラウンディング） */
 export interface PlaylistCheckItem {
   id: string;
   trackId: string;
@@ -140,6 +110,7 @@ export interface PlaylistCheckItem {
   checkedAt: string | null;
 }
 
+/** メールマーケティング用コンタクト */
 export interface EmailContact {
   id: string;
   email: string;

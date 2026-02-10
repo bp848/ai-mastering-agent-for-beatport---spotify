@@ -1,4 +1,4 @@
-import type { AudioAnalysisData, MasteringTarget } from '../types';
+import type { AIDecision, AudioAnalysisData, MasteringTarget } from '../types';
 
 export const getPlatformSpecifics = (target: MasteringTarget) => {
   if (target === 'spotify') {
@@ -15,52 +15,81 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
 
 export type PlatformSpecifics = ReturnType<typeof getPlatformSpecifics>;
 
-export const generateMasteringPrompt = (
-  data: AudioAnalysisData,
-  specifics: PlatformSpecifics
-): string => {
-  const subBass = data.frequencyData.find(f => f.name === '20-60')?.level ?? data.bassVolume;
-  const bass = data.frequencyData.find(f => f.name === '60-250')?.level ?? data.bassVolume;
-  const lowMid = data.frequencyData.find(f => f.name === '250-1k')?.level ?? data.bassVolume;
-  const mid = data.frequencyData.find(f => f.name === '1k-4k')?.level ?? data.bassVolume;
-  const highMid = data.frequencyData.find(f => f.name === '4k-8k')?.level ?? data.bassVolume;
-  const high = data.frequencyData.find(f => f.name === '8k-20k')?.level ?? data.bassVolume;
-
-  return `
-# ROLE
-You are a mastering analysis assistant for ${specifics.platformName}.
-Make only qualitative judgments from analysis data.
-
-# CONTEXT
-${specifics.genreContext}
-
-# ANALYSIS SNAPSHOT
-- integratedLoudness: ${data.lufs.toFixed(2)}
-- truePeak: ${data.truePeak.toFixed(2)}
-- crestFactor: ${data.crestFactor.toFixed(2)}
-- dynamicRange: ${data.dynamicRange.toFixed(2)}
-- stereoWidth: ${data.stereoWidth.toFixed(2)}
-- phaseCorrelation: ${data.phaseCorrelation.toFixed(2)}
-- distortionPercent: ${data.distortionPercent.toFixed(3)}
-- subBass: ${subBass.toFixed(2)}
-- bass: ${bass.toFixed(2)}
-- lowMid: ${lowMid.toFixed(2)}
-- mid: ${mid.toFixed(2)}
-- highMid: ${highMid.toFixed(2)}
-- high: ${high.toFixed(2)}
-
-# OUTPUT CONTRACT
-Return ONLY valid JSON with this exact shape:
-{
-  "kickRisk": "low" | "mid" | "high",
-  "transientRisk": "low" | "mid" | "high",
-  "bassDensity": "thin" | "normal" | "thick",
-  "highHarshness": "none" | "some" | "strong",
-  "stereoNeed": "narrow" | "normal" | "wide"
-}
-
-Do not return numeric values.
-Do not include units.
-Do not include prose.
-`.trim();
+const toSnapshot = (data: AudioAnalysisData): string => {
+  const valueFor = (name: string): number => data.frequencyData.find((f) => f.name === name)?.level ?? data.bassVolume;
+  return [
+    `integratedLoudness=${data.lufs.toFixed(6)}`,
+    `truePeak=${data.truePeak.toFixed(6)}`,
+    `crestFactor=${data.crestFactor.toFixed(6)}`,
+    `dynamicRange=${data.dynamicRange.toFixed(6)}`,
+    `stereoWidth=${data.stereoWidth.toFixed(6)}`,
+    `phaseCorrelation=${data.phaseCorrelation.toFixed(6)}`,
+    `distortionPercent=${data.distortionPercent.toFixed(6)}`,
+    `subBass=${valueFor('20-60').toFixed(6)}`,
+    `bass=${valueFor('60-250').toFixed(6)}`,
+    `lowMid=${valueFor('250-1k').toFixed(6)}`,
+    `mid=${valueFor('1k-4k').toFixed(6)}`,
+    `highMid=${valueFor('4k-8k').toFixed(6)}`,
+    `high=${valueFor('8k-20k').toFixed(6)}`,
+  ].join('\n');
 };
+
+const decisionContract = `Return ONLY valid JSON with this exact shape:
+{
+  "kickSafety": "safe" | "borderline" | "danger",
+  "saturationNeed": "none" | "light" | "moderate",
+  "transientHandling": "preserve" | "soften" | "control",
+  "highFreqTreatment": "leave" | "polish" | "restrain",
+  "stereoIntent": "monoSafe" | "balanced" | "wide",
+  "confidence": number between 0 and 1
+}
+Do not output dB, Hz, or ms.`;
+
+export const generateGeminiInitialPrompt = (data: AudioAnalysisData, specifics: PlatformSpecifics): string => `
+You are the structural analyzer for mastering decisions.
+Focus on tonal balance, dynamic distribution, and platform suitability.
+Platform: ${specifics.platformName}
+Context: ${specifics.genreContext}
+
+Analysis:
+${toSnapshot(data)}
+
+${decisionContract}
+`.trim();
+
+export const generateGptReviewPrompt = (
+  data: AudioAnalysisData,
+  specifics: PlatformSpecifics,
+  geminiDecision: AIDecision,
+): string => `
+You are the perceptual reviewer for mastering decisions.
+Review Gemini's decision, challenge weak assumptions, and propose corrected intent if needed.
+Platform: ${specifics.platformName}
+Context: ${specifics.genreContext}
+
+Analysis:
+${toSnapshot(data)}
+
+Gemini decision:
+${JSON.stringify(geminiDecision)}
+
+${decisionContract}
+`.trim();
+
+export const generateConsensusPrompt = (
+  specifics: PlatformSpecifics,
+  geminiDecision: AIDecision,
+  gptDecision: AIDecision,
+): string => `
+Resolve disagreements between two AI assessments and output final decision only.
+Platform: ${specifics.platformName}
+Context: ${specifics.genreContext}
+
+Gemini decision:
+${JSON.stringify(geminiDecision)}
+
+GPT decision:
+${JSON.stringify(gptDecision)}
+
+${decisionContract}
+`.trim();

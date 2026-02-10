@@ -1,4 +1,4 @@
-import type { AudioAnalysisData, MasteringIntent, MasteringParams } from '../types';
+import type { AIDecision, AudioAnalysisData, MasteringParams } from '../types';
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
@@ -23,28 +23,9 @@ const normalizeByPopulation = (value: number, population: number[]): number => {
   return (value - mean) / std;
 };
 
-const levelWeight = (level: 'low' | 'mid' | 'high'): number => {
-  if (level === 'low') return 0;
-  if (level === 'mid') return 0.5;
-  return 1;
-};
-
-const harshnessWeight = (level: 'none' | 'some' | 'strong'): number => {
-  if (level === 'none') return 0;
-  if (level === 'some') return 0.5;
-  return 1;
-};
-
-const bassWeight = (level: 'thin' | 'normal' | 'thick'): number => {
-  if (level === 'thin') return 0;
-  if (level === 'normal') return 0.5;
-  return 1;
-};
-
-const stereoWeight = (level: 'narrow' | 'normal' | 'wide'): number => {
-  if (level === 'narrow') return 0;
-  if (level === 'normal') return 0.5;
-  return 1;
+const weightFor = <T extends string>(value: T, order: readonly T[]): number => {
+  const index = Math.max(0, order.indexOf(value));
+  return index / Math.max(1, order.length - 1);
 };
 
 const deriveHpFrequency = (analysis: AudioAnalysisData, focus: number): number => {
@@ -55,8 +36,8 @@ const deriveHpFrequency = (analysis: AudioAnalysisData, focus: number): number =
   return Math.abs(base * (1 + lowVsHigh + focus));
 };
 
-export function deriveMasteringParamsFromIntent(
-  intent: MasteringIntent,
+export function deriveMasteringParamsFromDecision(
+  decision: AIDecision,
   analysis: AudioAnalysisData,
 ): MasteringParams {
   const harmonicBands = [
@@ -71,35 +52,35 @@ export function deriveMasteringParamsFromIntent(
   const harshNorm = normalizeByPopulation(bandLevel(analysis, '4k-8k') + bandLevel(analysis, '8k-20k'), harmonicBands);
   const bassNorm = normalizeByPopulation(analysis.bassVolume + bandLevel(analysis, '20-60'), [analysis.bassVolume, ...harmonicBands]);
 
-  const kickWeight = levelWeight(intent.kickRisk);
-  const transientWeight = levelWeight(intent.transientRisk);
-  const bassIntentWeight = bassWeight(intent.bassDensity);
-  const harshIntentWeight = harshnessWeight(intent.highHarshness);
-  const stereoIntentWeight = stereoWeight(intent.stereoNeed);
+  const kickWeight = weightFor(decision.kickSafety, ['safe', 'borderline', 'danger']);
+  const satWeight = weightFor(decision.saturationNeed, ['none', 'light', 'moderate']);
+  const transientWeight = weightFor(decision.transientHandling, ['preserve', 'soften', 'control']);
+  const harshWeight = weightFor(decision.highFreqTreatment, ['leave', 'polish', 'restrain']);
+  const stereoWeight = weightFor(decision.stereoIntent, ['monoSafe', 'balanced', 'wide']);
 
   const gainAdjustment = (dynamicNorm - kickWeight - transientWeight) * (1 + bassNorm);
-  const limiterCeiling = analysis.truePeak - Math.abs(dynamicNorm + harshNorm + transientWeight);
+  const limiterCeiling = analysis.truePeak - Math.abs(dynamicNorm + harshNorm + transientWeight + (1 - decision.confidence));
 
-  const lowContour = clamp((bassIntentWeight + bassNorm) / 2, 0, 1);
-  const width = clamp(1 + stereoIntentWeight * (analysis.stereoWidth / (Math.abs(analysis.stereoWidth) + Math.abs(analysis.phaseCorrelation * 100) + 1)), 0.5, 2);
+  const lowContour = clamp((satWeight + bassNorm) / 2, 0, 1);
+  const width = clamp(1 + stereoWeight * (analysis.stereoWidth / (Math.abs(analysis.stereoWidth) + Math.abs(analysis.phaseCorrelation * 100) + 1)), 0.5, 2);
 
   const eq_adjustments = [
     {
       type: 'peak' as const,
-      frequency: Math.abs(deriveHpFrequency(analysis, bassIntentWeight)),
-      gain_db: (harmonicCenter - bandLevel(analysis, '250-1k')) * (1 - bassIntentWeight),
+      frequency: Math.abs(deriveHpFrequency(analysis, satWeight)),
+      gain_db: (harmonicCenter - bandLevel(analysis, '250-1k')) * (1 - satWeight),
       q: Math.abs(analysis.dynamicRange / (Math.abs(analysis.crestFactor) + 1)),
     },
     {
       type: 'peak' as const,
-      frequency: Math.abs(deriveHpFrequency(analysis, harshIntentWeight + transientWeight)),
-      gain_db: (harmonicCenter - bandLevel(analysis, '4k-8k')) * (1 - harshIntentWeight),
+      frequency: Math.abs(deriveHpFrequency(analysis, harshWeight + transientWeight)),
+      gain_db: (harmonicCenter - bandLevel(analysis, '4k-8k')) * (1 - harshWeight),
       q: Math.abs(analysis.crestFactor / (Math.abs(analysis.dynamicRange) + 1)),
     },
   ];
 
-  const tubeDrive = Math.abs((kickWeight + transientWeight + bassIntentWeight + crestNorm) * (1 + analysis.distortionPercent / 100));
-  const exciterAmount = Math.abs((1 - harshIntentWeight) * (1 + harshNorm + analysis.phaseCorrelation));
+  const tubeDrive = Math.abs((kickWeight + transientWeight + satWeight + crestNorm) * (1 + analysis.distortionPercent / 100));
+  const exciterAmount = Math.abs((1 - harshWeight) * (1 + harshNorm + analysis.phaseCorrelation));
 
   const transientAttack = Math.abs(analysis.dynamicRange / (Math.abs(analysis.peakRMS) + Math.abs(analysis.truePeak) + 1));
   const transientRelease = Math.abs(analysis.crestFactor / (Math.abs(analysis.dynamicRange) + Math.abs(analysis.peakRMS) + 1));
@@ -112,11 +93,11 @@ export function deriveMasteringParamsFromIntent(
     exciter_amount: exciterAmount,
     low_contour_amount: lowContour,
     width_amount: width,
-    tube_hpf_hz: deriveHpFrequency(analysis, bassIntentWeight + kickWeight),
-    exciter_hpf_hz: deriveHpFrequency(analysis, harshIntentWeight + transientWeight),
+    tube_hpf_hz: deriveHpFrequency(analysis, satWeight + kickWeight),
+    exciter_hpf_hz: deriveHpFrequency(analysis, harshWeight + transientWeight),
     transient_attack_s: transientAttack,
     transient_release_s: transientRelease,
     limiter_attack_s: transientAttack / (1 + transientWeight),
-    limiter_release_s: transientRelease * (1 + bassIntentWeight),
+    limiter_release_s: transientRelease * (1 + satWeight),
   };
 }
