@@ -57,9 +57,18 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isDisabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   return (
     <div
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

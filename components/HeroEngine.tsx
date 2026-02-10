@@ -1,11 +1,12 @@
 
 import React from 'react';
+import { useTranslation } from '../contexts/LanguageContext';
 
 /* ─────────────────────────────────────────────────────────────────
    HeroEngine — ランディングセクション
    セミプロ / プロ向けの技術的信頼感を与えるエンジン解説。
    ファイル未アップロード時に表示。
-
+   マーケティング: ログインなしでプレビューまで聴ける誘導を明示。
    4つの価値軸: 音量・音質・音圧・音像
    ───────────────────────────────────────────────────────────────── */
 
@@ -33,6 +34,7 @@ interface HeroEngineProps {
 }
 
 const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
+  const { t } = useTranslation();
   const ja = language === 'ja';
 
   return (
@@ -77,7 +79,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
           </p>
         </div>
 
-        {/* 4 Pillars */}
+        {/* 4つの価値軸: 音量・音質・音圧・音像 */}
         <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
           {(ja
             ? ['音量', '音質', '音圧', '音像']
@@ -89,26 +91,6 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
             >
               {pillar}
             </span>
-          ))}
-        </div>
-
-        {/* Signal flow mini-diagram */}
-        <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap text-[9px] sm:text-[10px] font-mono text-zinc-500 select-none pt-2">
-          {[
-            'Upload',
-            'Python Analysis',
-            'AI (Gemini)',
-            'Self-Correction',
-            'DSP Chain',
-            'Neuro-Drive',
-            'Preview / Export',
-          ].map((step, i, arr) => (
-            <React.Fragment key={step}>
-              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
-                {step}
-              </span>
-              {i < arr.length - 1 && <span className="text-cyan-600">&rarr;</span>}
-            </React.Fragment>
           ))}
         </div>
       </div>
@@ -167,11 +149,14 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
         />
       </div>
 
-      {/* ── CTA hint ─────────────────────────────────────── */}
-      <p className="text-center text-xs text-zinc-600">
+      {/* ── CTA: 聴いてから決める。ログインはダウンロードのときだけ ───────── */}
+      <p className="text-center text-xs text-zinc-500">
         {ja
-          ? '\u2191 \u4E0A\u306E\u30C9\u30ED\u30C3\u30D7\u30A8\u30EA\u30A2\u306B\u30C8\u30E9\u30C3\u30AF\u3092\u6295\u5165\u3059\u308B\u3068\u3001\u3053\u306E\u30A8\u30F3\u30B8\u30F3\u304C\u30EA\u30A2\u30EB\u30BF\u30A4\u30E0\u3067\u8D77\u52D5\u3057\u307E\u3059\u3002'
-          : '\u2191 Drop a track in the area above to activate this engine in real time.'}
+          ? '↑ 上のドロップエリアにトラックを投入すると、このエンジンがリアルタイムで起動します。'
+          : '↑ Drop a track in the area above to start this engine in real time.'}
+      </p>
+      <p className="text-center text-[11px] text-cyan-400/90 font-medium mt-2">
+        {t('flow.preview_no_login')}
       </p>
     </section>
   );

@@ -108,12 +108,10 @@ export default function ResultsModal({
           {slide === 1 && (
             <div className="animate-fade-up space-y-5">
               <h3 className="text-base font-bold text-cyan-400 mb-1">
-                {language === 'ja' ? '2. プレビュー → 購入・ダウンロード' : '2. Preview → Purchase & Download'}
+                {language === 'ja' ? '2. プレビュー → ダウンロード' : '2. Preview → Download'}
               </h3>
               <p className="text-[13px] text-zinc-400 mb-2">
-                {language === 'ja'
-                  ? '再生で確認してから、下のボタンで購入（1曲1,000円）してWAVをダウンロード。'
-                  : 'Preview first, then use the button below to purchase (¥1,000/track) and download WAV.'}
+                {t('flow.preview_then_download')}
               </p>
 
               {/* 聞き比べの判断材料：耳以外の数値比較 */}
@@ -217,6 +215,7 @@ export default function ResultsModal({
                 type="button"
                 onClick={onDownloadMastered}
                 disabled={isProcessingAudio}
+                aria-label={language === 'ja' ? 'WAVをダウンロード（ログインが必要な場合あり）' : 'Download WAV (sign-in required if not logged in)'}
                 className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-[15px] text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono"
                 style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}
               >

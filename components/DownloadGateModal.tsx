@@ -22,21 +22,25 @@ export default function DownloadGateModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
+      aria-labelledby="download-gate-title"
     >
       <div
         className="w-full max-w-md rounded-2xl glass p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-black text-white uppercase tracking-widest mb-2">
+        <h3 id="download-gate-title" className="text-sm font-black text-white uppercase tracking-widest mb-2">
           {t('auth.download_gate.title')}
         </h3>
         <p className="text-sm text-gray-400 mb-6">
-          {t('auth.download_gate.description')}
+          {t('flow.download_gate_after_listen')}
         </p>
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={onSignInWithGoogle}
+            onClick={() => {
+              try { sessionStorage.setItem('pending_download', '1'); } catch (_) {}
+              onSignInWithGoogle();
+            }}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 min-h-[48px] rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 active:opacity-90 transition-colors touch-manipulation"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

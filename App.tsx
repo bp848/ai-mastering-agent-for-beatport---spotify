@@ -48,13 +48,24 @@ const AppContent: React.FC = () => {
   const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
   const [showDownloadGate, setShowDownloadGate] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
+  const [showPostLoginBanner, setShowPostLoginBanner] = useState(false);
   const { t, language } = useTranslation();
   const { addTrack } = usePlatform();
-  const { session, signInWithGoogle } = useAuth();
+  const { session, loading: authLoading, signInWithGoogle } = useAuth();
 
   useEffect(() => {
     if (session && showDownloadGate) setShowDownloadGate(false);
   }, [session, showDownloadGate]);
+
+  useEffect(() => {
+    if (authLoading || !session) return;
+    try {
+      if (sessionStorage.getItem('pending_download') === '1') {
+        sessionStorage.removeItem('pending_download');
+        setShowPostLoginBanner(true);
+      }
+    } catch (_) {}
+  }, [session, authLoading]);
 
   const addLog = useCallback((message: string) => {
     const locale = language === 'ja' ? 'ja-JP' : 'en-US';
@@ -302,6 +313,28 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-5 sm:py-6 lg:px-10 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
       <div className="max-w-screen-2xl mx-auto w-full">
+        {showPostLoginBanner && (
+          <div className="mb-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+            <p className="text-sm text-cyan-200">{t('flow.post_login_banner')}</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setSection('mastering'); setShowPostLoginBanner(false); }}
+                className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 transition-colors"
+              >
+                {t('flow.post_login_cta')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPostLoginBanner(false)}
+                className="px-3 py-2 text-xs text-zinc-400 hover:text-white"
+                aria-label={language === 'ja' ? '閉じる' : 'Dismiss'}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
@@ -329,7 +362,7 @@ const AppContent: React.FC = () => {
         {section !== 'mastering' && (
           <main className="animate-fade-up">
             {section === 'pricing' && <PricingView />}
-            {section === 'mypage' && <MyPageView />}
+            {section === 'mypage' && <MyPageView onNavigateToMastering={() => setSection('mastering')} />}
             {section === 'library' && <LibraryView />}
             {section === 'checklist' && <ChecklistView />}
             {section === 'email' && <EmailView />}
@@ -434,7 +467,7 @@ const AppContent: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-zinc-400">
-                {language === 'ja' ? 'プレビューと A/B 比較、ダウンロードが可能です。' : 'Preview, A/B comparison, and download are ready.'}
+                {t('flow.complete_teaser')}
               </p>
               <button
                 type="button"

@@ -254,15 +254,25 @@ export const analyzeAudioFile = async (file: File): Promise<{ analysisData: Audi
 // 1. DSP Helpers (Analog Emulation)
 // ==========================================
 
-/** 真空管ドライブ（偶数倍音付加・非対称クリップ） */
+/**
+ * 真空管サチュレーション — コンセプト体現
+ * 偶数倍音: 正側をやや早く飽和させる非対称カーブで偶数次倍音を付加。
+ * テープ感: ヒステリシスを静的近似した「粘り」＝ソフトな丸みで物質感を付与。
+ */
 const makeTubeCurve = (amount: number): Float32Array => {
-  const n = 44100;
+  const n = 65536;
   const curve = new Float32Array(n);
+  const scale = 2 / (n - 1);
+  const kMin = 0.05;
   for (let i = 0; i < n; i++) {
-    let x = (i * 2) / n - 1;
-    if (x < -0.5) x = -0.5 + (x + 0.5) * 0.8;
-    else if (x > 0.5) x = 0.5 + (x - 0.5) * 0.9;
-    curve[i] = Math.tanh(x * amount) / Math.tanh(amount);
+    const x = i * scale - 1;
+    const abs = Math.abs(x);
+    const sign = x >= 0 ? 1 : -1;
+    const k = Math.max(kMin, amount * (x >= 0 ? 0.92 : 1.08));
+    const denom = 1 - Math.exp(-k);
+    const saturated = denom >= 1e-6 ? sign * (1 - Math.exp(-abs * k)) / denom : x;
+    const tape = saturated * (1 - 0.08 * (saturated * saturated));
+    curve[i] = Math.max(-1, Math.min(1, tape));
   }
   return curve;
 };
@@ -280,14 +290,19 @@ const makeExciterCurve = (_amount: number): Float32Array => {
   return curve;
 };
 
-/** ソフトクリッパー（リミッター前段のピーク削り） */
-const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
+/**
+ * トランジェント・シェイパー & クリッパー — コンセプト体現
+ * 人間の耳に聞こえないピークだけを瞬時に削り、アタック感を保護。
+ * 閾値直上はごく緩やかな傾き（0.04）で、リミッターに頼らず音像を維持。
+ */
+const makeClipperCurve = (threshold: number = 0.99): Float32Array => {
   const n = 65536;
   const curve = new Float32Array(n);
+  const slope = 0.04; // 聞こえないピークのみ削る＝トランジェント保護
   for (let i = 0; i < n; i++) {
     let x = (i * 2) / n - 1;
-    if (x > threshold) x = threshold + (x - threshold) * 0.1;
-    else if (x < -threshold) x = -threshold + (x + threshold) * 0.1;
+    if (x > threshold) x = threshold + (x - threshold) * slope;
+    else if (x < -threshold) x = -threshold + (x + threshold) * slope;
     curve[i] = x;
   }
   return curve;
@@ -299,14 +314,15 @@ const makeClipperCurve = (threshold: number = 0.95): Float32Array => {
 // ==========================================
 
 /**
- * プロ仕様マスタリングチェーンをオーディオグラフとして構築する共通関数。
- * OfflineAudioContext（書き出し）にも AudioContext（プレビュー）にも使える。
+ * Hybrid-Analog Engine — 5本柱のみ。仕様外の固定処理は入れない。
  *
- * 信号経路 (Vocal-First: 整えてから最後に上げる):
- *   Safety Trim (-3dB) → Vocal Guard EQ (2.5kHz -1.5dB) → DC Block
- *   → M/S Tube (Mid 0.5 / Side drive) → Pultec → Corrective EQ → Exciter → M/S
- *   → Glue Comp → Smile Curve → Transient → Neuro-Drive
- *   → Make-up Gain (AI + 3dB) → Clipper (0.98) → Limiter
+ * 1. Self-Correction Loop → optimizeMasteringParams() で gain を 0.1dB 単位補正
+ * 2. Tube & Tape Saturation → 下記 [2] params.tube_drive_amount
+ * 3. Pultec Style Low-End → 下記 [3] params.low_contour_amount
+ * 4. Transient Shaper & Clipper → 下記 [4] ソフトクリッパー → リミッター
+ * 5. Neuro-Drive Module → 下記 [5] 並列圧縮 + 12kHz Air + Wet ミックス
+ *
+ * 信号経路: DC Block → [2] Tube → [3] Pultec → AI EQ → Exciter → M/S Width → [5] Neuro → Make-up → [4] Clipper → Limiter
  */
 export const buildMasteringChain = (
   ctx: BaseAudioContext,
@@ -317,30 +333,6 @@ export const buildMasteringChain = (
 ): void => {
   let lastNode: AudioNode = source;
 
-  // =================================================================
-  // 1. Safety Input Trim (Vocal-First: 最初は上げず -3dB でヘッドルーム)
-  // =================================================================
-  const safetyTrim = ctx.createGain();
-  safetyTrim.gain.value = 0.7; // -3dB 程度。突発ピークでの割れを防ぐ
-  lastNode.connect(safetyTrim);
-  lastNode = safetyTrim;
-
-  // =================================================================
-  // 2. Vocal Protection EQ (Anti-Harshness)
-  // サチュレーションでボーカルが割れるのを防ぐため、
-  // 歪みやすい中高域(2.5kHz)を事前に少し抑える。
-  // =================================================================
-  const vocalGuard = ctx.createBiquadFilter();
-  vocalGuard.type = 'peaking';
-  vocalGuard.frequency.value = 2500;
-  vocalGuard.Q.value = 1.0;
-  vocalGuard.gain.value = -1.5;
-  lastNode.connect(vocalGuard);
-  lastNode = vocalGuard;
-
-  // =================================================================
-  // 3. DC Block（ここではゲインを上げない。Make-up は最後に）
-  // =================================================================
   const dcBlocker = ctx.createBiquadFilter();
   dcBlocker.type = 'highpass';
   dcBlocker.frequency.value = 20;
@@ -348,10 +340,7 @@ export const buildMasteringChain = (
   lastNode.connect(dcBlocker);
   lastNode = dcBlocker;
 
-  // =================================================================
-  // 3a. Vocal Safe-Guard Saturation (Stereo only)
-  // ボーカル(Mid)を歪ませず、Side(広がり)だけを太くする M/S サチュレーション
-  // =================================================================
+  // [2] Tube & Tape Saturation — 偶数倍音・物質感。量は AI パラメータのみ。
   if (numChannels === 2) {
     const splitter = ctx.createChannelSplitter(2);
     const merger = ctx.createChannelMerger(2);
@@ -369,7 +358,7 @@ export const buildMasteringChain = (
     rightInv.connect(sideRaw);
 
     const midShaper = ctx.createWaveShaper();
-    midShaper.curve = makeTubeCurve(0.5); // Mid (Vocal): 歪み少なめ
+    midShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount * 0.5, 2));
     midShaper.oversample = '4x';
     midRaw.connect(midShaper);
 
@@ -392,39 +381,29 @@ export const buildMasteringChain = (
     merger.connect(msNorm);
     lastNode = msNorm;
   } else if (params.tube_drive_amount > 0) {
-    // Mono: 従来の薄い Tube Saturation
-    const safeDrive = Math.min(params.tube_drive_amount, 1.0);
-    const preSatEQ = ctx.createBiquadFilter();
-    preSatEQ.type = 'peaking';
-    preSatEQ.frequency.value = 1000;
-    preSatEQ.Q.value = 1.0;
-    preSatEQ.gain.value = -3.0;
     const tubeShaper = ctx.createWaveShaper();
-    tubeShaper.curve = makeTubeCurve(safeDrive);
+    tubeShaper.curve = makeTubeCurve(Math.min(params.tube_drive_amount, 4));
     tubeShaper.oversample = '4x';
-    const dry = ctx.createGain();
-    dry.gain.value = 1.0;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.1;
-    lastNode.connect(dry);
-    lastNode.connect(preSatEQ);
-    preSatEQ.connect(tubeShaper);
-    tubeShaper.connect(wet);
-    const merge = ctx.createGain();
-    dry.connect(merge);
-    wet.connect(merge);
-    lastNode = merge;
+    lastNode.connect(tubeShaper);
+    lastNode = tubeShaper;
   }
 
-  // ── 3b. Resonant Sub Focus (Pultec Trick) ──────────────────────────
+  // [3] Pultec Style Low-End — コンセプト体現: 30Hz以下カット＋その直上をレゾナンスで音楽的に強調
   if (params.low_contour_amount > 0) {
-    const subFocus = ctx.createBiquadFilter();
-    subFocus.type = 'highpass';
-    subFocus.frequency.value = 35;
-    // Contour 量が多いほど Q を上げてドンシャリ感を出す
-    subFocus.Q.value = 0.7 + (params.low_contour_amount * 0.5);
-    lastNode.connect(subFocus);
-    lastNode = subFocus;
+    const subCut = ctx.createBiquadFilter();
+    subCut.type = 'highpass';
+    subCut.frequency.value = 30;
+    subCut.Q.value = 0.707;
+    lastNode.connect(subCut);
+    lastNode = subCut;
+    // 直上の帯域をレゾナンスで強調（キック・ベースの分離と深度の両立）
+    const contourBoost = ctx.createBiquadFilter();
+    contourBoost.type = 'peaking';
+    contourBoost.frequency.value = 55;
+    contourBoost.gain.value = 2.5 * params.low_contour_amount; // 0〜+2.5 dB
+    contourBoost.Q.value = 0.9;
+    lastNode.connect(contourBoost);
+    lastNode = contourBoost;
   }
 
   // ── 4. Corrective EQ (AI パラメータ) ──────────────────────────────
@@ -461,13 +440,12 @@ export const buildMasteringChain = (
     exciterNode = gain;
   }
 
-  // ── 6. M/S Processing & Width ─────────────────────────────────────
+  // M/S Width — ステレオ幅のみ。AI パラメータ。Mid は固定コンプなし。
   if (numChannels === 2) {
     const splitter = ctx.createChannelSplitter(2);
     const merger = ctx.createChannelMerger(2);
     lastNode.connect(splitter);
 
-    // M/S Encode: Mid = L+R, Side = L-R
     const midSum = ctx.createGain();
     const sideDiff = ctx.createGain();
     const inv = ctx.createGain();
@@ -479,7 +457,6 @@ export const buildMasteringChain = (
     splitter.connect(inv, 1);
     inv.connect(sideDiff);
 
-    // Side: Bass Mono (150 Hz 以下をカット) + Width
     const sideHP = ctx.createBiquadFilter();
     sideHP.type = 'highpass';
     sideHP.frequency.value = 150;
@@ -490,18 +467,8 @@ export const buildMasteringChain = (
     sideWidth.gain.value = params.width_amount ?? 1.0;
     sideHP.connect(sideWidth);
 
-    // Mid: Glue Compressor（接着感を出す）— Soft Knee、アタック遅めで声を守る
-    const midComp = ctx.createDynamicsCompressor();
-    midComp.threshold.value = -12;
-    midComp.ratio.value = 2;
-    midComp.knee.value = 10;
-    midComp.attack.value = 0.05;
-    midComp.release.value = 0.1;
-    midSum.connect(midComp);
-
-    // M/S Decode: L=(M+S)/2, R=(M-S)/2
-    midComp.connect(merger, 0, 0);
-    midComp.connect(merger, 0, 1);
+    midSum.connect(merger, 0, 0);
+    midSum.connect(merger, 0, 1);
     sideWidth.connect(merger, 0, 0);
     const sideInv = ctx.createGain();
     sideInv.gain.value = -1;
@@ -512,7 +479,6 @@ export const buildMasteringChain = (
     norm.gain.value = 0.5;
     merger.connect(norm);
 
-    // Exciter をここでマージ
     const finalMix = ctx.createGain();
     norm.connect(finalMix);
     if (exciterNode) exciterNode.connect(finalMix);
@@ -527,102 +493,33 @@ export const buildMasteringChain = (
     }
   }
 
-  // =================================================================
-  // 7. The AI Kapellmeister (Master Bus Orchestration)
-  //    バラバラの要素を有機的に結合させる「接着」セクション
-  // =================================================================
-
-  // 7a. "Smooth" Glue Compressor
-  //     パツパツに潰さず、全体を「包み込む」設定。ボーカルアタックを潰さない。
-  const glueComp = ctx.createDynamicsCompressor();
-  glueComp.threshold.value = -12;
-  glueComp.knee.value = 30;       // かなりソフトニー（自然なかかり方）
-  glueComp.ratio.value = 1.5;
-  glueComp.attack.value = 0.05;   // 50ms — ボーカルのアタックを潰さない
-  glueComp.release.value = 0.4;   // 400ms — ゆっくり戻して余韻を作る
-  lastNode.connect(glueComp);
-  lastNode = glueComp;
-
-  // 7b. "Smile Curve" — ラウドネス等感度曲線
-  //     500Hz 付近の「モコモコ帯域」を -1.5dB 引くことで、
-  //     相対的に低域と高域が輝き、マスキングが解消される
-  const midScoop = ctx.createBiquadFilter();
-  midScoop.type = 'peaking';
-  midScoop.frequency.value = 500;
-  midScoop.Q.value = 1.0;
-  midScoop.gain.value = -1.5;
-  lastNode.connect(midScoop);
-  lastNode = midScoop;
-
-  // 7c. Transient Recovery (Micro-Dynamics Enhancement)
-  //     コンプ/サチュレーションで鈍ったアタック感を取り戻す。
-  //     1kHz 以上の高域成分だけを抽出して 15% 加算し、
-  //     「太いのにキレがある」状態を作る。
-  const transFilter = ctx.createBiquadFilter();
-  transFilter.type = 'highpass';
-  transFilter.frequency.value = 1000;
-  transFilter.Q.value = 0.5;
-  lastNode.connect(transFilter);
-
-  const transBoost = ctx.createGain();
-  transBoost.gain.value = 0.15; // 原音に 15% のエッジを足す
-  transFilter.connect(transBoost);
-
-  const kapellmeisterMerge = ctx.createGain();
-  lastNode.connect(kapellmeisterMerge);   // Main body (Smile Curve output)
-  transBoost.connect(kapellmeisterMerge);  // Added punch (transient)
-  lastNode = kapellmeisterMerge;
-
-  // =================================================================
-  // End of Orchestration
-  // =================================================================
-
-  // =================================================================
-  // 8. THE NEURO-DRIVE MODULE (Scientific Energy Injection)
-  //    目的: "Hyper Energy" の生成。音の密度 (RMS) を極限まで高め、
-  //    脳をトランス状態へ誘導する「持続的な音圧」を作る。
-  //    
-  //    原理:
-  //    - Parallel Compression (NY Style): ピークはそのまま、減衰音を引き上げ
-  //      → 常時音圧がかかり続ける Constant Pressure 状態
-  //    - 250Hz High-Pass on Wet: キック/ベースの位相干渉を物理的に回避
-  //      → キックはタイトなまま上物だけが分厚くなる
-  //    - 12kHz Air Boost: 覚醒中枢を刺激する超高域エネルギー
-  //      → ドーパミンが出る「ハイパーな質感」
-  // =================================================================
-
-  // 8a. 分岐: 原音 (Dry) はそのまま通過、加工用 (Wet) を並列で作る
+  // [5] Neuro-Drive Module — コンセプト体現: 極限圧縮＋低域干渉排除＋12kHz Air、開放感とエネルギー密度
   const neuroDryPath = ctx.createGain();
   neuroDryPath.gain.value = 1.0;
   lastNode.connect(neuroDryPath);
 
-  // 8b. Hyper-Compressor (The Energy Generator) — Soft Knee で歪み抑制
   const hyperComp = ctx.createDynamicsCompressor();
   hyperComp.threshold.value = -30;
   hyperComp.ratio.value = 12;
   hyperComp.attack.value = 0.005;
   hyperComp.release.value = 0.25;
-  hyperComp.knee.value = 10;        // Soft Knee: 急激な圧縮による歪みを防ぐ
+  hyperComp.knee.value = 10;
   lastNode.connect(hyperComp);
 
-  // 8c. High-Pass on Wet Signal (800Hz: ボーカル/キック干渉を避ける)
   const energyFilter = ctx.createBiquadFilter();
   energyFilter.type = 'highpass';
-  energyFilter.frequency.value = 800;
+  energyFilter.frequency.value = 250; // 低域の干渉を排除（キック/ベース位相を混ぜない）
   energyFilter.Q.value = 0.7;
   hyperComp.connect(energyFilter);
 
-  // 8d. Air Exciter (Electrical Fizz)
-  //     12kHz 以上をブーストし、「電気的なビリビリ感」を付加
   const airShelf = ctx.createBiquadFilter();
   airShelf.type = 'highshelf';
   airShelf.frequency.value = 12000;
-  airShelf.gain.value = 4.0; // 強烈に輝かせる
+  airShelf.gain.value = 4.5; // 12kHz+ Air で開放感・没入感
   energyFilter.connect(airShelf);
 
-  // 8e. Neuro Injection (Parallel Mixing) — Wet 20% で様子見（歪み抑制）
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.2;
+  neuroWetGain.gain.value = 0.22; // 絶妙なバランスで原音にミックス
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
@@ -630,38 +527,25 @@ export const buildMasteringChain = (
   neuroWetGain.connect(neuroMerge);
   lastNode = neuroMerge;
 
-  // =================================================================
-  // End of Neuro-Drive
-  // =================================================================
-
-  // =================================================================
-  // 9. Intelligent Make-up Gain（ここで音圧を稼ぐ）
-  // 全ての処理が終わった後、リミッター直前にブースト。
-  // AI のゲイン調整値 + SafetyTrim で下げた分(+3dB)を取り戻す。
-  // =================================================================
-  const targetGainDb = (params.gain_adjustment_db ?? 0) + 3.0;
+  // Make-up Gain — 自己補正ループが決めた gain_adjustment_db のみ。固定の +3dB 等は加えない。
+  const targetGainDb = params.gain_adjustment_db ?? 0;
   const makeupGain = ctx.createGain();
   makeupGain.gain.value = Math.pow(10, targetGainDb / 20);
   lastNode.connect(makeupGain);
   lastNode = makeupGain;
 
-  // =================================================================
-  // 10. Soft Clipper（余裕を持たせる）
-  // =================================================================
+  // [4] Transient Shaper & Clipper — コンセプト体現: 聞こえないピークのみ削り、トランジェントを鋭く保護
   const clipper = ctx.createWaveShaper();
-  clipper.curve = makeClipperCurve(0.98);
+  clipper.curve = makeClipperCurve(0.99);
   lastNode.connect(clipper);
   lastNode = clipper;
 
-  // =================================================================
-  // 11. Limiter（トランジェント通過のためアタックやや遅め）
-  // =================================================================
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = params.limiter_ceiling_db ?? -0.1;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.1;
+  limiter.attack.value = 0.005; // クリッパーが第一線、リミッターは安全網でトランジェントを潰さない
+  limiter.release.value = 0.12;
   lastNode.connect(limiter);
   limiter.connect(outputNode);
 };
@@ -714,32 +598,16 @@ export const optimizeMasteringParams = async (
     for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
   }
 
-  // --- 簡易 DSP シミュレーション（本番チェーンと同一: Make-up = gain_adjustment_db + 3dB） ---
+  // [1] Self-Correction Loop — 本番と同一チェーンでレンダリングし、目標 LUFS との誤差を 0.1 dB 単位で補正する。
   const source = offlineCtx.createBufferSource();
   source.buffer = chunkBuffer;
-  let node: AudioNode = source;
-
-  const targetGainDb = (optimizedParams.gain_adjustment_db ?? 0) + 3.0;
-  const gainNode = offlineCtx.createGain();
-  gainNode.gain.value = Math.pow(10, targetGainDb / 20);
-  node.connect(gainNode);
-  node = gainNode;
-
-  // サチュレーションによる聴感上の音圧上昇を簡易加算
-  if (optimizedParams.tube_drive_amount > 0) {
-    const satBoost = offlineCtx.createGain();
-    satBoost.gain.value = 1.0 + optimizedParams.tube_drive_amount * 0.05;
-    node.connect(satBoost);
-    node = satBoost;
-  }
-
-  // Limiter (Ceiling)
-  const limiter = offlineCtx.createDynamicsCompressor();
-  limiter.threshold.value = optimizedParams.limiter_ceiling_db - 3;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.003;
-  node.connect(limiter);
-  limiter.connect(offlineCtx.destination);
+  buildMasteringChain(
+    offlineCtx,
+    source,
+    optimizedParams,
+    originalBuffer.numberOfChannels,
+    offlineCtx.destination,
+  );
 
   source.start(0);
   const renderedBuffer = await offlineCtx.startRendering();
@@ -751,16 +619,14 @@ export const optimizeMasteringParams = async (
   const rms = Math.sqrt(sumSquare / data.length);
   const measuredLUFS = 20 * Math.log10(rms) + 0.5; // 簡易補正
 
-  // --- 補正実行 ---
+  // --- 補正実行: 0.1 dB 単位で検知・修正。ダイナミクスを崩さず最適バランスに着地 ---
   const diff = TARGET_LUFS - measuredLUFS;
-  // 誤差が 0.5 dB 以上あれば補正
   if (Math.abs(diff) > 0.5) {
     let newGain = optimizedParams.gain_adjustment_db + diff;
-    // 安全装置: 極端なゲインアップ/ダウンを防ぐ
     newGain = Math.max(-6, Math.min(12, newGain));
-    optimizedParams.gain_adjustment_db = parseFloat(newGain.toFixed(1));
+    optimizedParams.gain_adjustment_db = Math.round(newGain * 10) / 10; // 0.1 dB 単位
     console.log(
-      `[Auto-Correction] Adjusted Gain: ${aiParams.gain_adjustment_db} -> ${newGain.toFixed(1)} (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,
+      `[Self-Correction] Gain ${aiParams.gain_adjustment_db} → ${optimizedParams.gain_adjustment_db} dB (Target: ${TARGET_LUFS}, Measured: ${measuredLUFS.toFixed(1)})`,
     );
   }
 

@@ -24,6 +24,7 @@ This contains everything you need to run your app locally.
 
 ## Documentation
 
+- **[Hybrid-Analog Engine 技術仕様](docs/ENGINE_SPEC.md)** — ユーザーとの約束（自己補正ループ・真空管・Pultec・クリッパー・Neuro-Drive）と実装の対応。この仕様に反する変更は禁止。
 - **[Beatport 納品のマスタリングワークフロー](docs/MASTERING_WORKFLOW.md)** — 24bit マスタ → 16bit/44.1kHz ダウンコンバート（Dither 推奨）とアーカイブの手順。
 - [運用管理画面（ADMIN）仕様](docs/ADMIN_SPEC.md)
 

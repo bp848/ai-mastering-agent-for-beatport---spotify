@@ -18,7 +18,7 @@ import RetryModal from './RetryModal';
    4. Download with WAV specs
    ───────────────────────────────────────────────────────────────── */
 
-/* ── Waveform Overlay Canvas (Mirrored, instrument-grade) ─── */
+/* ── Waveform Overlay: 同一画面で Original（影）＋ Mastered（前面）を重ねて比較。高解像度ミニマックスで階段状を軽減 ─── */
 const WaveformOverlay: React.FC<{
   originalBuffer: AudioBuffer;
   gainDb: number;
@@ -42,28 +42,20 @@ const WaveformOverlay: React.FC<{
     const h = rect.height;
     const mid = h / 2;
     const data = originalBuffer.getChannelData(0);
-    const step = Math.ceil(data.length / w);
+    const numBins = Math.min(w * 3, 4096);
+    const step = data.length / numBins;
     const gainLinear = Math.pow(10, gainDb / 20);
 
-    // Background
-    ctx.fillStyle = '#08080c';
-    ctx.fillRect(0, 0, w, h);
-
-    // Center line (細い水平線)
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 0.75;
-    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
-
-    // Compute min/max per column for original (multiplier 1) and mastered (gainLinear)
     const minsOrig: number[] = [];
     const maxsOrig: number[] = [];
     const minsMaster: number[] = [];
     const maxsMaster: number[] = [];
-    for (let x = 0; x < w; x++) {
-      const start = x * step;
+    for (let i = 0; i < numBins; i++) {
+      const start = Math.floor(i * step);
+      const end = Math.min(Math.floor((i + 1) * step), data.length);
       let loO = 1, hiO = -1, loM = 1, hiM = -1;
-      for (let j = 0; j < step && start + j < data.length; j++) {
-        const v = data[start + j];
+      for (let j = start; j < end; j++) {
+        const v = data[j];
         const vo = Math.max(-1, Math.min(1, v));
         const vm = Math.max(-1, Math.min(1, v * gainLinear));
         if (vo < loO) loO = vo; if (vo > hiO) hiO = vo;
@@ -74,33 +66,49 @@ const WaveformOverlay: React.FC<{
     }
 
     const amp = mid * 0.9;
+    const scale = (numBins - 1) / w;
 
-    // 1. Original (背面): ダークグレー #3f3f46 — 常に描画して比較用の影にする
-    ctx.fillStyle = '#3f3f46';
+    ctx.fillStyle = '#08080c';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.75;
     ctx.beginPath();
     ctx.moveTo(0, mid);
-    for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxsOrig[x] * amp);
     ctx.lineTo(w, mid);
-    for (let x = w - 1; x >= 0; x--) ctx.lineTo(x, mid - minsOrig[x] * amp);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#52525b';
-    ctx.lineWidth = 1;
     ctx.stroke();
 
-    // 2. Mastered (前面): シアン #22d3ee opacity 0.8 — シアンがはみ出れば「音がデカくなった」が一目で分かる
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    const drawShape = (maxs: number[], mins: number[]) => {
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      for (let x = 0; x <= w; x++) {
+        const idx = Math.min(Math.floor(x * scale), numBins - 1);
+        ctx.lineTo(x, mid - maxs[idx] * amp);
+      }
+      for (let x = w; x >= 0; x--) {
+        const idx = Math.min(Math.floor(x * scale), numBins - 1);
+        ctx.lineTo(x, mid - mins[idx] * amp);
+      }
+      ctx.closePath();
+    };
+
+    ctx.fillStyle = '#3f3f46';
+    ctx.strokeStyle = '#52525b';
+    ctx.lineWidth = 1;
+    drawShape(maxsOrig, minsOrig);
+    ctx.fill();
+    ctx.stroke();
+
     if (!isHoldingOriginal) {
       ctx.globalAlpha = 0.8;
       ctx.fillStyle = '#22d3ee';
-      ctx.beginPath();
-      ctx.moveTo(0, mid);
-      for (let x = 0; x < w; x++) ctx.lineTo(x, mid - maxsMaster[x] * amp);
-      ctx.lineTo(w, mid);
-      for (let x = w - 1; x >= 0; x--) ctx.lineTo(x, mid - minsMaster[x] * amp);
-      ctx.closePath();
-      ctx.fill();
       ctx.strokeStyle = 'rgba(34,211,238,0.9)';
       ctx.lineWidth = 1;
+      drawShape(maxsMaster, minsMaster);
+      ctx.fill();
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -108,16 +116,11 @@ const WaveformOverlay: React.FC<{
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      {/* Labels */}
       <div className="absolute top-3 left-3 z-10 flex gap-2">
-        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${
-          isHoldingOriginal ? 'bg-white/90 text-black' : 'bg-white/5 text-zinc-400 border border-white/10'
-        }`}>
+        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${isHoldingOriginal ? 'bg-white/90 text-black' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
           Original
         </span>
-        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${
-          !isHoldingOriginal ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'
-        }`}>
+        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${!isHoldingOriginal ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
           AI Mastered
         </span>
       </div>

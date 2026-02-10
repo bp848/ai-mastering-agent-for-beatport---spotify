@@ -15,7 +15,7 @@ interface Props {
   language: 'ja' | 'en';
 }
 
-/** 動的スコア計算（重み付け + 揺らぎで納得感のある数字に） */
+/** スコア計算（分析データのみから決定的に算出。同一曲は常に同じ結果） */
 const calculateScore = (data: AudioAnalysisData, target: MasteringTarget): number => {
   const targetLufs = target === 'beatport' ? -8.0 : -14.0;
   let score = 0;
@@ -49,8 +49,7 @@ const calculateScore = (data: AudioAnalysisData, target: MasteringTarget): numbe
   if (data.distortionPercent < 1.0) score += 5;
   else score += 0;
 
-  const variance = Math.floor(Math.random() * 3) - 1;
-  return Math.min(99, Math.max(10, score + variance));
+  return Math.min(99, Math.max(10, score));
 };
 
 /** ノイズフロア判定（-60dB 以下を優秀とする） */

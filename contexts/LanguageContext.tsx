@@ -94,7 +94,14 @@ const ja = {
   "mypage.sign_in_required": "マイページ",
   "mypage.sign_in_required_description": "ログインすると、マスタリング履歴の閲覧やダウンロードが可能になります。",
   "mypage.download_history": "マスタリング履歴",
-  "mypage.no_history": "まだ履歴がありません"
+  "mypage.no_history": "まだ履歴がありません",
+  "flow.preview_no_login": "ログイン不要でプレビューまで聴けます。気に入ったらダウンロードのときだけログイン。",
+  "flow.download_gate_after_listen": "すでにプレビューで音は聴けました。気に入ったらログインしてWAVをダウンロード。",
+  "flow.preview_then_download": "まず再生で聴いてみて。いいと思ったら下のボタンでWAVをダウンロード（ログインが必要です）。",
+  "flow.complete_teaser": "ログインなしでプレビューまで聴けます。気に入ったらダウンロードを。",
+  "flow.post_login_banner": "ログインしました。マスタリング画面でもう一度プレビューしてダウンロードできます。",
+  "flow.post_login_cta": "マスタリングへ",
+  "mypage.cta_master_again": "もう1曲マスタリングする"
 };
 
 const en = {
@@ -188,7 +195,14 @@ const en = {
   "mypage.sign_in_required": "My Page",
   "mypage.sign_in_required_description": "Sign in to view your mastering history and access downloads.",
   "mypage.download_history": "Mastering History",
-  "mypage.no_history": "No history yet"
+  "mypage.no_history": "No history yet",
+  "flow.preview_no_login": "No sign-in needed to listen to the full preview. Like it? Sign in only when you download.",
+  "flow.download_gate_after_listen": "You've already heard the preview. Like it? Sign in to download the WAV.",
+  "flow.preview_then_download": "Play and listen first. Like it? Use the button below to download WAV (sign-in required).",
+  "flow.complete_teaser": "Preview with no sign-in. Like it? Download when you're ready.",
+  "flow.post_login_banner": "You're signed in. Go to Mastering to preview again and download.",
+  "flow.post_login_cta": "Go to Mastering",
+  "mypage.cta_master_again": "Master another track"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };

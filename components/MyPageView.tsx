@@ -9,9 +9,13 @@ import type { MasteringTarget } from '../types';
    MyPageView — Dashboard style with proper error/empty states
    ══════════════════════════════════════════════════════════════════ */
 
-export default function MyPageView() {
+interface MyPageViewProps {
+  onNavigateToMastering?: () => void;
+}
+
+export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const ja = language === 'ja';
   const [history, setHistory] = useState<{ id: string; file_name: string; mastering_target: MasteringTarget; created_at: string; amount_cents?: number | null }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,31 +149,53 @@ export default function MyPageView() {
                   : 'Upload your first track to experience world-class mastering.'}
               </p>
             </div>
+            {onNavigateToMastering && (
+              <button
+                type="button"
+                onClick={onNavigateToMastering}
+                className="mt-4 px-6 py-3 rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 transition-colors"
+              >
+                {t('mypage.cta_master_again')}
+              </button>
+            )}
           </div>
         )}
 
         {/* History list */}
         {!loading && !error && history.length > 0 && (
-          <ul className="space-y-2">
-            {history.map((row) => (
-              <li
-                key={row.id}
-                className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="font-mono text-sm text-white truncate">{row.file_name}</p>
-                  <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
-                    {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
-                  </p>
-                </div>
-                {row.amount_cents != null && (
-                  <span className="text-xs font-mono text-zinc-400 shrink-0 tabular-nums">
-                    ¥{(row.amount_cents / 100).toLocaleString()}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-2">
+              {history.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-mono text-sm text-white truncate">{row.file_name}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
+                      {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
+                    </p>
+                  </div>
+                  {row.amount_cents != null && (
+                    <span className="text-xs font-mono text-zinc-400 shrink-0 tabular-nums">
+                      ¥{(row.amount_cents / 100).toLocaleString()}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {onNavigateToMastering && (
+              <div className="pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={onNavigateToMastering}
+                  className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  {t('mypage.cta_master_again')}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
