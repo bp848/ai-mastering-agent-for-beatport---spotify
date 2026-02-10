@@ -30,8 +30,19 @@ import { recordDownload } from './services/downloadHistory';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
+const HASH_TO_SECTION: Record<string, PlatformSection> = {
+  mastering: 'mastering', pricing: 'pricing', mypage: 'mypage', library: 'library',
+  checklist: 'checklist', email: 'email', sns: 'sns', admin: 'admin',
+};
+function getSectionFromHash(): PlatformSection {
+  if (typeof window === 'undefined') return 'mastering';
+  const h = window.location.hash.slice(1).toLowerCase().replace(/^#/, '') || 'mastering';
+  if (h === 'result') return 'mastering';
+  return HASH_TO_SECTION[h] ?? 'mastering';
+}
+
 const AppContent: React.FC = () => {
-  const [section, setSection] = useState<PlatformSection>('mastering');
+  const [section, setSection] = useState<PlatformSection>(() => getSectionFromHash());
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [analysisData, setAnalysisData] = useState<AudioAnalysisData | null>(null);
@@ -56,6 +67,19 @@ const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { addTrack } = usePlatform();
   const { session, loading: authLoading, signInWithGoogle } = useAuth();
+
+  // URLハッシュとセクションを同期（ページ共有可能にする）
+  useEffect(() => {
+    const newHash = showResultsModal ? 'result' : section;
+    if (typeof window !== 'undefined' && window.location.hash.slice(1).toLowerCase() !== newHash) {
+      window.location.hash = newHash;
+    }
+  }, [section, showResultsModal]);
+  useEffect(() => {
+    const onHash = () => setSection(getSectionFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     if (session && showDownloadGate) setShowDownloadGate(false);
@@ -376,7 +400,12 @@ const AppContent: React.FC = () => {
     setSection('library');
   }, [audioFile, masteringTarget, addTrack, saveToLibraryForm]);
 
-  const handleNextTrack = useCallback(() => {
+  // ── 4ステップ: アップロード → 分析 → 実行 → 聴く・購入 ──
+  const isProcessing = isAnalyzing || isMastering;
+  const step = !audioFile ? 1 : isAnalyzing ? 2 : (!masteringParams && analysisData) ? 3 : masteringParams ? 4 : 2;
+  const stepLabels = [t('steps.upload'), t('steps.analyze'), t('steps.run'), t('steps.listen')];
+
+  const resetToUpload = useCallback(() => {
     setAudioFile(null);
     setAudioBuffer(null);
     setAnalysisData(null);
@@ -386,18 +415,7 @@ const AppContent: React.FC = () => {
     setError('');
     setActionLogs([]);
     setShowResultsModal(false);
-    setSection('mastering');
   }, []);
-
-  // ── 4ステップ: Upload → Diagnosis → Execute → Preview ──
-  const isProcessing = isAnalyzing || isMastering;
-  const step = !audioFile ? 1 : isAnalyzing ? 2 : (!masteringParams && analysisData) ? 3 : masteringParams ? 4 : 2;
-  const stepLabels = [
-    language === 'ja' ? 'アップロード' : 'Upload',
-    language === 'ja' ? '分析' : 'Analysis',
-    language === 'ja' ? '診断' : 'Diagnosis',
-    language === 'ja' ? 'プレビュー' : 'Preview',
-  ];
 
   return (
     <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-5 sm:py-6 lg:px-10 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
@@ -497,7 +515,6 @@ const AppContent: React.FC = () => {
             }}
             language={language}
             actionLogs={actionLogs}
-            onNextTrack={handleNextTrack}
             onFeedbackApply={setMasteringParams}
             onRecalcWithAI={isOpenAIAvailable() ? recalcParamsWithAI : undefined}
             masterMetrics={masterMetrics}
@@ -508,12 +525,19 @@ const AppContent: React.FC = () => {
         {section === 'mastering' && (
         <main className="space-y-4 sm:space-y-6">
           {/* ── Step Indicator (4 steps) ── */}
-          <div className="flex items-center justify-center gap-1.5 sm:gap-3 py-2 flex-wrap">
+          <div
+            className="flex items-center justify-center gap-1.5 sm:gap-3 py-3 flex-wrap"
+            role="progressbar"
+            aria-valuenow={step}
+            aria-valuemin={1}
+            aria-valuemax={4}
+            aria-label={language === 'ja' ? `ステップ ${step} / 4: ${stepLabels[step - 1]}` : `Step ${step} of 4: ${stepLabels[step - 1]}`}
+          >
             {[1, 2, 3, 4].map((s) => (
               <React.Fragment key={s}>
                 <div className="flex items-center gap-1.5">
                   <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
-                  <span className={`text-[10px] sm:text-xs font-medium ${step >= s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
+                  <span className={`text-[10px] sm:text-xs font-medium ${step === s ? 'text-cyan-400 font-bold' : step > s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
                 </div>
                 {s < 4 && <div className="w-4 sm:w-6 h-px bg-white/10" />}
               </React.Fragment>
@@ -522,6 +546,11 @@ const AppContent: React.FC = () => {
 
           {/* ── Upload Area ── */}
           <div className="glass rounded-2xl p-4 sm:p-8">
+            {!audioFile && !isProcessing && (
+              <p className="text-center text-sm font-medium text-white mb-3" id="upload-instruction">
+                {t('ux.upload_first')}
+              </p>
+            )}
             <FileUpload
               onFileChange={handleFileChange}
               fileName={audioFile?.name}
@@ -529,8 +558,15 @@ const AppContent: React.FC = () => {
               pyodideStatus={pyodideStatus}
             />
             {error && (
-              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-                {error}
+              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                <p>{error}</p>
+                <button
+                  type="button"
+                  onClick={() => { setError(''); resetToUpload(); }}
+                  className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                >
+                  {t('ux.error_retry')}
+                </button>
               </div>
             )}
           </div>
@@ -552,6 +588,7 @@ const AppContent: React.FC = () => {
               target={masteringTarget}
               onTargetChange={setMasteringTarget}
               onExecute={executeMastering}
+              onChooseOtherFile={resetToUpload}
               isMastering={isMastering}
               language={language}
             />
@@ -559,23 +596,41 @@ const AppContent: React.FC = () => {
 
           {/* ── Phase: Mastering Complete → View Results ── */}
           {!isProcessing && analysisData && masteringParams && (
-            <div className="glass rounded-2xl p-6 animate-fade-up text-center space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/30">
-                <span className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-[10px] font-bold text-green-400 uppercase tracking-wider">
+            <div className="glass rounded-2xl p-6 sm:p-8 animate-fade-up text-center space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
                   {language === 'ja' ? 'マスタリング完了' : 'Mastering Complete'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400">
+              <h2 className="text-lg sm:text-xl font-bold text-white">
+                {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
+              </h2>
+              {masterMetrics && (
+                <p className="text-sm text-zinc-400 font-mono">
+                  {language === 'ja' ? 'マスター実測' : 'Master'} LUFS {masterMetrics.lufs.toFixed(1)}
+                  {language === 'ja' ? ' · 目標' : ' · Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
+                </p>
+              )}
+              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
                 {t('flow.complete_teaser')}
               </p>
-              <button
-                type="button"
-                onClick={() => setShowResultsModal(true)}
-                className="px-8 py-3 min-h-[48px] rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 active:scale-[0.98] touch-manipulation"
-              >
-                {language === 'ja' ? 'プレビュー & ダウンロード' : 'Preview & Download'}
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowResultsModal(true)}
+                  className="px-8 py-3.5 min-h-[52px] rounded-xl bg-cyan-500 text-black font-bold text-base hover:bg-cyan-400 active:scale-[0.98] touch-manipulation shadow-lg shadow-cyan-500/25"
+                >
+                  {language === 'ja' ? '結果を見る（聴く・購入）' : 'View result (listen & purchase)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetToUpload}
+                  className="text-sm text-zinc-400 hover:text-white underline underline-offset-2"
+                >
+                  {t('ux.choose_other_file')}
+                </button>
+              </div>
             </div>
           )}
 

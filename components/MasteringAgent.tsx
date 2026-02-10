@@ -6,7 +6,6 @@ import { applyFeedbackAdjustment, type FeedbackType } from '../services/feedback
 import { clampMasteringParams } from '../services/geminiService';
 import { Spinner, DownloadIcon, PlayIcon, PauseIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
-import MasteringConsole from './MasteringConsole';
 import RetryModal from './RetryModal';
 
 /* ─────────────────────────────────────────────────────────────────
@@ -315,7 +314,6 @@ const AudioPreview: React.FC<{
   const analyserRef = useRef<AnalyserNode | null>(null);
   const grAnalyserRef = useRef<AnalyserNode | null>(null);
   const nodesRef = useRef<{ bypassGain: GainNode | null; masteredGain: GainNode | null }>({ bypassGain: null, masteredGain: null });
-  const [graphReady, setGraphReady] = useState(false);
   const [playbackPositionSec, setPlaybackPositionSec] = useState<number | null>(null);
 
   const setupAudioGraph = useCallback(() => {
@@ -364,12 +362,10 @@ const AudioPreview: React.FC<{
 
     sourceRef.current = source;
     nodesRef.current = { bypassGain, masteredGain };
-    setGraphReady(true);
   }, [audioBuffer, params, isHoldingOriginal]);
 
   useEffect(() => {
     if (!isPlaying) {
-      setGraphReady(false);
       setupAudioGraph();
     }
   }, [audioBuffer, params, isPlaying, setupAudioGraph]);
@@ -509,9 +505,6 @@ const AudioPreview: React.FC<{
           limiterCeiling={params.limiter_ceiling_db}
         />
       </div>
-
-      {/* ── 周波数スペクトラム（対数・dB表示） ── */}
-      <MasteringConsole analyserRef={analyserRef} isPlaying={isPlaying} graphReady={graphReady} />
 
       {/* ── Module Badges (機材ラック風: LABEL | VALUE) ── */}
       <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>

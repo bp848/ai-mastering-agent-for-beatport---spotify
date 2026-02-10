@@ -99,6 +99,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
           <div className="text-center">
             <p className="text-sm font-medium text-white">{t('upload.pyodide.loading')}</p>
             <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.detail')}</p>
+            <p className="text-[11px] text-zinc-500 mt-2">{t('upload.pyodide.wait')}</p>
           </div>
         </div>
       ) : isAnalyzing ? (
@@ -121,7 +122,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
           ) : (
             <>
               <p className="text-base font-semibold text-white">{t('upload.cta.title')}</p>
-              <p className="text-xs text-zinc-500">{t('upload.cta.detail')}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{t('upload.cta.detail')}</p>
+              <p className="text-[11px] text-zinc-400 mt-2">{t('upload.cta.hint')}</p>
             </>
           )}
         </div>

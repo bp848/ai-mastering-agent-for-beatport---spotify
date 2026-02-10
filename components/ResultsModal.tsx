@@ -23,7 +23,6 @@ interface ResultsModalProps {
   onToggleSaveToLibrary: () => void;
   language: 'ja' | 'en';
   actionLogs?: ActionLog[];
-  onNextTrack?: () => void;
   onFeedbackApply?: (newParams: MasteringParams) => void;
   onRecalcWithAI?: () => Promise<void>;
   /** マスター出力の実測値（耳以外の評価用） */
@@ -49,7 +48,6 @@ export default function ResultsModal({
   onToggleSaveToLibrary,
   language,
   actionLogs = [],
-  onNextTrack,
   onFeedbackApply,
   onRecalcWithAI,
   masterMetrics = null,
@@ -58,6 +56,8 @@ export default function ResultsModal({
   const { t } = useTranslation();
   const [slide, setSlide] = React.useState(1);
   const totalSlides = 2;
+  const [openRawDiagnosis, setOpenRawDiagnosis] = React.useState(false);
+  const [openRawAI, setOpenRawAI] = React.useState(false);
 
   React.useEffect(() => {
     if (open) setSlide(1);
@@ -69,8 +69,8 @@ export default function ResultsModal({
   const prevLabel = language === 'ja' ? '前へ' : 'Back';
   const closeBackLabel = t('modal.close_back');
   const closeBackAria = t('modal.close_back_aria');
-  const nextTrackLabel = t('modal.next_track');
-  const nextTrackAria = t('modal.next_track_aria');
+  const purchaseLabel = t('result.purchase_cta');
+  const purchaseAria = t('result.purchase_cta_aria');
 
   return (
     <div
@@ -79,16 +79,18 @@ export default function ResultsModal({
       aria-modal="true"
     >
       <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl">
-        {/* スライドインジケーター */}
+        {/* スライド: 0=分析 / 1=プレビュー＆ダウンロード（初期表示） */}
         <div className="flex items-center justify-center gap-2 py-3 border-b border-white/5 pt-[max(0.75rem,env(safe-area-inset-top))]">
           {[0, 1].map((i) => (
             <button
               key={i}
               type="button"
               onClick={() => setSlide(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${slide === i ? 'bg-cyan-500 scale-125' : 'bg-white/30 hover:bg-white/50'}`}
-              aria-label={i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? 'プレビュー・フィードバック' : 'Preview & Feedback')}
-            />
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${slide === i ? 'bg-cyan-500 text-black' : 'bg-white/10 text-zinc-400 hover:bg-white/20'}`}
+              aria-label={i === 0 ? (language === 'ja' ? '分析結果' : 'Analysis') : (language === 'ja' ? 'プレビュー・ダウンロード' : 'Preview & Download')}
+            >
+              {i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? '聴く・DL' : 'Listen & DL')}
+            </button>
           ))}
         </div>
 
@@ -97,30 +99,44 @@ export default function ResultsModal({
           {slide === 0 && (
             <div className="animate-fade-up space-y-6">
               <h3 className="text-base font-bold text-cyan-400 mb-4">
-                {language === 'ja' ? '1. 分析結果（プロ基準・端折らず）' : '1. Analysis (Pro standard · no shortcuts)'}
+                {language === 'ja' ? '分析結果（プロ基準）' : 'Analysis (Pro standard)'}
               </h3>
               <AnalysisDisplay
                 data={analysisData}
                 isLoading={false}
                 masteringTarget={masteringTarget}
               />
-              {/* 診断API生数値（全文・省略なし） */}
-              <section className="rounded-xl bg-black/40 border border-white/10 p-4">
-                <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">
-                  {language === 'ja' ? '診断API生数値（省略なし）' : 'Diagnosis API raw values (full)'}
-                </p>
-                <pre className="p-3 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[320px] whitespace-pre-wrap break-all">
-                  {JSON.stringify(analysisData, null, 2)}
-                </pre>
+              {/* 診断API生数値：折りたたみ */}
+              <section className="rounded-xl bg-black/40 border border-white/10 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenRawDiagnosis((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider"
+                >
+                  {language === 'ja' ? '診断API生数値（開発者向け）' : 'Diagnosis API raw (developer)'}
+                  <span className="text-lg leading-none">{openRawDiagnosis ? '−' : '+'}</span>
+                </button>
+                {openRawDiagnosis && (
+                  <pre className="p-3 pt-0 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-white/10">
+                    {JSON.stringify(analysisData, null, 2)}
+                  </pre>
+                )}
               </section>
-              {/* AI指示出力（全文） */}
-              <section className="rounded-xl bg-black/40 border border-white/10 p-4">
-                <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">
-                  {language === 'ja' ? 'AI指示出力（全文）' : 'AI output instruction (full text)'}
-                </p>
-                <pre className="p-3 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[320px] whitespace-pre-wrap break-all">
-                  {rawMasteringResponseText ?? (language === 'ja' ? '（マスタリング実行後に表示）' : '(Shown after mastering run)')}
-                </pre>
+              {/* AI指示出力：折りたたみ */}
+              <section className="rounded-xl bg-black/40 border border-white/10 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenRawAI((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider"
+                >
+                  {language === 'ja' ? 'AI指示出力（全文）' : 'AI output (full text)'}
+                  <span className="text-lg leading-none">{openRawAI ? '−' : '+'}</span>
+                </button>
+                {openRawAI && (
+                  <pre className="p-3 pt-0 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-white/10">
+                    {rawMasteringResponseText ?? (language === 'ja' ? '（マスタリング実行後に表示）' : '(Shown after mastering run)')}
+                  </pre>
+                )}
               </section>
               {actionLogs.length > 0 && (
                 <Console logs={actionLogs} compact={false} />
@@ -196,7 +212,7 @@ export default function ResultsModal({
           )}
         </div>
 
-        {/* 高密度アクションバー (64px) — [ 戻る ] [ 次の曲をアップロード ] [ WAVをダウンロード ] */}
+        {/* アクションバー — [ 戻る ] [ 次へ or 空 ] [ 購入してWAVを取得 ] */}
         <div
           className="flex items-center justify-between gap-2 px-4 border-t border-white/5 shrink-0"
           style={{
@@ -216,16 +232,7 @@ export default function ResultsModal({
           </button>
 
           <div className="flex-1 flex items-center justify-center min-w-0">
-            {slide === totalSlides - 1 && onNextTrack ? (
-              <button
-                type="button"
-                onClick={() => { onClose(); onNextTrack(); }}
-                className="px-4 py-3 rounded-lg text-[15px] font-medium text-zinc-200 hover:text-white border border-white/20 hover:bg-white/5 transition-colors font-mono"
-                aria-label={nextTrackAria}
-              >
-                {nextTrackLabel}
-              </button>
-            ) : slide < totalSlides - 1 ? (
+            {slide < totalSlides - 1 ? (
               <button
                 type="button"
                 onClick={() => setSlide(slide + 1)}
@@ -236,14 +243,14 @@ export default function ResultsModal({
             ) : null}
           </div>
 
-          <div className="shrink-0 w-[180px] flex justify-end">
+          <div className="shrink-0 w-[200px] sm:w-[240px] flex justify-end">
             {slide === totalSlides - 1 ? (
               <button
                 type="button"
                 onClick={onDownloadMastered}
                 disabled={isProcessingAudio}
-                aria-label={language === 'ja' ? 'WAVをダウンロード（ログインが必要な場合あり）' : 'Download WAV (sign-in required if not logged in)'}
-                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-[15px] text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono"
+                aria-label={purchaseAria}
+                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-[14px] sm:text-[15px] text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono text-center"
                 style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}
               >
                 {isProcessingAudio ? (
@@ -254,7 +261,7 @@ export default function ResultsModal({
                 ) : (
                   <>
                     <DownloadIcon />
-                    <span className="whitespace-nowrap">{language === 'ja' ? 'WAVをダウンロード' : 'Download WAV'}</span>
+                    <span className="whitespace-nowrap">{purchaseLabel}</span>
                   </>
                 )}
               </button>

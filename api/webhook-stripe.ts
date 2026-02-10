@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 /** Vercel: raw body を取得するため bodyParser 無効化。Vercel の Node ランタイムでは req は IncomingMessage。 */
-export const config = { api: { bodyParser: false as const } };
+export const config = { api: { bodyParser: false } };
 
 const stripeSecret = process.env.STRIPE_SECRET || process.env.STRIPE_SECRET_KEY || '';
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -59,7 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
-  const { error } = await supabase.from('download_tokens').insert({
+
+  // 1) ダウンロード権限付与（download_tokens）
+  const { error: tokenError } = await supabase.from('download_tokens').insert({
     user_id: userId,
     file_path: 'pack',
     file_name: 'pack',
@@ -67,9 +69,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     amount_cents: amountCents,
     paid: true,
   });
+  if (tokenError) {
+    console.error('Webhook: insert download_tokens failed', tokenError);
+    return res.status(500).json({ error: 'Database error' });
+  }
 
-  if (error) {
-    console.error('Webhook: insert download_tokens failed', error);
+  // 2) 管理画面・ROI用に決済履歴（payments）へ挿入
+  const paymentIntentId =
+    (session as { payment_intent?: string }).payment_intent ?? session.id;
+  const { error: paymentError } = await supabase.from('payments').insert({
+    user_id: userId,
+    stripe_payment_intent_id: paymentIntentId,
+    amount_cents: amountCents,
+    currency: 'jpy',
+    status: 'succeeded',
+    download_history_id: null,
+  });
+  if (paymentError) {
+    console.error('Webhook: insert payments failed', paymentError);
     return res.status(500).json({ error: 'Database error' });
   }
 

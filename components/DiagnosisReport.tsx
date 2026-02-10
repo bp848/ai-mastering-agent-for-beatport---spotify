@@ -11,6 +11,7 @@ interface Props {
   target: MasteringTarget;
   onTargetChange: (t: MasteringTarget) => void;
   onExecute: () => void;
+  onChooseOtherFile?: () => void;
   isMastering: boolean;
   language: 'ja' | 'en';
 }
@@ -170,7 +171,7 @@ const SpectrumBars: React.FC<{ bands: { name: string; level: number }[]; languag
 };
 
 /* ── メインコンポーネント ────────────────────────────── */
-const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, isMastering, language }) => {
+const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, onChooseOtherFile, isMastering, language }) => {
   const ja = language === 'ja';
   const targetLufs = target === 'beatport' ? -8.0 : -14.0;
   const lufsGap = targetLufs - data.lufs;
@@ -318,6 +319,15 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
               ? (ja ? 'マスタリング実行中...' : 'Mastering...')
               : (ja ? 'AI マスタリングを実行する' : 'Execute AI Mastering')}
           </button>
+          {onChooseOtherFile && (
+            <button
+              type="button"
+              onClick={onChooseOtherFile}
+              className="text-xs text-zinc-500 hover:text-white underline underline-offset-2"
+            >
+              {ja ? '別のファイルを選ぶ' : 'Choose another file'}
+            </button>
+          )}
         </div>
       </div>
     </div>

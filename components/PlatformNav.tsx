@@ -16,14 +16,17 @@ export default function PlatformNav({ current, onSelect, session, onLoginClick }
     { id: 'pricing', labelKey: 'nav.pricing' },
   ];
   return (
-    <nav className="flex items-center gap-2 sm:gap-4">
+    <nav className="flex items-center gap-2 sm:gap-4" aria-label="Main navigation">
       {items.map(({ id, labelKey }) => (
         <button
           key={id}
           type="button"
           onClick={() => onSelect(id)}
-          className={`text-sm font-medium transition-colors ${
-            current === id ? 'text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'
+          aria-current={current === id ? 'page' : undefined}
+          className={`min-h-[44px] min-w-[44px] flex items-center justify-center px-2 rounded-lg text-sm font-medium transition-colors ${
+            current === id
+              ? 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/30'
+              : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
           }`}
         >
           {t(labelKey)}
@@ -32,8 +35,11 @@ export default function PlatformNav({ current, onSelect, session, onLoginClick }
       <button
         type="button"
         onClick={onLoginClick}
-        className={`text-sm font-medium transition-colors ${
-          current === 'mypage' ? 'text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'
+        aria-current={current === 'mypage' ? 'page' : undefined}
+        className={`min-h-[44px] min-w-[44px] flex items-center justify-center px-2 rounded-lg text-sm font-medium transition-colors ${
+          current === 'mypage'
+            ? 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/30'
+            : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
         }`}
       >
         {session?.user ? t('nav.mypage') : t('nav.login')}

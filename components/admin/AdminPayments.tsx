@@ -47,7 +47,7 @@ export default function AdminPayments() {
                 <tr key={r.id} className="border-b border-white/5">
                   <td className="py-2 pr-4 text-gray-500">{new Date(r.created_at).toLocaleString()}</td>
                   <td className="py-2 pr-4 font-mono text-gray-300 truncate max-w-[180px]">{r.user_id}</td>
-                  <td className="py-2 text-white">¥{(r.amount_cents / 100).toLocaleString()}</td>
+                  <td className="py-2 text-white">¥{Number(r.amount_cents).toLocaleString()}</td>
                   <td className="py-2 text-gray-400">{r.status}</td>
                 </tr>
               ))}

@@ -606,6 +606,18 @@ export function computePeakSafeGain(
 }
 
 /**
+ * レンダリング済みピークに「これから加えるゲイン差分」を加味して
+ * 事前にピーク超過リスクを見積もる。
+ */
+export function predictPostGainPeakDb(
+  measuredPeakDb: number,
+  currentGainDb: number,
+  candidateGainDb: number,
+): number {
+  return measuredPeakDb + (candidateGainDb - currentGainDb);
+}
+
+/**
  * AI の提案値を物理的な計測に基づいて補正する。
  * 高速な部分レンダリング（曲の中央 10 秒）を行い、
  * ターゲット LUFS との乖離を埋める。
@@ -719,8 +731,17 @@ export const optimizeMasteringParams = async (
       newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);
     }
   }
-  // 実測ピーク超過時は computePeakSafeGain でゲインを引き戻す（音割れ防止）
-  newGain = computePeakSafeGain(measuredPeakDb, TARGET_TRUE_PEAK_DB, newGain, {
+
+  // 実測ピークに「提案差分」を加えた予測値で先にピーク安全性を判定する。
+  // これにより「LUFS を上げるために newGain を増やした直後の割れ」を防ぐ。
+  const predictedPeakDb = predictPostGainPeakDb(
+    measuredPeakDb,
+    optimizedParams.gain_adjustment_db ?? 0,
+    newGain,
+  );
+
+  // 実測/予測ピーク超過時は computePeakSafeGain でゲインを引き戻す（音割れ防止）
+  newGain = computePeakSafeGain(predictedPeakDb, TARGET_TRUE_PEAK_DB, newGain, {
     maxCutDb: MAX_PEAK_CUT_STEP_DB,
   });
   newGain = Math.max(GAIN_FLOOR_DB, Math.min(GAIN_CAP_DB, newGain));
