@@ -44,6 +44,7 @@ describe('aiService.getMasteringSuggestions', () => {
   });
 
   it('returns deterministic params when AI mastering is disabled', async () => {
+    process.env.ENABLE_AI_MASTERING = 'false';
     const svc = await import('../services/aiService');
     const result = await svc.getMasteringSuggestions(sampleAnalysis, 'spotify', 'ja');
 
@@ -54,7 +55,6 @@ describe('aiService.getMasteringSuggestions', () => {
   });
 
   it('throws no-key error when AI mastering is enabled without key', async () => {
-    process.env.ENABLE_AI_MASTERING = 'true';
     const svc = await import('../services/aiService');
 
     await expect(svc.getMasteringSuggestions(sampleAnalysis, 'beatport', 'en')).rejects.toThrow('error.gemini.no_key');

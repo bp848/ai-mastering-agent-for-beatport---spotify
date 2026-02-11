@@ -22,7 +22,8 @@ export function isAiMasteringEnabled(): boolean {
     (import.meta.env.VITE_ENABLE_AI_MASTERING as string | undefined) ||
     (typeof process !== 'undefined' &&
       (process as { env?: { ENABLE_AI_MASTERING?: string } }).env?.ENABLE_AI_MASTERING);
-  return String(flag).toLowerCase() === 'true';
+  if (typeof flag !== 'string' || !flag.trim()) return true;
+  return String(flag).toLowerCase() !== 'false';
 }
 
 /** @deprecated マスタリングは Gemini を使用。互換のため残す */
