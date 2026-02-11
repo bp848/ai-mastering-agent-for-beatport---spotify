@@ -7,31 +7,29 @@ interface DownloadGateModalProps {
   onSignInWithGoogle: () => void;
 }
 
-export default function DownloadGateModal({
-  open,
-  onClose,
-  onSignInWithGoogle,
-}: DownloadGateModalProps) {
+export default function DownloadGateModal({ open, onClose, onSignInWithGoogle }: DownloadGateModalProps) {
   const { t } = useTranslation();
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm safe-area-padding"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 safe-area-padding"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="download-gate-title"
     >
       <div
-        className="w-full max-w-md rounded-2xl glass p-6 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-fade-up"
+        style={{ background: 'rgba(10,10,14,0.98)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="download-gate-title" className="text-sm font-black text-white uppercase tracking-widest mb-2">
+        <h3 id="download-gate-title" className="text-lg font-bold text-foreground mb-2">
           {t('auth.download_gate.title')}
         </h3>
-        <p className="text-sm text-gray-400 mb-6">
+        <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
           {t('flow.download_gate_after_listen')}
         </p>
         <div className="flex flex-col gap-3">
@@ -41,7 +39,7 @@ export default function DownloadGateModal({
               try { sessionStorage.setItem('pending_download', '1'); } catch (_) {}
               onSignInWithGoogle();
             }}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 min-h-[48px] rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 active:opacity-90 transition-colors touch-manipulation"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 min-h-[48px] rounded-xl bg-foreground text-background font-bold text-sm hover:opacity-90 transition-opacity active:scale-[0.98] touch-manipulation"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -54,7 +52,7 @@ export default function DownloadGateModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 text-sm text-gray-500 hover:text-white transition-colors"
+            className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {t('auth.cancel')}
           </button>

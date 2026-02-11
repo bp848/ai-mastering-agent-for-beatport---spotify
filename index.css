@@ -1,26 +1,32 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════════
-   Premium Design System — ALGORITHM MUSIC TOKYO
+   Design System — ALGORITHM MUSIC TOKYO
+   Professional Audio Mastering SaaS
+   Color: Deep Black + White + Cyan accent (3 colors)
    ══════════════════════════════════════════════════════════════════ */
 
-:root {
-  --bg-deep: #050508;
-  --bg-card: rgba(15, 15, 20, 0.7);
-  --accent: #22d3ee;
-  --accent-dim: rgba(34, 211, 238, 0.15);
-  --accent-glow: rgba(34, 211, 238, 0.25);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --text-primary: #f4f4f5;
-  --text-muted: #d4d4d8;
-  --text-secondary: #a1a1aa;
-  --gradient-start: #0c0c12;
-  --gradient-end: #0f172a;
-  /* 可読性: ベースを 1.2 倍に（html で 120% 指定と合わせて全体約20%拡大） */
-  --text-tiny: 0.6875rem;
-  --text-caption: 0.8125rem;
-  --text-body: 0.9375rem;
-  --text-lead: 1.0625rem;
+@theme inline {
+  --font-sans: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  --color-background: #050508;
+  --color-foreground: #f4f4f5;
+  --color-card: rgba(255, 255, 255, 0.03);
+  --color-card-foreground: #f4f4f5;
+  --color-primary: #22d3ee;
+  --color-primary-foreground: #050508;
+  --color-secondary: rgba(255, 255, 255, 0.06);
+  --color-secondary-foreground: #a1a1aa;
+  --color-muted: rgba(255, 255, 255, 0.04);
+  --color-muted-foreground: #71717a;
+  --color-accent: #22d3ee;
+  --color-accent-foreground: #050508;
+  --color-destructive: #ef4444;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-ring: rgba(34, 211, 238, 0.4);
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --radius: 0.75rem;
 }
 
 * {
@@ -28,86 +34,60 @@
 }
 
 html {
-  font-size: 120%; /* 全体のフォントを約20%拡大 */
+  font-size: 100%;
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  min-height: -webkit-fill-available;
+  min-height: 100dvh;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  color: var(--text-primary);
-  font-size: var(--text-body);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
-  font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
-
-  /* ── Premium Mesh Gradient Background ── */
-  background:
-    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 85% 80%, rgba(34, 211, 238, 0.06) 0%, transparent 35%),
-    radial-gradient(circle at 15% 70%, rgba(99, 102, 241, 0.05) 0%, transparent 35%),
-    linear-gradient(180deg, #050508 0%, #0a0a14 50%, #0f172a 100%);
-  background-attachment: fixed;
 }
 
-/* ── Clickable: ホバーで色変化・ポインター ── */
+/* ── Clickable Elements ── */
 button:not(:disabled),
 a[href],
 [role="button"],
-[role="option"],
-[role="tab"],
-[tabindex="0"],
-label[for],
-input[type="checkbox"],
-input[type="radio"] {
+[tabindex="0"] {
   cursor: pointer;
-  transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, filter 0.15s;
-}
-button:not(:disabled):hover,
-a[href]:hover,
-[role="button"]:hover,
-[role="option"]:hover,
-[role="tab"]:hover {
-  filter: brightness(1.15);
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 /* ── Typography ── */
-h1, h2, h3, h4, h5, h6, button, [class*="font-bold"], [class*="font-extrabold"], [class*="font-black"] {
-  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+code, pre, .font-mono {
+  font-family: var(--font-mono);
 }
 
-code, pre, .font-mono, [class*="tabular-nums"] {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-}
-
-/* スマホ向け: 入力時にズーム防止 */
 @media (max-width: 640px) {
   input, select, textarea {
     font-size: 16px !important;
   }
 }
 
-/* モーダル safe area */
+/* ── Safe area ── */
 .safe-area-padding {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* iOS スムーズスクロール */
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Glass Morphism (強化版) ── */
+/* ── Glass Card ── */
 .glass {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
 .glass-elevated {
@@ -115,48 +95,55 @@ code, pre, .font-mono, [class*="tabular-nums"] {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Cyan Glow Effect ── */
+/* ── Glow ── */
 .glow-cyan {
-  box-shadow:
-    0 0 20px rgba(34, 211, 238, 0.15),
-    0 0 60px rgba(34, 211, 238, 0.08),
-    0 4px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.2), 0 0 64px rgba(34, 211, 238, 0.08);
   border-color: rgba(34, 211, 238, 0.3);
-}
-
-/* ── Subtle grid overlay ── */
-.grid-overlay {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
 }
 
 /* ── Animations ── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-up {
-  animation: fade-up 0.5s ease-out forwards;
+  animation: fade-up 0.6s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.2), 0 0 60px rgba(34, 211, 238, 0.1); }
-  50% { box-shadow: 0 0 30px rgba(34, 211, 238, 0.35), 0 0 80px rgba(34, 211, 238, 0.15); }
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(34, 211, 238, 0.4); }
 }
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* ── Step connector ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Step Indicator ── */
 .step-dot {
   width: 10px;
   height: 10px;
@@ -165,20 +152,35 @@ code, pre, .font-mono, [class*="tabular-nums"] {
 }
 
 .step-dot.active {
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
+  background: var(--color-primary);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
 .step-dot.done {
-  background: var(--accent);
-  opacity: 0.6;
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 .step-dot.pending {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
-/* ── Donut Chart (SVG) ── */
+/* ── Module Badge ── */
+.module-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  margin: 0 4px 4px 0;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  background: rgba(34, 211, 238, 0.05);
+  color: #a5f3fc;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Donut Chart ── */
 .donut-track {
   stroke: rgba(255, 255, 255, 0.06);
 }
@@ -188,28 +190,13 @@ code, pre, .font-mono, [class*="tabular-nums"] {
   filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
 }
 
-/* ── Module Badge (機材ラック風) ── */
-.module-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  margin: 0 4px 4px 0;
-  border: 1px solid rgba(34, 211, 238, 0.3);
-  background: rgba(34, 211, 238, 0.05);
-  color: #a5f3fc;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ── Terminal Block Cursor Blink ── */
+/* ── Blink Cursor ── */
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
-/* ── Custom Scrollbar (dark, thin) ── */
+/* ── Custom Scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -220,12 +207,81 @@ code, pre, .font-mono, [class*="tabular-nums"] {
   background: rgba(255,255,255,0.08);
   border-radius: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.15);
+
+/* ── Scanline ── */
+@keyframes scanline-scroll {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
-/* ── Scanline animation for terminal ── */
-@keyframes scanline-scroll {
-  0%   { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+/* ── CTA Button ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  min-height: 52px;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  border: none;
+  transition: all 0.2s;
+  touch-action: manipulation;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  min-height: 48px;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Hero gradient background ── */
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.04) 0%, transparent 40%);
+}
+
+/* ── Section divider ── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+/* ── Stat number ── */
+.stat-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }

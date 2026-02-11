@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
 import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
@@ -51,8 +51,8 @@ const AppContent: React.FC = () => {
   const [analysisData, setAnalysisData] = useState<AudioAnalysisData | null>(null);
   const [masteringParams, setMasteringParams] = useState<MasteringParams | null>(null);
   const [masterMetrics, setMasterMetrics] = useState<{ lufs: number; peakDb: number } | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);   // Phase 1-2
-  const [isMastering, setIsMastering] = useState<boolean>(false);   // Phase 3-4
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isMastering, setIsMastering] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [masteringTarget, setMasteringTarget] = useState<MasteringTarget>('beatport');
@@ -70,8 +70,8 @@ const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { addTrack } = usePlatform();
   const { session, loading: authLoading, signInWithGoogle } = useAuth();
+  const uploadRef = useRef<HTMLDivElement>(null);
 
-  // URLハッシュとセクションを同期（ページ共有可能にする）
   useEffect(() => {
     const newHash = showResultsModal ? 'result' : section;
     if (typeof window !== 'undefined' && window.location.hash.slice(1).toLowerCase() !== newHash) {
@@ -98,7 +98,6 @@ const AppContent: React.FC = () => {
     } catch (_) {}
   }, [session, authLoading]);
 
-  // 購入完了時: /thankyou で始まるページ または ?checkout=success で Google 広告コンバージョン「購入 (3)」を1回だけ送信
   useEffect(() => {
     const pathname = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
@@ -128,16 +127,13 @@ const AppContent: React.FC = () => {
     setLogs(prevLogs => [...prevLogs, `[${timestamp}] ${message}`]);
   }, [language]);
 
-  // 初期化
   useEffect(() => {
     async function setupPyodide() {
       try {
         setPyodideStatus(t('upload.pyodide.loading'));
-        // Fixed: Use (window as any) to access loadPyodide which is injected globally via script tag
         const pyodide = await (window as any).loadPyodide({
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
         });
-        // Fixed: Use (window as any) to assign pyodide to the global window object
         (window as any).pyodide = pyodide;
         await pyodide.loadPackage("micropip");
         const micropip = pyodide.pyimport("micropip");
@@ -158,7 +154,6 @@ const AppContent: React.FC = () => {
     setActionLogs(prev => [...prev, { phase, timestamp, message, toolCall, status }]);
   }, [language]);
 
-  // ── Phase 1-2: 分析のみ（診断レポートを表示するためにここで止まる）──
   const analyzeOnly = useCallback(async (file: File, target: MasteringTarget) => {
     setAudioFile(file);
     setAnalysisData(null);
@@ -221,14 +216,13 @@ const AppContent: React.FC = () => {
     }
   }, [t, language, addLog, addActionLog, session?.user?.id]);
 
-  // ── Phase 3-4: AIマスタリング実行（ユーザーが Execute ボタンを押した後）──
   const executeMastering = useCallback(async () => {
     if (!analysisData || !audioBuffer) return;
     setIsMastering(true);
     setError('');
 
     try {
-      addActionLog('AI', language === 'ja' ? 'AIエージェント: Beatport top基準への最適化パラメータ算出中...' : 'AI Agent: Calculating optimization parameters...', 'getMasteringSuggestions', 'info');
+      addActionLog('AI', language === 'ja' ? 'AIエージェント: 最適化パラメータ算出中...' : 'AI Agent: Calculating optimization parameters...', 'getMasteringSuggestions', 'info');
       addLog(t('log.gemini.request'));
 
       const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
@@ -250,13 +244,12 @@ const AppContent: React.FC = () => {
         ? `リミッター: シーリング ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP`
         : `Limiter: ceiling ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP`, 'Brickwall_Limiter', 'info');
 
-      // Phase 4: Auto-Correction
       const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
 
       addActionLog('CORR', language === 'ja'
-        ? `自己補正: 目標 ${targetLufsValue} LUFS（サビ10秒シミュレーション → ゲイン自動補正）`
-        : `Self-correction: target ${targetLufsValue} LUFS (10s simulation → gain auto-adjust)`, 'optimizeMasteringParams', 'info');
+        ? `自己補正: 目標 ${targetLufsValue} LUFS`
+        : `Self-correction: target ${targetLufsValue} LUFS`, 'optimizeMasteringParams', 'info');
 
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
       const validatedParams = optimizeResult.params;
@@ -266,30 +259,24 @@ const AppContent: React.FC = () => {
       const gainDelta = validatedParams.gain_adjustment_db - rawParams.gain_adjustment_db;
       if (Math.abs(gainDelta) > 0.1) {
         addActionLog('CORR', language === 'ja'
-          ? `ゲイン補正: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB (Δ ${gainDelta > 0 ? '+' : ''}${gainDelta.toFixed(1)})`
-          : `Gain corrected: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB (Δ ${gainDelta > 0 ? '+' : ''}${gainDelta.toFixed(1)})`, 'Auto_Correction', 'warning');
+          ? `ゲイン補正: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB`
+          : `Gain corrected: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB`, 'Auto_Correction', 'warning');
       } else {
-        addActionLog('CORR', language === 'ja'
-          ? '補正不要 — AI提案値がLUFS±0.5dB以内'
-          : 'No correction needed — AI proposal within ±0.5 dB', 'Auto_Correction', 'success');
+        addActionLog('CORR', language === 'ja' ? '補正不要' : 'No correction needed', 'Auto_Correction', 'success');
       }
 
-      // Neuro-Drive Module ログ
       addActionLog('NEURO', language === 'ja'
-        ? 'Neuro-Drive Module: Parallel Hyper-Compression 起動 (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)'
-        : 'Neuro-Drive Module: Parallel Hyper-Compression active (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)', 'HyperCompressor', 'info');
+        ? 'Neuro-Drive Module: Parallel Hyper-Compression'
+        : 'Neuro-Drive Module: Parallel Hyper-Compression active', 'HyperCompressor', 'info');
       addActionLog('NEURO', language === 'ja'
-        ? 'Energy Filter: 250Hz HPF — キック/ベースの位相干渉を回避'
-        : 'Energy Filter: 250Hz HPF — avoiding kick/bass phase interference', 'EnergyFilter', 'info');
+        ? 'Air Exciter: 12kHz+ High-Shelf +4.0dB'
+        : 'Air Exciter: 12kHz+ High-Shelf +4.0dB', 'AirExciter', 'info');
       addActionLog('NEURO', language === 'ja'
-        ? 'Air Exciter: 12kHz+ High-Shelf +4.0dB — 超高域の覚醒刺激'
-        : 'Air Exciter: 12kHz+ High-Shelf +4.0dB — hyper-high frequency stimulation', 'AirExciter', 'info');
-      addActionLog('NEURO', language === 'ja'
-        ? 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active'
-        : 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active', 'NeuroMix', 'success');
+        ? 'Neuro Injection: Density +35% — Hyper-Saturation Active'
+        : 'Neuro Injection: Density +35% — Hyper-Saturation Active', 'NeuroMix', 'success');
 
       setMasteringParams(validatedParams);
-      addActionLog('DONE', language === 'ja' ? '最適化完了: Beatport top 基準に物理適合' : 'Optimization complete: physically validated', undefined, 'success');
+      addActionLog('DONE', language === 'ja' ? '最適化完了' : 'Optimization complete', undefined, 'success');
       addLog(t('log.gemini.success'));
       setShowResultsModal(true);
     } catch (err) {
@@ -301,20 +288,12 @@ const AppContent: React.FC = () => {
     }
   }, [analysisData, audioBuffer, masteringTarget, t, language, addLog, addActionLog]);
 
-  /** リトライ時: 指定した AI でパラメータを再計算し結果を更新 */
   const recalcParamsWithAI = useCallback(async () => {
     if (!analysisData || !audioBuffer) return;
     setIsMastering(true);
     setError('');
     try {
-      addActionLog(
-        'AI',
-        language === 'ja'
-          ? 'AI再計算: OpenAI でパラメータを再取得中...'
-          : 'Re-calculating with OpenAI...',
-        'getMasteringSuggestions',
-        'info'
-      );
+      addActionLog('AI', language === 'ja' ? 'AI再計算中...' : 'Re-calculating...', 'getMasteringSuggestions', 'info');
       const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
       setRawMasteringResponseText(rawResponseText);
       const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
@@ -322,12 +301,7 @@ const AppContent: React.FC = () => {
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
       setMasteringParams(optimizeResult.params);
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
-      addActionLog(
-        'DONE',
-        language === 'ja' ? 'OpenAI で再計算完了' : 'Re-calc done with OpenAI',
-        undefined,
-        'success'
-      );
+      addActionLog('DONE', language === 'ja' ? '再計算完了' : 'Re-calc done', undefined, 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'error.audio.analysis';
       addActionLog('ERROR', t(msg, { default: t('error.audio.analysis') }), undefined, 'error');
@@ -364,7 +338,6 @@ const AppContent: React.FC = () => {
       setShowPaywall(true);
       return;
     }
-    // ダウンロード実行前にトークン1件消費（管理者は消費されない）
     try {
       const consumeRes = await fetch(`${base}/api/consume-download-token`, {
         method: 'POST',
@@ -389,9 +362,7 @@ const AppContent: React.FC = () => {
           .from('mastered')
           .upload(path, masteredBlob, { contentType: 'audio/wav', upsert: false });
         if (!uploadError) storagePath = path;
-      } catch (_) {
-        // Storage 未設定やアップロード失敗時は履歴のみ（再DL不可）
-      }
+      } catch (_) {}
       await recordDownload(session.user.id, audioFile.name, masteringTarget, undefined, storagePath);
       trackEvent('download', { file_name: audioFile.name, target: masteringTarget, storage_path: storagePath }, session.user.id);
       setShowResultsModal(false);
@@ -428,7 +399,6 @@ const AppContent: React.FC = () => {
     setSection('library');
   }, [audioFile, masteringTarget, addTrack, saveToLibraryForm]);
 
-  // ── 4ステップ: アップロード → 分析 → 実行 → 聴く・購入 ──
   const isProcessing = isAnalyzing || isMastering;
   const step = !audioFile ? 1 : isAnalyzing ? 2 : (!masteringParams && analysisData) ? 3 : masteringParams ? 4 : 2;
   const stepLabels = [t('steps.upload'), t('steps.analyze'), t('steps.run'), t('steps.listen')];
@@ -445,57 +415,65 @@ const AppContent: React.FC = () => {
     setShowResultsModal(false);
   }, []);
 
+  const scrollToUpload = useCallback(() => {
+    uploadRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
   return (
-    <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-5 sm:py-6 lg:px-10 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
-      <div className="max-w-screen-2xl mx-auto w-full">
+    <div className="min-h-screen min-h-[100dvh] text-foreground px-4 py-4 sm:px-6 sm:py-6 lg:px-12 lg:py-8 pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-screen-xl mx-auto w-full">
+        {/* Post-login banner */}
         {showPostLoginBanner && (
-          <div className="mb-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
-            <p className="text-sm text-cyan-200">{t('flow.post_login_banner')}</p>
+          <div className="mb-4 p-4 rounded-xl border border-primary/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up" style={{ background: 'rgba(34,211,238,0.05)' }}>
+            <p className="text-sm text-primary">{t('flow.post_login_banner')}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => { setSection('mastering'); setShowPostLoginBanner(false); }}
-                className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 transition-colors"
+                className="btn-primary text-sm px-4 py-2 min-h-[40px]"
               >
                 {t('flow.post_login_cta')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPostLoginBanner(false)}
-                className="px-3 py-2 text-xs text-zinc-400 hover:text-white"
+                className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
                 aria-label={language === 'ja' ? '閉じる' : 'Dismiss'}
               >
-                ×
+                {'x'}
               </button>
             </div>
           </div>
         )}
-        <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
+
+        {/* Header */}
+        <header className="flex items-center justify-between gap-3 mb-8 sm:mb-10">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
               <BrandIcon />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-bold text-white tracking-tight">{t('header.title')}</h1>
-              <span className="text-[10px] text-zinc-500">{language === 'ja' ? '音源をアップロードしてAI解析（配信先は診断画面で選択）' : 'Upload to analyze · choose target on diagnosis'}</span>
+              <h1 className="text-sm font-bold text-foreground tracking-tight">{t('header.title')}</h1>
+              <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                {language === 'ja' ? 'Beatport / Spotify 配信基準 AI マスタリング' : 'AI Mastering for Beatport / Spotify'}
+              </span>
             </div>
             <div className="shrink-0 ml-2">
               <LanguageSwitcher />
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <PlatformNav
-              current={section}
-              onSelect={setSection}
-              session={session}
-              onLoginClick={() => {
-                if (session?.user) setSection('mypage');
-                else signInWithGoogle();
-              }}
-            />
-          </div>
+          <PlatformNav
+            current={section}
+            onSelect={setSection}
+            session={session}
+            onLoginClick={() => {
+              if (session?.user) setSection('mypage');
+              else signInWithGoogle();
+            }}
+          />
         </header>
 
+        {/* Non-mastering sections */}
         {section !== 'mastering' && (
           <main className="animate-fade-up">
             {section === 'pricing' && <PricingView />}
@@ -507,17 +485,9 @@ const AppContent: React.FC = () => {
           </main>
         )}
 
-        <DownloadGateModal
-          open={showDownloadGate}
-          onClose={() => setShowDownloadGate(false)}
-          onSignInWithGoogle={signInWithGoogle}
-        />
-
-        <PaywallModal
-          open={showPaywall}
-          onClose={() => setShowPaywall(false)}
-          onGoToPricing={() => setSection('pricing')}
-        />
+        {/* Modals */}
+        <DownloadGateModal open={showDownloadGate} onClose={() => setShowDownloadGate(false)} onSignInWithGoogle={signInWithGoogle} />
+        <PaywallModal open={showPaywall} onClose={() => setShowPaywall(false)} onGoToPricing={() => setSection('pricing')} />
 
         {analysisData && masteringParams && (
           <ResultsModal
@@ -550,61 +520,71 @@ const AppContent: React.FC = () => {
           />
         )}
 
+        {/* Mastering section */}
         {section === 'mastering' && (
-        <main className="space-y-4 sm:space-y-6">
-          {/* ── Step Indicator (4 steps) ── */}
+        <main className="space-y-6 sm:space-y-8">
+          {/* Step Indicator */}
           <div
-            className="flex items-center justify-center gap-1.5 sm:gap-3 py-3 flex-wrap"
+            className="flex items-center justify-center gap-2 sm:gap-4 py-3"
             role="progressbar"
             aria-valuenow={step}
             aria-valuemin={1}
             aria-valuemax={4}
-            aria-label={language === 'ja' ? `ステップ ${step} / 4: ${stepLabels[step - 1]}` : `Step ${step} of 4: ${stepLabels[step - 1]}`}
+            aria-label={language === 'ja' ? `ステップ ${step} / 4` : `Step ${step} of 4`}
           >
             {[1, 2, 3, 4].map((s) => (
               <React.Fragment key={s}>
                 <div className="flex items-center gap-1.5">
                   <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
-                  <span className={`text-[10px] sm:text-xs font-medium ${step === s ? 'text-cyan-400 font-bold' : step > s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
+                  <span className={`text-[11px] sm:text-xs font-medium ${
+                    step === s ? 'text-primary font-bold' : step > s ? 'text-foreground' : 'text-muted-foreground'
+                  }`}>
+                    {stepLabels[s - 1]}
+                  </span>
                 </div>
-                {s < 4 && <div className="w-4 sm:w-6 h-px bg-white/10" />}
+                {s < 4 && <div className="w-4 sm:w-8 h-px bg-border" />}
               </React.Fragment>
             ))}
           </div>
 
-          {/* トップ: 未アップロード時は2カラム（左・省略説明 / 右・アップロード） ── */}
+          {/* Upload / Hero area */}
           {(!analysisData || masteringParams) && (
             <>
               {!audioFile && !isProcessing ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
-                  <HeroEngine language={language} compact />
-                  <div className="glass rounded-2xl p-4 sm:p-6">
-                    <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
-                      {t('ux.upload_first')}
-                    </p>
-                    <FileUpload
-                      onFileChange={handleFileChange}
-                      fileName={audioFile?.name}
-                      isAnalyzing={isProcessing}
-                      pyodideStatus={pyodideStatus}
-                      compact={false}
-                    />
-                    {error && (
-                      <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
-                        <p>{error}</p>
-                        <button
-                          type="button"
-                          onClick={() => { setError(''); resetToUpload(); }}
-                          className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
-                        >
-                          {t('ux.error_retry')}
-                        </button>
-                      </div>
-                    )}
+                <>
+                  {/* Hero + Upload side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    <HeroEngine language={language} compact onScrollToUpload={scrollToUpload} />
+                    <div ref={uploadRef} className="rounded-2xl border border-border p-5 sm:p-6" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <p className="text-sm font-medium text-muted-foreground mb-3">
+                        {t('ux.upload_first')}
+                      </p>
+                      <FileUpload
+                        onFileChange={handleFileChange}
+                        fileName={audioFile?.name}
+                        isAnalyzing={isProcessing}
+                        pyodideStatus={pyodideStatus}
+                        compact={false}
+                      />
+                      {error && (
+                        <div className="mt-4 p-4 rounded-xl border border-destructive/30 text-destructive text-sm space-y-3" style={{ background: 'rgba(239,68,68,0.05)' }}>
+                          <p>{error}</p>
+                          <button
+                            type="button"
+                            onClick={() => { setError(''); resetToUpload(); }}
+                            className="btn-secondary text-sm"
+                          >
+                            {t('ux.error_retry')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                  {/* Full Hero below */}
+                  <HeroEngine language={language} onScrollToUpload={scrollToUpload} />
+                </>
               ) : (
-                <div className="glass rounded-2xl p-4 sm:p-6">
+                <div className="rounded-2xl border border-border p-5 sm:p-6" style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <FileUpload
                     onFileChange={handleFileChange}
                     fileName={audioFile?.name}
@@ -613,12 +593,12 @@ const AppContent: React.FC = () => {
                     compact={!!(audioFile || isProcessing)}
                   />
                   {error && (
-                    <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                    <div className="mt-4 p-4 rounded-xl border border-destructive/30 text-destructive text-sm space-y-3" style={{ background: 'rgba(239,68,68,0.05)' }}>
                       <p>{error}</p>
                       <button
                         type="button"
                         onClick={() => { setError(''); resetToUpload(); }}
-                        className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                        className="btn-secondary text-sm"
                       >
                         {t('ux.error_retry')}
                       </button>
@@ -629,7 +609,7 @@ const AppContent: React.FC = () => {
             </>
           )}
 
-          {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
+          {/* Processing state */}
           {isAnalyzing && <StatusLoader mode="analysis" />}
           {isMastering && <StatusLoader mode="mastering" />}
           {isProcessing && actionLogs.length > 0 && (
@@ -639,7 +619,7 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {/* ── Phase: Diagnosis (分析完了 → マスタリング未実行) ── */}
+          {/* Diagnosis (analysis done, mastering not yet run) */}
           {!isAnalyzing && !isMastering && analysisData && !masteringParams && (
             <DiagnosisReport
               data={analysisData}
@@ -652,39 +632,38 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {/* ── Phase: Mastering Complete → View Results ── */}
+          {/* Mastering Complete */}
           {!isProcessing && analysisData && masteringParams && (
-            <div className="glass rounded-2xl p-6 sm:p-8 animate-fade-up text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
-                  {language === 'ja' ? 'マスタリング完了' : 'Mastering Complete'}
+            <div className="rounded-2xl border border-border p-8 sm:p-10 animate-fade-up text-center space-y-5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30">
+                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
+                <span className="text-xs font-bold text-success uppercase tracking-wider">
+                  {language === 'ja' ? 'Mastering Complete' : 'Mastering Complete'}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-foreground">
                 {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
               </h2>
               {masterMetrics && (
-                <p className="text-sm text-zinc-400 font-mono">
-                  {language === 'ja' ? 'マスター実測' : 'Master'} LUFS {masterMetrics.lufs.toFixed(1)}
-                  {language === 'ja' ? ' · 目標' : ' · Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
+                <p className="text-sm text-muted-foreground font-mono tabular-nums">
+                  LUFS {masterMetrics.lufs.toFixed(1)} / Target {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
                 </p>
               )}
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
                 {t('flow.complete_teaser')}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button
                   type="button"
                   onClick={() => setShowResultsModal(true)}
-                  className="px-8 py-3.5 min-h-[52px] rounded-xl bg-cyan-500 text-black font-bold text-base hover:bg-cyan-400 active:scale-[0.98] touch-manipulation shadow-lg shadow-cyan-500/25"
+                  className="btn-primary text-base px-8 py-4"
                 >
-                  {language === 'ja' ? '結果を見る（聴く・購入）' : 'View result (listen & purchase)'}
+                  {language === 'ja' ? '結果を見る（試聴・購入）' : 'View Results (Listen & Get)'}
                 </button>
                 <button
                   type="button"
                   onClick={resetToUpload}
-                  className="text-sm text-zinc-400 hover:text-white underline underline-offset-2"
+                  className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
                 >
                   {t('ux.choose_other_file')}
                 </button>
@@ -694,19 +673,20 @@ const AppContent: React.FC = () => {
         </main>
         )}
 
-        <footer className="mt-8 sm:mt-12 py-4 sm:py-6 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 flex-wrap gap-2">
+        {/* Footer */}
+        <footer className="mt-12 sm:mt-16 py-6 section-divider flex justify-between items-center text-[10px] text-muted-foreground flex-wrap gap-3">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <a className="hover:text-cyan-400 transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
+          <div className="flex items-center gap-4 flex-wrap">
+            <a className="hover:text-primary transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
               {language === 'ja' ? '運営者情報' : 'Operator'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-primary transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? '利用規約' : 'Terms'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-primary transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? 'プライバシー' : 'Privacy'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-primary transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? '返金ポリシー' : 'Refunds'}
             </a>
           </div>

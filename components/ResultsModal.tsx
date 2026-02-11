@@ -3,7 +3,7 @@ import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../typ
 import AnalysisDisplay from './AnalysisDisplay';
 import MasteringAgent from './MasteringAgent';
 import Console, { type ActionLog } from './Console';
-import { Spinner, DownloadIcon, CardIcon } from './Icons';
+import { Spinner, CardIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface ResultsModalProps {
@@ -25,9 +25,7 @@ interface ResultsModalProps {
   actionLogs?: ActionLog[];
   onFeedbackApply?: (newParams: MasteringParams) => void;
   onRecalcWithAI?: () => Promise<void>;
-  /** マスター出力の実測値（耳以外の評価用） */
   masterMetrics?: { lufs: number; peakDb: number } | null;
-  /** AI が返した生の JSON テキスト（全文・省略なし） */
   rawMasteringResponseText?: string | null;
 }
 
@@ -58,6 +56,7 @@ export default function ResultsModal({
   const totalSlides = 2;
   const [openRawDiagnosis, setOpenRawDiagnosis] = React.useState(false);
   const [openRawAI, setOpenRawAI] = React.useState(false);
+  const ja = language === 'ja';
 
   React.useEffect(() => {
     if (open) setSlide(1);
@@ -65,138 +64,118 @@ export default function ResultsModal({
 
   if (!open) return null;
 
-  const nextLabel = language === 'ja' ? '次へ' : 'Next';
-  const prevLabel = language === 'ja' ? '前へ' : 'Back';
-  const closeBackLabel = t('modal.close_back');
-  const closeBackAria = t('modal.close_back_aria');
-  const purchaseLabel = t('result.purchase_cta');
-  const purchaseAria = t('result.purchase_cta_aria');
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm safe-area-padding"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 safe-area-padding"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none glass shadow-2xl">
-        {/* スライド: 0=分析 / 1=プレビュー＆ダウンロード（初期表示） */}
-        <div className="flex items-center justify-center gap-2 py-3 border-b border-white/5 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          {[0, 1].map((i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setSlide(i)}
-              className={`min-h-[44px] min-w-[44px] flex items-center justify-center px-4 py-2 rounded-full text-[11px] font-medium transition-all ${slide === i ? 'bg-cyan-500 text-black' : 'bg-white/10 text-zinc-400 hover:bg-white/20'}`}
-              aria-label={i === 0 ? (language === 'ja' ? '分析結果' : 'Analysis') : (language === 'ja' ? 'プレビュー・ダウンロード' : 'Preview & Download')}
-            >
-              {i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? '聴く・DL' : 'Listen & DL')}
-            </button>
-          ))}
+      <div className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-screen-xl overflow-hidden flex flex-col sm:rounded-2xl rounded-none border border-border shadow-2xl" style={{ background: 'rgba(10,10,14,0.98)' }}>
+        {/* Tab navigation */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="flex items-center gap-1">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSlide(i)}
+                className={`min-h-[40px] px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  slide === i
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                {i === 0 ? (ja ? '分析詳細' : 'Analysis') : (ja ? '試聴 & 購入' : 'Listen & Get')}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
-        {/* スライド内容 */}
+        {/* Slide content */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 scroll-touch">
           {slide === 0 && (
             <div className="animate-fade-up space-y-6">
-              <h3 className="text-base font-bold text-cyan-400 mb-4">
-                {language === 'ja' ? '分析結果（プロ基準）' : 'Analysis (Pro standard)'}
-              </h3>
-              <AnalysisDisplay
-                data={analysisData}
-                isLoading={false}
-                masteringTarget={masteringTarget}
-              />
-              {/* 診断API生数値：折りたたみ */}
-              <section className="rounded-xl bg-black/40 border border-white/10 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenRawDiagnosis((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider"
-                >
-                  {language === 'ja' ? '診断API生数値（開発者向け）' : 'Diagnosis API raw (developer)'}
-                  <span className="text-lg leading-none">{openRawDiagnosis ? '−' : '+'}</span>
-                </button>
-                {openRawDiagnosis && (
-                  <pre className="p-3 pt-0 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-white/10">
-                    {JSON.stringify(analysisData, null, 2)}
-                  </pre>
-                )}
-              </section>
-              {/* AI指示出力：折りたたみ */}
-              <section className="rounded-xl bg-black/40 border border-white/10 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenRawAI((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-wider"
-                >
-                  {language === 'ja' ? 'AI指示出力（全文）' : 'AI output (full text)'}
-                  <span className="text-lg leading-none">{openRawAI ? '−' : '+'}</span>
-                </button>
-                {openRawAI && (
-                  <pre className="p-3 pt-0 rounded-lg bg-zinc-950 text-[11px] font-mono text-zinc-300 overflow-x-auto overflow-y-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-white/10">
-                    {rawMasteringResponseText ?? (language === 'ja' ? '（マスタリング実行後に表示）' : '(Shown after mastering run)')}
-                  </pre>
-                )}
-              </section>
-              {actionLogs.length > 0 && (
-                <Console logs={actionLogs} compact={false} />
-              )}
+              <AnalysisDisplay data={analysisData} isLoading={false} masteringTarget={masteringTarget} />
+
+              {/* Raw diagnosis data */}
+              <details className="rounded-xl border border-border overflow-hidden">
+                <summary className="px-4 py-3 text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer uppercase tracking-wider">
+                  {ja ? '診断API生数値' : 'Raw Diagnosis Data'}
+                </summary>
+                <pre className="p-4 text-[11px] font-mono text-muted-foreground overflow-x-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-border" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                  {JSON.stringify(analysisData, null, 2)}
+                </pre>
+              </details>
+
+              {/* Raw AI output */}
+              <details className="rounded-xl border border-border overflow-hidden">
+                <summary className="px-4 py-3 text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer uppercase tracking-wider">
+                  {ja ? 'AI指示出力（全文）' : 'AI Output (Full)'}
+                </summary>
+                <pre className="p-4 text-[11px] font-mono text-muted-foreground overflow-x-auto max-h-[280px] whitespace-pre-wrap break-all border-t border-border" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                  {rawMasteringResponseText ?? (ja ? '(マスタリング実行後に表示)' : '(Shown after mastering)')}
+                </pre>
+              </details>
+
+              {actionLogs.length > 0 && <Console logs={actionLogs} compact={false} />}
             </div>
           )}
-          {slide === 1 && (
-            <div className="animate-fade-up space-y-5">
-              <h3 className="text-base font-bold text-cyan-400 mb-1">
-                {language === 'ja' ? '2. プレビュー → ダウンロード' : '2. Preview → Download'}
-              </h3>
-              <p className="text-[13px] text-zinc-400 mb-2">
-                {t('flow.preview_then_download')}
-              </p>
 
-              {/* 聞き比べの判断材料：耳＋数値（オリジナル vs マスター実測） */}
-              <section className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
-                <p className="text-[13px] font-bold text-zinc-300 uppercase tracking-wider mb-3">
-                  {language === 'ja' ? '評価：耳と数値の両方で判断' : 'Evaluate: by ear and by numbers'}
+          {slide === 1 && (
+            <div className="animate-fade-up space-y-6">
+              {/* Comparison card */}
+              <div className="rounded-2xl border border-border p-5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
+                  {ja ? 'Original vs Master' : 'Original vs Master'}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-zinc-900/50 p-3 border border-zinc-700/50">
-                    <p className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1">
-                      {language === 'ja' ? 'オリジナル（実測）' : 'Original (measured)'}
+                  <div className="rounded-xl p-4 border border-border" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+                      {ja ? 'オリジナル' : 'Original'}
                     </p>
-                    <ul className="text-[14px] font-mono space-y-1 font-semibold text-zinc-200">
+                    <ul className="text-sm font-mono space-y-1 font-semibold text-foreground tabular-nums">
                       <li>LUFS {analysisData.lufs.toFixed(1)}</li>
                       <li>TP {analysisData.truePeak.toFixed(1)} dB</li>
                       <li>Crest {analysisData.crestFactor.toFixed(1)}</li>
                     </ul>
                   </div>
-                  <div className="rounded-lg bg-cyan-950/40 p-3 border border-cyan-500/30">
-                    <p className="text-[11px] text-cyan-400 uppercase tracking-wider mb-1">
-                      {language === 'ja' ? 'マスター（実測）' : 'Master (measured)'}
+                  <div className="rounded-xl p-4 border border-primary/30" style={{ background: 'rgba(34,211,238,0.03)' }}>
+                    <p className="text-[10px] text-primary uppercase tracking-wider mb-2">
+                      {ja ? 'マスター' : 'Master'}
                     </p>
                     {masterMetrics ? (
-                      <ul className="text-[14px] font-mono space-y-1 font-semibold text-cyan-200">
+                      <ul className="text-sm font-mono space-y-1 font-semibold text-primary tabular-nums">
                         <li>LUFS {masterMetrics.lufs.toFixed(1)}</li>
                         <li>TP {masterMetrics.peakDb.toFixed(1)} dB</li>
-                        <li className="text-zinc-400 text-[12px]">
-                          {language === 'ja' ? '目標' : 'Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'} LUFS
+                        <li className="text-xs text-muted-foreground">
+                          {ja ? '目標' : 'Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'} LUFS
                         </li>
                       </ul>
                     ) : (
-                      <ul className="text-[13px] font-mono space-y-1 text-cyan-200/80">
+                      <ul className="text-sm font-mono space-y-1 text-primary/80 tabular-nums">
                         <li>LUFS {masteringTarget === 'beatport' ? '-8.0' : '-14.0'} (target)</li>
-                        <li>
-                          TP {(masteringParams.limiter_ceiling_db ?? (masteringTarget === 'beatport' ? -0.3 : -1.0)).toFixed(1)} dB
-                        </li>
+                        <li>TP {(masteringParams.limiter_ceiling_db ?? (masteringTarget === 'beatport' ? -0.3 : -1.0)).toFixed(1)} dB</li>
                       </ul>
                     )}
                   </div>
                 </div>
-                <p className="text-[12px] text-zinc-500 mt-3">
-                  {language === 'ja'
-                    ? '下の「聴く」でマスターとオリジナルを切り替えて聞き比べ。再生中はリアルタイム Peak をメーターで確認。'
-                    : 'Use "Listen" below to switch Master vs Original. Check real-time peak in the meter while playing.'}
+                <p className="text-xs text-muted-foreground mt-4">
+                  {ja
+                    ? '下のプレイヤーでマスターとオリジナルを切り替えて聞き比べできます。'
+                    : 'Use the player below to A/B compare Master vs Original.'}
                 </p>
-              </section>
+              </div>
 
+              {/* Player */}
               <MasteringAgent
                 params={masteringParams}
                 isLoading={false}
@@ -212,60 +191,56 @@ export default function ResultsModal({
           )}
         </div>
 
-        {/* アクションバー — [ 戻る ] [ 次へ or 空 ] [ 購入してWAVを取得 ] */}
+        {/* Bottom action bar */}
         <div
-          className="flex items-center justify-between gap-2 px-4 border-t border-white/5 shrink-0"
+          className="flex items-center justify-between gap-3 px-4 border-t border-border shrink-0"
           style={{
-            minHeight: 64,
+            minHeight: 72,
             paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(0,0,0,0.4)',
           }}
         >
           <button
             type="button"
             onClick={() => (slide > 0 ? setSlide(slide - 1) : onClose())}
-            className="flex items-center gap-1.5 px-3 py-3 min-w-0 text-[15px] font-medium text-zinc-300 hover:text-white active:opacity-80 font-mono shrink-0"
-            aria-label={slide > 0 ? undefined : closeBackAria}
+            className="flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
-            <span className="text-lg leading-none">‹</span>
-            {slide > 0 ? prevLabel : closeBackLabel}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            {slide > 0 ? (ja ? '分析詳細' : 'Analysis') : (ja ? '閉じる' : 'Close')}
           </button>
 
-          <div className="flex-1 flex items-center justify-center min-w-0">
-            {slide < totalSlides - 1 ? (
+          <div className="flex items-center gap-3">
+            {slide < totalSlides - 1 && (
               <button
                 type="button"
                 onClick={() => setSlide(slide + 1)}
-                className="px-4 py-3 rounded-lg text-[15px] font-medium text-zinc-200 hover:text-white border border-white/20 font-mono"
+                className="btn-secondary text-sm"
               >
-                {nextLabel}
+                {ja ? '試聴へ' : 'Listen'}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
               </button>
-            ) : null}
-          </div>
+            )}
 
-          <div className="shrink-0 w-[200px] sm:w-[240px] flex justify-end">
-            {slide === totalSlides - 1 ? (
+            {slide === totalSlides - 1 && (
               <button
                 type="button"
                 onClick={onDownloadMastered}
                 disabled={isProcessingAudio}
-                aria-label={purchaseAria}
-                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-[14px] sm:text-[15px] text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono text-center"
-                style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}
+                className="btn-primary text-sm"
               >
                 {isProcessingAudio ? (
                   <>
-                    <Spinner />
-                    <span className="whitespace-nowrap">{language === 'ja' ? '書き出し中...' : 'Exporting...'}</span>
+                    <span className="w-4 h-4"><Spinner /></span>
+                    <span>{ja ? '書き出し中...' : 'Exporting...'}</span>
                   </>
                 ) : (
                   <>
-                    <CardIcon className="w-5 h-5 shrink-0" />
-                    <span className="whitespace-nowrap">{purchaseLabel}</span>
+                    <CardIcon className="w-5 h-5" />
+                    <span>{t('result.purchase_cta')}</span>
                   </>
                 )}
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

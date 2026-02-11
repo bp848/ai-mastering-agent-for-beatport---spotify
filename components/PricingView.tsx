@@ -3,11 +3,6 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createCheckoutSession } from '../services/stripeCheckout';
 
-/* ══════════════════════════════════════════════════════════════════
-   PricingView — SaaS-standard Tier Card Layout
-   Shot / Volume / Subscription をタブ切替、Best Value にシアン発光
-   ══════════════════════════════════════════════════════════════════ */
-
 type Tab = 'shot' | 'volume' | 'subscription';
 
 interface PlanCard {
@@ -17,7 +12,6 @@ interface PlanCard {
   priceLabel: string;
   priceLabelEn: string;
   perTrack?: number;
-  /** 購入時にチャージするダウンロード回数（未指定は 1） */
   tokenCount?: number;
   features: string[];
   featuresEn: string[];
@@ -44,21 +38,21 @@ const SHOT_CARDS: PlanCard[] = [
     price: 20000, priceLabel: '¥20,000', priceLabelEn: '$133',
     perTrack: 667, best: true, tokenCount: 30,
     features: ['30曲パック', '全DSP機能', 'Self-Correction Loop', '優先処理', '1曲あたり ¥667'],
-    featuresEn: ['30-track pack', 'Full DSP chain', 'Self-Correction Loop', 'Priority processing', '$4.45/track'],
+    featuresEn: ['30-track pack', 'Full DSP chain', 'Self-Correction Loop', 'Priority', '$4.45/track'],
   },
   {
     name: 'Studio 50', nameEn: 'Studio 50',
     price: 30000, priceLabel: '¥30,000', priceLabelEn: '$200',
     perTrack: 600, tokenCount: 50,
     features: ['50曲パック', '全DSP機能', '優先処理', '1曲あたり ¥600'],
-    featuresEn: ['50-track pack', 'Full DSP chain', 'Priority processing', '$4/track'],
+    featuresEn: ['50-track pack', 'Full DSP chain', 'Priority', '$4/track'],
   },
   {
     name: 'Studio 100', nameEn: 'Studio 100',
     price: 50000, priceLabel: '¥50,000', priceLabelEn: '$333',
     perTrack: 500, tokenCount: 100,
     features: ['100曲パック', '全DSP機能', '優先処理', '1曲あたり ¥500'],
-    featuresEn: ['100-track pack', 'Full DSP chain', 'Priority processing', '$3.33/track'],
+    featuresEn: ['100-track pack', 'Full DSP chain', 'Priority', '$3.33/track'],
   },
 ];
 
@@ -74,15 +68,15 @@ const SUBSCRIPTION_CARDS: PlanCard[] = [
     name: 'Monthly 50', nameEn: 'Monthly 50',
     price: 30000, priceLabel: '¥30,000/月', priceLabelEn: '$200/mo',
     perTrack: 600, best: true, tokenCount: 50,
-    features: ['50曲/月', '全DSP機能', '優先処理', 'Neuro-Drive 最適化', '1曲あたり ¥600'],
-    featuresEn: ['50 tracks/mo', 'Full DSP chain', 'Priority processing', 'Neuro-Drive optimized', '$4/track'],
+    features: ['50曲/月', '全DSP機能', '優先処理', 'Neuro-Drive最適化', '1曲あたり ¥600'],
+    featuresEn: ['50 tracks/mo', 'Full DSP', 'Priority', 'Neuro-Drive', '$4/track'],
   },
   {
     name: 'Monthly 100', nameEn: 'Monthly 100',
     price: 50000, priceLabel: '¥50,000/月', priceLabelEn: '$333/mo',
     perTrack: 500, tokenCount: 100,
     features: ['100曲/月', '全DSP機能', '優先処理', 'API利用可', '1曲あたり ¥500'],
-    featuresEn: ['100 tracks/mo', 'Full DSP chain', 'Priority processing', 'API access', '$3.33/track'],
+    featuresEn: ['100 tracks/mo', 'Full DSP', 'Priority', 'API access', '$3.33/track'],
   },
 ];
 
@@ -91,13 +85,13 @@ const ENTERPRISE_CARDS: PlanCard[] = [
     name: 'セルフデプロイ', nameEn: 'Self-Deploy',
     price: 100000, priceLabel: '¥100,000', priceLabelEn: '$670',
     features: ['アプリケーション買い切り', '自社サーバーで運用', '無制限トラック', '技術サポート 30日'],
-    featuresEn: ['Application purchase', 'Run on your servers', 'Unlimited tracks', '30-day tech support'],
+    featuresEn: ['Application purchase', 'Run on your servers', 'Unlimited tracks', '30-day support'],
   },
   {
     name: 'ホワイトラベル', nameEn: 'White Label',
     price: 200000, priceLabel: '¥200,000', priceLabelEn: '$1,330',
     features: ['ブランドカスタマイズ', '再販ライセンス', '無制限トラック', '技術サポート 90日'],
-    featuresEn: ['Brand customization', 'Resale license', 'Unlimited tracks', '90-day tech support'],
+    featuresEn: ['Brand customization', 'Resale license', 'Unlimited tracks', '90-day support'],
   },
 ];
 
@@ -107,35 +101,34 @@ const Card: React.FC<{
   onSelect: (plan: PlanCard) => void;
   loading?: boolean;
   isLoggedIn?: boolean;
-  signInLabel?: string;
-}> = ({ plan, isJa, onSelect, loading, isLoggedIn, signInLabel }) => (
-  <div className={`relative flex flex-col rounded-2xl p-6 transition-all ${
+}> = ({ plan, isJa, onSelect, loading, isLoggedIn }) => (
+  <div className={`relative flex flex-col rounded-2xl border p-6 transition-all ${
     plan.best
-      ? 'glass-elevated glow-cyan scale-[1.02]'
-      : 'glass hover:border-white/15'
-  }`}>
+      ? 'border-primary/40 glow-cyan'
+      : 'border-border hover:border-primary/20'
+  }`} style={{ background: plan.best ? 'rgba(34,211,238,0.03)' : 'rgba(255,255,255,0.02)' }}>
     {plan.best && (
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-cyan-500 text-black text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
         Best Value
       </div>
     )}
-    <h3 className="text-base font-bold text-white mb-1">
+    <h3 className="text-base font-bold text-foreground mb-1">
       {isJa ? plan.name : plan.nameEn}
     </h3>
-    <div className="mb-4">
-      <span className="text-2xl font-extrabold text-white tabular-nums">
+    <div className="mb-5">
+      <span className="text-2xl font-extrabold text-foreground tabular-nums font-mono">
         {isJa ? plan.priceLabel : plan.priceLabelEn}
       </span>
       {plan.perTrack && (
-        <span className="text-xs text-zinc-500 ml-2">
+        <span className="text-xs text-muted-foreground ml-2">
           ({isJa ? `¥${plan.perTrack}/曲` : `$${(plan.perTrack / 150).toFixed(2)}/track`})
         </span>
       )}
     </div>
-    <ul className="flex-1 space-y-2 mb-6">
+    <ul className="flex-1 space-y-2.5 mb-6">
       {(isJa ? plan.features : plan.featuresEn).map((f) => (
-        <li key={f} className="flex items-start gap-2 text-xs text-zinc-400">
-          <span className="text-cyan-400 mt-0.5 shrink-0">✓</span>
+        <li key={f} className="flex items-start gap-2.5 text-xs text-muted-foreground">
+          <svg className="w-4 h-4 text-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           <span>{f}</span>
         </li>
       ))}
@@ -144,13 +137,17 @@ const Card: React.FC<{
       type="button"
       onClick={() => onSelect(plan)}
       disabled={loading}
-      className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
+      className={`w-full py-3 min-h-[48px] rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-50 ${
         plan.best
-          ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/20'
-          : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+          ? 'btn-primary'
+          : 'bg-secondary text-foreground hover:bg-secondary/80 border border-border'
       }`}
     >
-      {loading ? (isJa ? '送信中...' : 'Loading...') : isLoggedIn ? (isJa ? '選択する' : 'Select') : (signInLabel ?? (isJa ? 'ログインして購入' : 'Sign in to purchase'))}
+      {loading
+        ? (isJa ? '送信中...' : 'Loading...')
+        : isLoggedIn
+          ? (isJa ? '選択する' : 'Select')
+          : (isJa ? 'ログインして購入' : 'Sign in to purchase')}
     </button>
   </div>
 );
@@ -166,20 +163,12 @@ export default function PricingView() {
   const handleSelectPlan = useCallback(
     async (plan: PlanCard) => {
       const accessToken = session?.access_token;
-      if (!accessToken) {
-        signInWithGoogle();
-        return;
-      }
+      if (!accessToken) { signInWithGoogle(); return; }
       setError(null);
       setLoading(true);
       try {
         const tokenCount = plan.tokenCount ?? 1;
-        const { url } = await createCheckoutSession(
-          accessToken,
-          plan.price,
-          isJa ? plan.name : plan.nameEn,
-          tokenCount
-        );
+        const { url } = await createCheckoutSession(accessToken, plan.price, isJa ? plan.name : plan.nameEn, tokenCount);
         window.location.href = url;
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Checkout failed');
@@ -190,111 +179,82 @@ export default function PricingView() {
   );
 
   const tabs: { id: Tab; label: string; labelEn: string }[] = [
-    { id: 'shot', label: 'ショット（都度払い）', labelEn: 'One-time (Shot)' },
-    { id: 'volume', label: '月額サブスクリプション', labelEn: 'Monthly Subscription' },
+    { id: 'shot', label: '都度払い', labelEn: 'One-time' },
+    { id: 'volume', label: '月額', labelEn: 'Monthly' },
     { id: 'subscription', label: 'エンタープライズ', labelEn: 'Enterprise' },
   ];
 
   return (
-    <div className="animate-fade-up space-y-8">
-      {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
-          <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
-            {isJa ? '無料' : 'Free'}
+    <div className="animate-fade-up space-y-10 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+          <span className="text-xs font-bold text-success uppercase tracking-wider">
+            {isJa ? '無料プレビュー付き' : 'Free Preview Included'}
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-white">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
           {t('pricing.title')}
         </h2>
-        <p className="text-sm sm:text-base text-cyan-200/90 font-medium max-w-lg mx-auto">
-          {t('pricing.free_preview_cta')}
-        </p>
-        <p className="text-xs text-zinc-500 max-w-lg mx-auto">
+        <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
           {isJa
-            ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
-            : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
+            ? '全プランでHybrid-Analog Engineのフル機能。1曲から購入可能、まとめ買いでお得に。'
+            : 'Full Hybrid-Analog Engine on all plans. Purchase from a single track, save with bundles.'}
         </p>
       </div>
 
-      {/* ── Tab Switcher ── */}
+      {/* Tab Switcher */}
       <div className="flex justify-center">
-        <div className="inline-flex rounded-xl bg-white/5 border border-white/10 p-1">
-          {tabs.map((t) => (
+        <div className="inline-flex rounded-xl border border-border p-1" style={{ background: 'rgba(255,255,255,0.03)' }}>
+          {tabs.map((tb) => (
             <button
-              key={t.id}
+              key={tb.id}
               type="button"
-              onClick={() => setTab(t.id)}
-              className={`px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                tab === t.id
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setTab(tb.id)}
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                tab === tb.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {isJa ? t.label : t.labelEn}
+              {isJa ? tb.label : tb.labelEn}
             </button>
           ))}
         </div>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 text-center">
+        <div className="rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm p-3 text-center">
           {error}
         </div>
       )}
 
-      {/* ── Cards Grid ── */}
+      {/* Cards Grid */}
       {tab === 'shot' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
           {SHOT_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
+            <Card key={p.name} plan={p} isJa={isJa} onSelect={handleSelectPlan} loading={loading} isLoggedIn={!!session} />
           ))}
         </div>
       )}
       {tab === 'volume' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
           {SUBSCRIPTION_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
+            <Card key={p.name} plan={p} isJa={isJa} onSelect={handleSelectPlan} loading={loading} isLoggedIn={!!session} />
           ))}
         </div>
       )}
       {tab === 'subscription' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
           {ENTERPRISE_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
+            <Card key={p.name} plan={p} isJa={isJa} onSelect={handleSelectPlan} loading={loading} isLoggedIn={!!session} />
           ))}
         </div>
       )}
 
-      {/* ── Note ── */}
-      <p className="text-center text-[10px] text-zinc-600">
-        {isJa
-          ? '※ 価格はすべて税込表示です。プレビューは全プラン無制限・無料です。'
-          : '※ All prices include tax. Preview is unlimited and free on all plans.'}
+      <p className="text-center text-[10px] text-muted-foreground">
+        {isJa ? '※ 価格はすべて税込。プレビューは全プラン無制限・無料。' : '※ All prices include tax. Preview is unlimited and free.'}
       </p>
     </div>
   );

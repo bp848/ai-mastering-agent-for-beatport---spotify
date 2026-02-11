@@ -7,52 +7,43 @@ interface PaywallModalProps {
   onGoToPricing: () => void;
 }
 
-export default function PaywallModal({
-  open,
-  onClose,
-  onGoToPricing,
-}: PaywallModalProps) {
+export default function PaywallModal({ open, onClose, onGoToPricing }: PaywallModalProps) {
   const { t } = useTranslation();
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm safe-area-padding"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 safe-area-padding"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="paywall-title"
     >
       <div
-        className="w-full max-w-md rounded-2xl glass p-6 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-fade-up"
+        style={{ background: 'rgba(10,10,14,0.98)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="paywall-title" className="text-sm font-black text-white uppercase tracking-widest mb-2">
+        <h3 id="paywall-title" className="text-lg font-bold text-foreground mb-2">
           {t('paywall.title')}
         </h3>
-        <p className="text-sm text-gray-400 mb-6">
+        <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
           {t('paywall.description')}
         </p>
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => {
-              onClose();
-              onGoToPricing();
-            }}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 min-h-[48px] rounded-xl font-bold text-sm text-black transition-colors touch-manipulation"
-            style={{
-              background: 'linear-gradient(135deg, #22d3ee, #06b6d4)',
-              boxShadow: '0 0 16px rgba(34,211,238,0.35)',
-            }}
+            onClick={() => { onClose(); onGoToPricing(); }}
+            className="btn-primary w-full"
           >
             {t('paywall.cta')}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 text-sm text-gray-500 hover:text-white transition-colors"
+            className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {t('auth.cancel')}
           </button>

@@ -1,76 +1,106 @@
-
 import React from 'react';
-import { useTranslation } from '../contexts/LanguageContext';
 
 /* ─────────────────────────────────────────────────────────────────
-   HeroEngine — ランディングセクション
-   セミプロ / プロ向けの技術的信頼感を与えるエンジン解説。
-   ファイル未アップロード時に表示。
-   マーケティング: ログインなしでプレビューまで聴ける誘導を明示。
-   4つの価値軸: 音量・音質・音圧・音像
+   HeroEngine — Conversion-focused Landing Section
+   Designed for first-time visitors: hook -> value -> social proof -> CTA
    ───────────────────────────────────────────────────────────────── */
-
-interface SpecCardProps {
-  number: string;
-  title: string;
-  titleEn: string;
-  body: string;
-}
-
-const SpecCard: React.FC<SpecCardProps> = ({ number, title, titleEn, body }) => (
-  <div className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 sm:p-6 hover:border-cyan-500/30 transition-colors">
-    {/* Number badge */}
-    <span className="absolute -top-3 left-4 inline-flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold ring-1 ring-cyan-500/30">
-      {number}
-    </span>
-    <h3 className="text-sm font-bold text-white leading-snug mb-0.5">{title}</h3>
-    <p className="text-[10px] font-medium text-cyan-500/70 tracking-wider uppercase mb-3">{titleEn}</p>
-    <p className="text-xs leading-relaxed text-zinc-400">{body}</p>
-  </div>
-);
 
 interface HeroEngineProps {
   language: 'ja' | 'en';
-  /** 左カラム用：タグライン・タイトル・短いリード・4軸のみ */
   compact?: boolean;
+  onScrollToUpload?: () => void;
 }
 
-const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) => {
-  const { t } = useTranslation();
+const STATS = {
+  ja: [
+    { value: '-8.0', unit: 'LUFS', label: 'Beatport配信基準' },
+    { value: '0.1', unit: 'dB', label: '自動補正精度' },
+    { value: '30', unit: '秒', label: '解析完了まで' },
+  ],
+  en: [
+    { value: '-8.0', unit: 'LUFS', label: 'Beatport Standard' },
+    { value: '0.1', unit: 'dB', label: 'Auto-correction' },
+    { value: '30', unit: 'sec', label: 'Analysis Time' },
+  ],
+};
+
+const STEPS = {
+  ja: [
+    { num: '01', title: 'アップロード', desc: 'WAV/MP3をドラッグ&ドロップ' },
+    { num: '02', title: 'AI解析', desc: 'LUFS・周波数・位相を即座に診断' },
+    { num: '03', title: 'マスタリング', desc: 'AIが最適パラメータを算出・適用' },
+    { num: '04', title: '試聴・購入', desc: '無料で試聴、気に入ったらDL' },
+  ],
+  en: [
+    { num: '01', title: 'Upload', desc: 'Drag & drop WAV/MP3' },
+    { num: '02', title: 'AI Analysis', desc: 'Instant LUFS, spectrum & phase diagnosis' },
+    { num: '03', title: 'Mastering', desc: 'AI calculates & applies optimal params' },
+    { num: '04', title: 'Listen & Get', desc: 'Free preview, purchase if you like it' },
+  ],
+};
+
+const ENGINES = {
+  ja: [
+    { title: 'Self-Correction Loop', desc: 'AIの提案を物理シミュレーションで検証。0.1dB単位で自動補正。' },
+    { title: 'Tube Saturation', desc: '真空管回路の偶数倍音で、デジタルの冷たさを排除。' },
+    { title: 'Neuro-Drive Module', desc: '並列圧縮+Air帯域ブーストで空間密度を最大化。' },
+    { title: 'Transient Shaper', desc: 'ソフトクリッパーでアタック保護、立体的な音像を実現。' },
+  ],
+  en: [
+    { title: 'Self-Correction Loop', desc: 'Validates AI proposals via physics simulation. Auto-corrects to 0.1dB.' },
+    { title: 'Tube Saturation', desc: 'Even-order harmonics from tube circuits eliminate digital coldness.' },
+    { title: 'Neuro-Drive Module', desc: 'Parallel compression + Air band boost maximizes spatial density.' },
+    { title: 'Transient Shaper', desc: 'Soft clipper preserves attack transients for 3D sonic image.' },
+  ],
+};
+
+const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false, onScrollToUpload }) => {
   const ja = language === 'ja';
+  const stats = STATS[language];
+  const steps = STEPS[language];
+  const engines = ENGINES[language];
 
   if (compact) {
     return (
       <section className="animate-fade-up">
-        <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
-          <div className="inline-flex flex-col gap-0.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-            <span className="text-xs font-bold text-amber-400">
-              {ja ? '今だけ１曲無料キャンペーン中' : 'Limited time: 1 track free'}
-            </span>
-            <span className="text-[10px] text-amber-400/80">
-              {ja ? 'おひとり様１回限り' : 'One per person, one time only'}
+        <div className="rounded-2xl border border-border p-5 sm:p-6 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          {/* Free badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+            <span className="text-xs font-bold text-success uppercase tracking-wider">
+              {ja ? '無料で試聴可能' : 'Free Preview'}
             </span>
           </div>
-          <p className="text-sm sm:text-base font-bold text-cyan-200/95">
-            {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
-          </p>
-          <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-            <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
-            <br />
-            <span className="text-sm font-semibold text-zinc-300">
-              {ja ? 'AIの感性と、物理学の絶対領域。' : 'AI Sensibility \u00D7 Physics.'}
-            </span>
+
+          <h2 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight text-balance">
+            {ja ? (
+              <>
+                あなたの楽曲を
+                <br />
+                <span className="text-primary">世界配信基準</span>に。
+              </>
+            ) : (
+              <>
+                Master your tracks to
+                <br />
+                <span className="text-primary">world standards.</span>
+              </>
+            )}
           </h2>
-          <p className="text-xs sm:text-sm leading-relaxed text-zinc-400">
+
+          <p className="text-sm leading-relaxed text-muted-foreground">
             {ja
-              ? 'AIが楽曲のDNAを解析し、ハイブリッド・ループが特徴を最大限に引き出します。'
-              : 'AI analyzes your track\u2019s DNA; our hybrid-loop unlocks its full potential.'}
+              ? 'AIが楽曲を解析し、Beatport/Spotify配信基準のマスタリングを自動実行。ログイン不要で試聴まで無料。'
+              : 'AI analyzes your track and auto-masters to Beatport/Spotify standards. Free preview, no sign-in required.'}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {(ja ? ['音量', '音質', '音圧', '音像'] : ['Volume', 'Tone', 'Loudness', 'Image']).map((pillar) => (
-              <span key={pillar} className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-bold text-cyan-300">
-                {pillar}
-              </span>
+
+          {/* Mini stats */}
+          <div className="flex gap-4">
+            {stats.map((s) => (
+              <div key={s.label} className="text-center">
+                <p className="text-lg font-bold font-mono text-foreground stat-number">{s.value}<span className="text-xs text-muted-foreground ml-0.5">{s.unit}</span></p>
+                <p className="text-[10px] text-muted-foreground">{s.label}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -79,131 +109,141 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   }
 
   return (
-    <section className="animate-fade-up space-y-8">
-      {/* ── Hero Header ──────────────────────────────────── */}
-      <div className="glass rounded-2xl p-6 sm:p-10 text-center space-y-5">
-        {/* 1. Tagline */}
-        <p className="text-sm sm:text-base font-bold text-cyan-200/95">
-          {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
+    <section className="animate-fade-up space-y-16">
+      {/* ── Hero Above the Fold ── */}
+      <div className="hero-gradient rounded-3xl px-6 sm:px-12 py-12 sm:py-20 text-center space-y-8">
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          <span className="text-xs font-semibold text-primary tracking-wide">
+            {ja ? 'Beatport / Spotify 配信基準対応' : 'Beatport / Spotify Distribution Standard'}
+          </span>
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground tracking-tight leading-[1.15] text-balance max-w-3xl mx-auto">
+          {ja ? (
+            <>
+              AIが、あなたの楽曲を
+              <br />
+              <span className="text-primary">世界最高峰の音</span>に仕上げる。
+            </>
+          ) : (
+            <>
+              AI masters your tracks to
+              <br />
+              <span className="text-primary">world-class sound.</span>
+            </>
+          )}
+        </h1>
+
+        {/* Subline */}
+        <p className="text-base sm:text-lg text-secondary-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
+          {ja
+            ? '音源をアップロードするだけ。AIが周波数・音圧・位相を解析し、配信基準に最適化されたマスタリングを自動実行します。ログイン不要で試聴まで完全無料。'
+            : 'Just upload your track. AI analyzes frequency, loudness & phase, then auto-masters to distribution standards. Free preview with no sign-in required.'}
         </p>
 
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[10px] font-semibold text-cyan-400 uppercase tracking-widest">
-            {ja ? 'エンジン技術解説' : 'Engine Architecture'}
+        {/* CTA */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={onScrollToUpload}
+            className="btn-primary text-base px-8 py-4"
+          >
+            {ja ? '無料で音源を解析する' : 'Analyze Your Track Free'}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {ja ? 'WAV / MP3 / AIFF 対応' : 'WAV / MP3 / AIFF supported'}
           </span>
         </div>
 
-        {/* Title */}
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
-          <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
-          <br />
-          <span className="text-base sm:text-lg font-semibold text-zinc-300">
-            {ja
-              ? 'AIの感性と、物理学の絶対領域。'
-              : 'AI Sensibility \u00D7 The Absolute Domain of Physics.'}
-          </span>
-        </h2>
-
-        {/* Lead */}
-        <div className="max-w-4xl mx-auto space-y-3">
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
-            {ja
-              ? '既存のAIマスタリングは、プリセットを当てはめて「平均的な音」を作るだけでした。それでは世界観が小さくまとまってしまいます。'
-              : 'Existing AI mastering just applies presets to produce "average sound." That only shrinks your creative vision.'}
-          </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-300 font-medium">
-            {ja
-              ? '我々のエンジンは違います。目指したのは、特定のチャートへの迎合ではなく、世界最高峰のスタジオ品質に負けない「音量」「音質」「音圧」、そして明確な「音像」です。'
-              : 'Our engine is different. We don\u2019t chase charts \u2014 we pursue world-class studio quality: Volume, Tone, Loudness, and a definitive Sonic Image.'}
-          </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
-            {ja
-              ? 'AIが楽曲のDNAを解析し、独自開発のハイブリッド・ループシステムが、楽曲の持つそれぞれの特徴を最大限に引き出します。'
-              : 'AI analyzes your track\u2019s DNA, and our proprietary hybrid-loop system unlocks the full potential of every characteristic your music holds.'}
-          </p>
-        </div>
-
-        {/* 4つの価値軸: 音量・音質・音圧・音像 */}
-        <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
-          {(ja
-            ? ['音量', '音質', '音圧', '音像']
-            : ['Volume', 'Tone', 'Loudness', 'Image']
-          ).map((pillar) => (
-            <span
-              key={pillar}
-              className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs sm:text-sm font-bold text-cyan-300 tracking-wider"
-            >
-              {pillar}
-            </span>
+        {/* Stats */}
+        <div className="flex items-center justify-center gap-8 sm:gap-16 pt-4">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground stat-number">
+                {s.value}<span className="text-sm text-muted-foreground ml-1">{s.unit}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* ── Tech Specs Grid ──────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        <SpecCard
-          number="1"
-          title={ja ? '自己補正ループ' : 'Self-Correction Loop'}
-          titleEn="Self-Correction Loop"
-          body={
-            ja
-              ? 'AIが提案したパラメータを盲信しません。システムが適用結果を瞬時にシミュレーションし、目標値との誤差を 0.1 dB 単位で検知・修正。単に音を大きくするのではなく、その楽曲が持つ本来のダイナミクス（抑揚）を崩さずに、最適なバランスに着地させる。「AIが提案し、物理演算が承認する」— プロのエンジニアの繊細な判断をコードレベルで再現しています。'
-              : 'We never blindly trust AI proposals. The system instantly simulates the result, detecting deviation down to 0.1 dB and correcting it. Rather than simply making it louder, it preserves the track\u2019s original dynamics while landing at the optimal balance. "AI proposes, physics approves" \u2014 a pro engineer\u2019s nuanced judgment, replicated in code.'
-          }
-        />
-        <SpecCard
-          number="2"
-          title={ja ? '真空管サチュレーション' : 'Tube & Tape Saturation'}
-          titleEn="Tube & Tape Saturation"
-          body={
-            ja
-              ? 'デジタルの冷たさを排除し、世界最高峰の「音質」へ。偶数倍音を付加する真空管回路と、磁気テープのヒステリシスをシミュレート。単なる信号増幅ではなく、音に「粘り」と「重量」といった物質感を与えます。これにより、楽曲はデジタルデータから、手触りのある「実在する音」へと変化します。'
-              : 'Eliminating digital coldness for world-class tone. Our tube circuit adds even-order harmonics while simulating magnetic tape hysteresis. This isn\u2019t mere signal amplification \u2014 it gives sound tangible "weight" and "texture," transforming digital data into a physical, living presence.'
-          }
-        />
-        <SpecCard
-          number="3"
-          title={ja ? '"Pultec" ロースタイル' : '"Pultec" Style Low-End'}
-          titleEn="Pultec Style Low-End"
-          body={
-            ja
-              ? 'EQでブーストするだけでは、濁りが生じて世界観が狭くなります。名機 Pultec EQ のカーブ特性を再現し、不要なサブベース（30 Hz 以下）をカットしながら、その直上の帯域をレゾナンスで音楽的に強調。キックとベースの分離感を保ちながら、フロアの空気を震わせる「音圧」と、どこまでも深く沈み込むような「深度」を両立します。'
-              : 'Simply boosting low-end with EQ creates muddiness and shrinks the soundstage. We replicate the legendary Pultec EQ curve: cutting unnecessary sub-bass below 30 Hz while resonantly emphasizing the band just above it. Maintaining kick-bass separation while delivering floor-shaking loudness and bottomless depth.'
-          }
-        />
-        <SpecCard
-          number="4"
-          title={ja ? 'トランジェント・シェイパー & クリッパー' : 'Transient Shaper & Clipper'}
-          titleEn="Transient Shaper & Clipper"
-          body={
-            ja
-              ? 'リミッターで潰れた平坦な音は作りません。重要なのは「音像（輪郭）」です。我々のエンジンは、リミッターの前段でソフトクリッパー処理を実行。人間の耳には聞こえないピークだけを瞬時に削り取り、アタック感（トランジェント）を鋭く保護します。これにより、圧倒的な音量を稼ぎながらも、音がリスナーの目の前に飛び出してくるような、鋭利で立体的なサウンドを実現します。'
-              : 'We don\u2019t create flat, crushed sound from limiters. What matters is the sonic image \u2014 the contour. Our engine runs soft-clipper processing before the limiter, shaving only inaudible peaks while sharply preserving attack transients. The result: overwhelming volume with sound that leaps out at the listener \u2014 razor-sharp and three-dimensional.'
-          }
-        />
-        <SpecCard
-          number="5"
-          title={ja ? 'Neuro-Drive Module（脳内駆動エンジン）' : 'Neuro-Drive Module'}
-          titleEn="Parallel Hyper-Compression + Air Exciter"
-          body={
-            ja
-              ? '楽曲のスケールを決定づける「空間」の拡張。信号を極限まで圧縮した音を並列生成し、低域の干渉を排除した上で、12kHz 以上の Air 帯域（空気感）をブースト。これを原音に絶妙なバランスでミックスすることで、天井知らずの「開放感」と、脳を刺激するエネルギー密度を注入。楽曲が本来持っているポテンシャルを解放し、没入感あふれる世界観を構築します。'
-              : 'Expanding the "space" that defines a track\u2019s scale. A hyper-compressed parallel signal is generated, filtered to eliminate low-end interference, then boosted above 12kHz in the Air band. Mixed at the perfect balance into the dry signal, it injects limitless openness and brain-stimulating energy density \u2014 unlocking the full potential of your music and building an immersive sonic universe.'
-          }
-        />
+      {/* ── Social Proof / Trust ── */}
+      <div className="text-center space-y-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          {ja ? 'エンジン技術' : 'Engine Technology'}
+        </p>
+        <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
+          {['EBU R128', 'Tube Saturation', 'Pultec EQ', 'Neuro-Drive', 'Brickwall Limiter'].map((tech) => (
+            <span key={tech} className="text-sm font-mono text-muted-foreground/60 tracking-wide">{tech}</span>
+          ))}
+        </div>
       </div>
 
-      {/* ── CTA: 聴いてから決める。ログインはダウンロードのときだけ ───────── */}
-      <p className="text-center text-xs text-zinc-500">
-        {ja
-          ? '↑ 上のドロップエリアにトラックを投入すると、このエンジンがリアルタイムで起動します。'
-          : '↑ Drop a track in the area above to start this engine in real time.'}
-      </p>
-      <p className="text-center text-[11px] text-cyan-400/90 font-medium mt-2">
-        {t('flow.preview_no_login')}
-      </p>
+      {/* ── How It Works (4 Steps) ── */}
+      <div className="space-y-8">
+        <div className="text-center space-y-2">
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest">
+            {ja ? '使い方' : 'How It Works'}
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+            {ja ? '4ステップで完了' : '4 Simple Steps'}
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {steps.map((step) => (
+            <div key={step.num} className="group relative rounded-2xl border border-border p-6 hover:border-primary/30 transition-colors" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <span className="text-3xl font-extrabold font-mono text-primary/20 absolute top-4 right-4">{step.num}</span>
+              <h3 className="text-sm font-bold text-foreground mb-2">{step.title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Engine Features ── */}
+      <div className="space-y-8">
+        <div className="text-center space-y-2">
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest">
+            {ja ? 'コア技術' : 'Core Technology'}
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+            {ja ? 'Hybrid-Analog Engine' : 'Hybrid-Analog Engine'}
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+            {ja
+              ? 'AIの感性と物理シミュレーションの融合。プリセットに頼らない、楽曲固有の最適化。'
+              : 'AI sensibility meets physics simulation. Track-specific optimization, not preset-based.'}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {engines.map((eng) => (
+            <div key={eng.title} className="rounded-2xl border border-border p-6 hover:border-primary/30 transition-colors" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <h3 className="text-sm font-bold text-foreground mb-2 font-mono">{eng.title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{eng.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Final CTA ── */}
+      <div className="text-center space-y-4 pb-4">
+        <p className="text-xs text-muted-foreground">
+          {ja
+            ? 'ログイン不要で試聴まで無料。気に入ったらダウンロードのときだけログイン。'
+            : 'Free preview with no sign-in. Only sign in when you download.'}
+        </p>
+        <button
+          type="button"
+          onClick={onScrollToUpload}
+          className="btn-primary"
+        >
+          {ja ? '今すぐ無料で試す' : 'Try Free Now'}
+        </button>
+      </div>
     </section>
   );
 };
