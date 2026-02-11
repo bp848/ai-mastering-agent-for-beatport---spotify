@@ -137,8 +137,8 @@ const ja = {
   "result.retry.title": "リトライする",
   "result.retry.problems": "音が割れている。音が曇っている。音がひずんでいる。音に力がない。音が細い。すべてやり直せ。",
   "result.retry.free": "再度マスタリングを実行（無料）",
-  "result.purchase_cta": "マスタリング音源を購入する（1000円）",
-  "result.purchase_cta_aria": "マスタリング音源を1,000円で購入してWAVをダウンロード（ログインが必要な場合あり）",
+  "result.purchase_cta": "購入してマイページでダウンロード（1000円）",
+  "result.purchase_cta_aria": "マスタリング音源を1,000円で購入。マイページで7日間ダウンロード可能（ログインが必要）",
   "flow.post_login_banner": "ログインしました。マスタリング画面でもう一度プレビューしてダウンロードできます。",
   "flow.post_login_cta": "マスタリングへ",
   "mypage.cta_master_again": "もう1曲マスタリングする"
@@ -262,8 +262,8 @@ const en = {
   "result.retry.title": "Retry",
   "result.retry.problems": "Clipping, muddy, distorted, no punch, thin? Run it again.",
   "result.retry.free": "Re-run mastering (free)",
-  "result.purchase_cta": "Purchase mastered file (¥1,000)",
-  "result.purchase_cta_aria": "Purchase mastered file for ¥1,000 and download WAV (sign-in required if not logged in)",
+  "result.purchase_cta": "Purchase → Download from My Page (¥1,000)",
+  "result.purchase_cta_aria": "Purchase mastered file for ¥1,000. Download from My Page within 7 days (sign-in required)",
   "flow.post_login_banner": "You're signed in. Go to Mastering to preview again and download.",
   "flow.post_login_cta": "Go to Mastering",
   "mypage.cta_master_again": "Master another track"

@@ -86,7 +86,7 @@ export default function ResultsModal({
               key={i}
               type="button"
               onClick={() => setSlide(i)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${slide === i ? 'bg-cyan-500 text-black' : 'bg-white/10 text-zinc-400 hover:bg-white/20'}`}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center px-4 py-2 rounded-full text-[11px] font-medium transition-all ${slide === i ? 'bg-cyan-500 text-black' : 'bg-white/10 text-zinc-400 hover:bg-white/20'}`}
               aria-label={i === 0 ? (language === 'ja' ? '分析結果' : 'Analysis') : (language === 'ja' ? 'プレビュー・ダウンロード' : 'Preview & Download')}
             >
               {i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? '聴く・DL' : 'Listen & DL')}

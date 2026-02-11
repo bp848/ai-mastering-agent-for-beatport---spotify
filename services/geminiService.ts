@@ -7,13 +7,13 @@ import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompt
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
     // 音割れの主因は「過大ゲイン」なので上限を強制的に低くする
-    gain_adjustment_db: Math.max(-12, Math.min(6, Number(raw.gain_adjustment_db) || 0)),
+    gain_adjustment_db: Math.round(Math.max(-5, Math.min(3, Number(raw.gain_adjustment_db) || 0)) * 100) / 100,
     // フォールバックで 0dB 近辺に寄せない。共有クランプ側も上限 -0.3 dB に統一
     limiter_ceiling_db: Math.max(-6, Math.min(-0.3, Number(raw.limiter_ceiling_db) ?? -1.0)),
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
-    tube_drive_amount: Math.max(0, Math.min(3, Number(raw.tube_drive_amount) ?? 0)),
-    exciter_amount: Math.max(0, Math.min(0.15, Number(raw.exciter_amount) ?? 0)),
-    low_contour_amount: Math.max(0, Math.min(1, Number(raw.low_contour_amount) ?? 0)),
+    tube_drive_amount: Math.max(0, Math.min(2, Number(raw.tube_drive_amount) ?? 0)),
+    exciter_amount: Math.max(0, Math.min(0.12, Number(raw.exciter_amount) ?? 0)),
+    low_contour_amount: Math.max(0, Math.min(0.8, Number(raw.low_contour_amount) ?? 0)),
     width_amount: Math.max(1.0, Math.min(1.4, Number(raw.width_amount) ?? 1)),
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);

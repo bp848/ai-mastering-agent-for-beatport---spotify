@@ -710,16 +710,14 @@ export const optimizeMasteringParams = async (
   }
   const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
 
-  // --- 補正: 数字は AI が渡す params を優先。未指定時のみフォールバック（目標 LUFS に届くようにする） ---
-  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.5;
-  // 1回の補正で動かしすぎると歪みやすいので控えめに
-  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 3;
-  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 6;
-  // クリップしている場合はより強く引けるようにする
+  // --- 補正: 調整幅を抑えてつぶれを防ぐ（小さなステップ・ゆるい許容） ---
+  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 1.0;
+  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 0.8;
+  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 1.5;
   const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
-  const GAIN_CAP_DB = 6;
-  const GAIN_FLOOR_DB = -12;
-  const GAIN_RESOLUTION = 20;
+  const GAIN_CAP_DB = 3;
+  const GAIN_FLOOR_DB = -5;
+  const GAIN_RESOLUTION = 100;
 
   const diff = TARGET_LUFS - measuredLUFS;
   let newGain = optimizedParams.gain_adjustment_db;

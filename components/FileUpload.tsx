@@ -97,7 +97,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); handleClick(); }}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
               aria-label={t('upload.aria.label')}
             >
               {t('ux.select_file_button')}

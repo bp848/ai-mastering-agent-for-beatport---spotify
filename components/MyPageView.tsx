@@ -10,10 +10,19 @@ import type { MasteringTarget } from '../types';
    ══════════════════════════════════════════════════════════════════ */
 
 export default function MyPageView() {
-  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, session, loading: authLoading, signInWithGoogle, signOut } = useAuth();
   const { language } = useTranslation();
   const ja = language === 'ja';
-  const [history, setHistory] = useState<{ id: string; file_name: string; mastering_target: MasteringTarget; created_at: string; amount_cents?: number | null }[]>([]);
+  const [history, setHistory] = useState<{
+    id: string;
+    file_name: string;
+    mastering_target: MasteringTarget;
+    created_at: string;
+    amount_cents?: number | null;
+    storage_path?: string | null;
+    expires_at?: string | null;
+  }[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,24 +160,69 @@ export default function MyPageView() {
         {/* History list */}
         {!loading && !error && history.length > 0 && (
           <ul className="space-y-2">
-            {history.map((row) => (
-              <li
-                key={row.id}
-                className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="font-mono text-sm text-white truncate">{row.file_name}</p>
-                  <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
-                    {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
-                  </p>
-                </div>
-                {row.amount_cents != null && (
-                  <span className="text-xs font-mono text-zinc-400 shrink-0 tabular-nums">
-                    ¥{(row.amount_cents / 100).toLocaleString()}
-                  </span>
-                )}
-              </li>
-            ))}
+            {history.map((row) => {
+              const canRedownload =
+                row.storage_path &&
+                row.expires_at &&
+                new Date(row.expires_at) > new Date();
+              const isDownloading = downloadingId === row.id;
+
+              return (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors flex-wrap sm:flex-nowrap"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-sm text-white truncate">{row.file_name}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
+                      {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {row.amount_cents != null && (
+                      <span className="text-xs font-mono text-zinc-400 tabular-nums">
+                        ¥{(row.amount_cents / 100).toLocaleString()}
+                      </span>
+                    )}
+                    {canRedownload ? (
+                      <button
+                        type="button"
+                        disabled={isDownloading}
+                        onClick={async () => {
+                          if (!session?.access_token) return;
+                          setDownloadingId(row.id);
+                          try {
+                            const base = typeof window !== 'undefined' ? window.location.origin : '';
+                            const res = await fetch(
+                              `${base}/api/re-download?history_id=${encodeURIComponent(row.id)}`,
+                              { headers: { Authorization: `Bearer ${session.access_token}` } }
+                            );
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok && data.url) {
+                              const a = document.createElement('a');
+                              a.href = data.url;
+                              a.download = data.suggested_name ?? `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
+                              a.rel = 'noopener noreferrer';
+                              a.target = '_blank';
+                              a.click();
+                            }
+                          } finally {
+                            setDownloadingId(null);
+                          }
+                        }}
+                        className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-bold bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50 transition-colors"
+                      >
+                        {isDownloading ? (ja ? '取得中...' : 'Loading...') : (ja ? 'ダウンロード' : 'Download')}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-zinc-500">
+                        {ja ? '再DL期限切れ' : 'Expired'}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

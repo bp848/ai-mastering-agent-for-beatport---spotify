@@ -32,6 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ログイン・会員登録時に管理者へメール1通（Stripe Webhook 代替）。同一ユーザーは1回だけ
+  useEffect(() => {
+    if (!session?.user?.id || !session?.access_token) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    fetch(`${origin}/api/notify-new-signup`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }).catch(() => {});
+  }, [session?.user?.id, session?.access_token]);
+
   const signInWithGoogle = useCallback(async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',

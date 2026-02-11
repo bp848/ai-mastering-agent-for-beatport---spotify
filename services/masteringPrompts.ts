@@ -6,20 +6,67 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
       platformName: 'Spotify',
       targetLufs: -14.0,
       targetPeak: -1.0,
-      genreContext: 'Streaming distribution. Target transparent and dynamic sound.'
+      genreContext: 'Streaming. Target transparent, dynamic, hi-fi sound with clean separation (抜けの良い). Bass must stay tight and never crackle when volume is turned up.'
     };
   }
   return {
     platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
-    // -7.0 / -0.1 は歪み・耳疲れに直結しやすい（WebAudio/簡易TP推定では特に危険）。
-    // まずは品質優先の現実値に寄せ、自己補正ループで確実に到達させる。
     targetLufs: -8.0,
     targetPeak: -0.3,
-    genreContext: 'This is for Beatport chart competitiveness. Prioritize clarity and punch without harsh distortion. Target integrated loudness around -8.0 LUFS; keep true peak at -0.3 dBTP for safer headroom.'
+    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. True peak -0.3 dBTP for safe playback at any volume.'
   };
 };
 
 export type PlatformSpecifics = ReturnType<typeof getPlatformSpecifics>;
+
+/** 議論レイヤー用に分析データを要約テキストにする */
+export const formatAnalysisSummary = (data: AudioAnalysisData): string => {
+  const bands = (data.frequencyData ?? [])
+    .map(f => `${f.name}: ${f.level}`)
+    .join(', ');
+  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
+};
+
+/** 初回判断: デュアルペルソナ（トップDJ + Beatport Top10 エンジニア）で定性評価を出力 */
+export const generateGeminiInitialPrompt = (
+  data: AudioAnalysisData,
+  specifics: PlatformSpecifics,
+): string => {
+  const summary = formatAnalysisSummary(data);
+  return `You are a dual-persona mastering panel for ${specifics.platformName}: (1) a top DJ whose job is to take the audience into a trance state (顧客をトランス状態に導く)—the sound must be immersive, hypnotic, physically felt; clarity and low end that lock the groove, nothing that breaks the spell. (2) A Beatport Top 10 regular track-maker mastering engineer focused on chart-competitive low-end clarity.
+TARGET SOUND: The kind of sound top DJs use for trance: hi-fi, 抜けの良い, bass that stays tight and never crackles when volume is turned up (バリバリならない重低音). Prioritize headroom and transparency; avoid anything harsh or distracting that would pull the crowd out.
+Work as a strict consensus team. Prioritize crackle-free kick/bass impact, club translation, and mono-safe low-end. Based ONLY on the following analysis, output a qualitative assessment. Do not output any numbers (no dB, Hz, or ms).
+
+ANALYSIS: ${summary}
+CONTEXT: ${specifics.genreContext}
+Output valid JSON only.`;
+};
+
+/** レビュー: 同じペルソナで Gemini 案を QC。低域安全性が曖昧なら安全側へ */
+export const generateGptReviewPrompt = (
+  data: AudioAnalysisData,
+  specifics: PlatformSpecifics,
+  geminiJson: string,
+): string => {
+  const summary = formatAnalysisSummary(data);
+  return `You are a dual-persona mastering QC reviewer: (1) a top DJ who takes the crowd into a trance state—sound must be immersive, hypnotic, groove-locking; (2) a Beatport Top 10 regular track-maker mastering engineer. TARGET: Hi-fi, clean separation; bass that never crackles when volume is turned up; nothing that breaks the trance. Review Gemini's assessment with that trance-DJ ear. If low-end safety is uncertain, choose the safer intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
+
+ANALYSIS: ${summary}
+GEMINI ASSESSMENT: ${geminiJson}
+Output valid JSON only.`;
+};
+
+/** 合意: 両者を統合し、クラブ再生・低域安全を優先して最終 JSON を出力 */
+export const generateConsensusPrompt = (
+  geminiJson: string,
+  gptJson: string,
+): string => {
+  return `Two assessments are given by the dual persona panel (top DJ who leads the crowd into trance + Beatport Top 10 mastering engineer). Resolve any disagreement with priority on: the trance-DJ sound—immersive, hypnotic, groove-locking; hi-fi, 抜けの良い; bass that never crackles when volume is turned up (バリバリならない); nothing that breaks the spell. Output the final agreed intent as JSON only. No commentary, no numbers.
+
+GEMINI: ${geminiJson}
+GPT: ${gptJson}
+Output valid JSON only.`;
+};
 
 export const generateMasteringPrompt = (
   data: AudioAnalysisData,
@@ -39,11 +86,21 @@ export const generateMasteringPrompt = (
   return `
 # ROLE
 You are a world-class mastering engineer specializing in **${specifics.platformName}**. Your goal is not just loudness, but **CLARITY, PUNCH, and TRANSIENT PRESERVATION**.
-Avoid "digital harshness" and "muddy low-end" at all costs. You fix mix imbalances surgically before maximizing volume.
+
+# TARGET SOUND (PRIORITY)
+This is the sound sense top DJs use to take the audience into a trance state (顧客をトランス状態に導く): the master should feel immersive, hypnotic, physically felt—clarity and low end that lock the groove, with nothing harsh or brittle that pulls people out.
+- **Volume-up safe**: The master must still sound clean when the listener turns up the speakers—no crackle, no バリバリ (bass and transients must not distort at high playback level). Respect true peak headroom strictly.
+- **Hi-fi, 抜けの良い**: Open, clear separation between elements; avoid squashing or over-compressing. Preserve transients and air so the groove breathes.
+- **重低音**: Tight, controlled low end that stays clean and never breaks up—prioritize headroom and clarity over maximum bass level. The low end should support the trance, not distract from it.
+
+# 絶妙なバランス (SWEET SPOT)
+There is a very precise balance where the master sits right—neither undercooked nor over-processed. **Apply gain and processing delicately (繊細に).** Prefer small, incremental moves (e.g. +1 to +2.5 dB gain typical; avoid 5 dB or other bold jumps). The goal is to *find* that sweet spot, not to hit target LUFS at any cost. When in doubt, err on the side of less gain and less saturation.
+
+Avoid "digital harshness" and "muddy low-end" at all costs. Fix mix imbalances surgically before maximizing volume.
 
 # OBJECTIVE
-Output DSP parameters to meet **${specifics.platformName}** standards while retaining audio fidelity.
-Use the spectral analysis to achieve a "Commercial Tonal Balance."
+Output DSP parameters to meet **${specifics.platformName}** standards while retaining audio fidelity and the target sound above.
+Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrificing headroom or separation.
 
 # TARGET (NON-NEGOTIABLE)
 - INTEGRATED LUFS: ${specifics.targetLufs} dB
@@ -65,13 +122,13 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
 
 # RULES (QUALITY OVER VOLUME)
 
-1. GAIN & DYNAMICS (CRITICAL):
-   - Calculate the gain needed to reach ${specifics.targetLufs} LUFS.
-   - **WARNING**: If the Crest Factor is low (< 10), the track is already dense. Do NOT over-compress. Rely more on the limiter ceiling than input gain to avoid distortion.
-   - If the mix is dynamic (Crest Factor > 14), you can push the gain harder.
+1. GAIN & DYNAMICS (CRITICAL — 繊細に):
+   - **Apply gain delicately.** Typical range: about +0.5 to +2.5 dB; avoid sudden large moves (e.g. +5 dB). The sweet spot is a subtle balance—aim for it with small adjustments.
+   - Calculate the gain that would reach ${specifics.targetLufs} LUFS, then *prefer a more conservative value* if the gap is large (e.g. if raw gain would be +4 dB or more, cap your suggestion at around +2 to +2.5 dB and let the mix breathe).
+   - If the Crest Factor is low (< 10), do NOT add much gain; rely on the limiter ceiling. If the mix is dynamic (Crest Factor > 14), you may use slightly more gain—but never at the cost of headroom or that delicate balance. Prioritize hi-fi separation over loudness.
 
 2. LIMITER:
-   - Ceiling exactly ${specifics.targetPeak} dBTP.
+   - Ceiling exactly ${specifics.targetPeak} dBTP. This headroom is essential so that when the listener turns up the volume, the bass and transients do not crackle or distort.
 
 3. EQ STRATEGY (SUBTRACTIVE FIRST, THEN ADDITIVE):
    - **STEP 1: CLEAN UP (MUD REMOVAL)**
@@ -83,24 +140,23 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
      - Add "Air" (High Shelf > 10kHz) only if the track lacks sheen. Max +2dB.
    - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
 
-4. SIGNATURE SOUND (DSP COLORATION):
-   - **tube_drive_amount** (0.0–3.0):
-     - Adds harmonics/density.
-     - **Logic**: If Crest Factor is < 9 (squashed mix), set to 0.0 or 0.5 to prevent distortion.
-     - If mix is clean/dynamic, set 1.0–2.0 for warmth.
-     - Avoid values > 2.5 unless specifically requested for "Hard Techno Distortion."
-   - **exciter_amount** (0.0–0.15):
-     - Adds high-end shimmer.
-     - If High band is already near target, keep low (0.02). Too much creates "digital fizz."
-   - **low_contour_amount** (0.0–1.0):
-     - Tightens low-end. High values (0.7+) make the kick punchy but lean.
-     - If Sub-bass is weak, set higher (0.6-0.8) to focus energy. If Sub-bass is already booming, set lower (0.2).
-   - **width_amount** (1.0–1.4):
-     - **CAUTION**: Do not exceed 1.25 unless the mix is extremely narrow. Wide bass causes phasing. Keep it subtle.
+4. SIGNATURE SOUND (DSP COLORATION — keep hi-fi, 抜けの良い):
+   - **tube_drive_amount** (0.0–2.0):
+     - Adds harmonics/density. Prefer conservative values so the low end stays clean when volume is turned up (no バリバリ).
+     - If Crest Factor is < 9 (squashed mix), set to 0.0 or 0.3 to prevent distortion.
+     - If mix is clean/dynamic, 0.5–1.2 for warmth. Avoid > 1.5 to preserve separation and headroom.
+   - **exciter_amount** (0.0–0.12):
+     - Adds high-end shimmer. Keep subtle to maintain clarity; too much creates "digital fizz" and hurts 抜け.
+     - If High band is already near target, keep low (0.02).
+   - **low_contour_amount** (0.0–0.8):
+     - Tightens low-end without overloading. Goal: tight bass that never crackles at high volume.
+     - If Sub-bass is weak, set moderate (0.4–0.6) to focus energy. If Sub-bass is already strong, set lower (0.2). Avoid high values that could cause breakup when volume is raised.
+   - **width_amount** (1.0–1.25):
+     - Do not exceed 1.2 unless the mix is extremely narrow. Wide bass causes phasing and can reduce clarity. Keep it subtle for hi-fi separation.
 
 # OUTPUT
 Valid JSON only. No commentary.
-Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (array of { type, frequency, gain_db, q }), tube_drive_amount, exciter_amount, low_contour_amount, width_amount.
-Prioritize **cutting mud** over **boosting bass** in EQ.
+Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (array of { type, frequency, gain_db, q }), tube_drive_amount (0–2), exciter_amount (0–0.12), low_contour_amount (0–0.8), width_amount (1–1.25).
+Prioritize **cutting mud** over **boosting bass** in EQ. Preserve headroom and separation for a hi-fi, volume-up-safe master.
 `.trim();
 };

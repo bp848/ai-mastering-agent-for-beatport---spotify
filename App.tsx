@@ -28,6 +28,8 @@ import PlatformSelector from './components/PlatformSelector';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
 import { recordDownload } from './services/downloadHistory';
+import { supabase } from './services/supabase';
+import { trackEvent } from './services/analytics';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -166,6 +168,9 @@ const AppContent: React.FC = () => {
     setError('');
     setIsAnalyzing(true);
     setActionLogs([]);
+
+    trackEvent('upload_start', { file_name: file.name, file_size: file.size, target }, session?.user?.id ?? undefined);
+    supabase.from('upload_events').insert({ user_id: session?.user?.id ?? null, file_name: file.name, file_size_bytes: file.size }).then(() => {}, () => {});
 
     try {
       addActionLog('INIT', language === 'ja' ? 'タイトル情報を破棄。純粋な波形データとして読み込み開始。' : 'Discarding title metadata. Loading as pure waveform data.', undefined, 'info');
@@ -376,14 +381,19 @@ const AppContent: React.FC = () => {
     try {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
-      const url = URL.createObjectURL(masteredBlob);
-      const fileName = `${audioFile.name.replace(/\.[^/.]+$/, "")}_${masteringTarget}_mastered.wav`;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-      await recordDownload(session.user.id, audioFile.name, masteringTarget);
+      let storagePath: string | undefined;
+      try {
+        const path = `${session.user.id}/${crypto.randomUUID()}.wav`;
+        const { error: uploadError } = await supabase.storage
+          .from('mastered')
+          .upload(path, masteredBlob, { contentType: 'audio/wav', upsert: false });
+        if (!uploadError) storagePath = path;
+      } catch (_) {
+        // Storage 未設定やアップロード失敗時は履歴のみ（再DL不可）
+      }
+      await recordDownload(session.user.id, audioFile.name, masteringTarget, undefined, storagePath);
+      setShowResultsModal(false);
+      setSection('mypage');
     } catch (e) {
       setError(t('error.download.fail'));
     } finally {
@@ -560,46 +570,35 @@ const AppContent: React.FC = () => {
             ))}
           </div>
 
-          {/* ── 無料コピー ＋ Beatport / Spotify を目立たせる ── */}
-          <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
-            <p className="text-center text-sm sm:text-base text-zinc-300 font-medium" id="free-mastering-copy">
-              {t('ux.free_mastering_copy')}
-            </p>
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-[10px] sm:text-xs uppercase tracking-wider text-zinc-500 font-medium">
-                {t('platform_selector.title')}
-              </span>
-              <PlatformSelector currentTarget={masteringTarget} onTargetChange={setMasteringTarget} />
+          {/* ── 分析前はファイルアップロードのみ。配信先（Beatport/Spotify）は診断画面で選択 ── */}
+          {(!analysisData || masteringParams) && (
+            <div className="glass rounded-2xl p-4 sm:p-6">
+              {!audioFile && !isProcessing && (
+                <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
+                  {t('ux.upload_first')}
+                </p>
+              )}
+              <FileUpload
+                onFileChange={handleFileChange}
+                fileName={audioFile?.name}
+                isAnalyzing={isProcessing}
+                pyodideStatus={pyodideStatus}
+                compact={!!(audioFile || isProcessing)}
+              />
+              {error && (
+                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                  <p>{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setError(''); resetToUpload(); }}
+                    className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                  >
+                    {t('ux.error_retry')}
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* ── ファイル選択（コンパクト・ドラッグ領域なし） ── */}
-          <div className="glass rounded-2xl p-4 sm:p-6">
-            {!audioFile && !isProcessing && (
-              <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
-                {t('ux.upload_first')}
-              </p>
-            )}
-            <FileUpload
-              onFileChange={handleFileChange}
-              fileName={audioFile?.name}
-              isAnalyzing={isProcessing}
-              pyodideStatus={pyodideStatus}
-              compact
-            />
-            {error && (
-              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
-                <p>{error}</p>
-                <button
-                  type="button"
-                  onClick={() => { setError(''); resetToUpload(); }}
-                  className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
-                >
-                  {t('ux.error_retry')}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
           {isAnalyzing && <StatusLoader mode="analysis" />}

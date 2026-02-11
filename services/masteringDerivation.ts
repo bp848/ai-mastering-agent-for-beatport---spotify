@@ -25,14 +25,14 @@ export function deriveMasteringParamsFromDecision(
   const lowMid = analysis.frequencyData.find(f => f.name === '250-1k')?.level ?? -60;
 
   const gainDb = specifics.targetLufs - analysis.lufs;
-  const gainBounded = Math.max(-12, Math.min(6, gainDb));
+  const gainBounded = Math.max(-5, Math.min(3, gainDb));
 
   const limiterCeiling = specifics.targetPeak;
 
   const baseTubeDrive =
     decision.saturationNeed === 'none' ? 0 :
-    decision.saturationNeed === 'light' ? Math.min(2, (dr / 10) * (crest / 12)) :
-    Math.min(3, (dr / 8) * 0.7);
+    decision.saturationNeed === 'light' ? Math.min(1.2, (dr / 10) * (crest / 12)) :
+    Math.min(2, (dr / 8) * 0.5);
 
   const lowEndCollisionRisk =
     (dist > 0.9 ? 1 : 0) +
@@ -43,18 +43,18 @@ export function deriveMasteringParamsFromDecision(
 
   const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
   const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  const tubeDrive = Math.max(0, Math.min(3, baseTubeDrive + harmonicLift));
+  const tubeDrive = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
     decision.highFreqTreatment === 'polish' ? (high8k > -40 ? 0.02 : (-high8k - 40) / 2000) :
     Math.min(0.15, (-high4k - 30) / 500);
-  const exciterAmount = Math.max(0, Math.min(0.2, exciterRaw));
+  const exciterAmount = Math.max(0, Math.min(0.12, exciterRaw));
 
-  const lowContourBase = Math.max(0, Math.min(1, (bass + 50) / 50 * 0.5 + (decision.kickSafety === 'danger' ? 0.2 : 0)));
+  const lowContourBase = Math.max(0, Math.min(0.8, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0)));
   const lowContour = lowEndCollisionRisk >= 3
-    ? Math.max(0, lowContourBase - 0.25)
-    : Math.min(1, lowContourBase + (canAddBassHarmonics ? 0.08 : 0));
+    ? Math.max(0, lowContourBase - 0.2)
+    : Math.min(0.8, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
 
   const widthAmountRaw =
     decision.stereoIntent === 'monoSafe' ? 1 :
@@ -105,7 +105,7 @@ export function deriveMasteringParamsFromDecision(
   }
 
   return {
-    gain_adjustment_db: Math.round(gainBounded * 20) / 20,
+    gain_adjustment_db: Math.round(gainBounded * 100) / 100,
     eq_adjustments: eqAdjustments,
     limiter_ceiling_db: limiterCeiling,
     tube_drive_amount: Math.round(tubeDrive * 100) / 100,
