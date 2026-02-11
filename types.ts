@@ -25,9 +25,9 @@ export type MasteringTarget = 'beatport' | 'spotify';
 export interface AIDecision {
   kickSafety?: 'safe' | 'caution' | 'danger';
   saturationNeed?: 'none' | 'light' | 'medium' | 'heavy';
-  transientHandling?: 'preserve' | 'smooth' | 'control';
-  highFreqTreatment?: 'leave' | 'polish' | 'lift';
-  stereoIntent?: 'narrow' | 'keep' | 'wide';
+  transientHandling?: 'preserve' | 'smooth' | 'soften' | 'control';
+  highFreqTreatment?: 'leave' | 'polish' | 'lift' | 'restrain';
+  stereoIntent?: 'narrow' | 'keep' | 'wide' | 'monoSafe';
   confidence?: number;
 }
 

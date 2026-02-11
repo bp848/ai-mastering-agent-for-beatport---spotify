@@ -27,6 +27,56 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   return safe;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getSafetyRiskScore(analysis: AudioAnalysisData): number {
+  let score = 0;
+  if (analysis.truePeak > -1.5) score += 2;
+  if (analysis.crestFactor > 0 && analysis.crestFactor < 10) score += 2;
+  if (analysis.distortionPercent > 1) score += 2;
+  if (analysis.phaseCorrelation < 0.2) score += 1;
+  if (analysis.bassVolume > -12) score += 1;
+  return score;
+}
+
+export function applySweetSpotControl(
+  params: MasteringParams,
+  analysis: AudioAnalysisData,
+  targetLufs?: number,
+): MasteringParams {
+  const riskScore = getSafetyRiskScore(analysis);
+  const out = { ...params };
+
+  const resolvedTargetLufs = Number.isFinite(targetLufs)
+    ? targetLufs as number
+    : (Number.isFinite(params.target_lufs) ? params.target_lufs as number : analysis.lufs);
+  const lufsGap = resolvedTargetLufs - analysis.lufs;
+  const sweetSpotGain = clamp(lufsGap * 0.55, -5, 2.5);
+  const aiGain = Number(params.gain_adjustment_db) || 0;
+  const blendedGain = sweetSpotGain + (aiGain - sweetSpotGain) * 0.35;
+  const maxSafeGain = clamp(2.5 - riskScore * 0.3, 0.8, 2.5);
+  out.gain_adjustment_db = Math.round(clamp(blendedGain, -5, maxSafeGain) * 100) / 100;
+
+  const processingScale = clamp(1 - riskScore * 0.11 - Math.max(0, out.gain_adjustment_db - 1.8) * 0.15, 0.35, 1);
+  const tubeCap = clamp(1.4 - riskScore * 0.12, 0.45, 1.4);
+  const exciterCap = clamp(0.09 - riskScore * 0.007, 0.025, 0.09);
+  const contourCap = clamp(0.7 - riskScore * 0.05, 0.3, 0.7);
+  const widthCap = clamp(1.25 - riskScore * 0.03, 1.03, 1.25);
+
+  out.tube_drive_amount = Math.round(clamp((out.tube_drive_amount ?? 0) * processingScale, 0, tubeCap) * 100) / 100;
+  out.exciter_amount = Math.round(clamp((out.exciter_amount ?? 0) * processingScale, 0, exciterCap) * 1000) / 1000;
+  out.low_contour_amount = Math.round(clamp((out.low_contour_amount ?? 0) * processingScale, 0, contourCap) * 100) / 100;
+  out.width_amount = Math.round(clamp(out.width_amount ?? 1, 1, widthCap) * 100) / 100;
+
+  if (riskScore >= 3) {
+    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.5);
+  }
+
+  return out;
+}
+
 /** 危険素材（ピーク過多・低クレスト・高歪み）のときのみリミッター・tube・exciter を強く抑える */
 export function applySafetyGuard(
   params: MasteringParams,
@@ -39,7 +89,7 @@ export function applySafetyGuard(
 
   const out = { ...params };
   if (peakHot || lowCrest || highDistortion) {
-    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.3);
+    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.5);
     out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
     out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
   }
@@ -117,7 +167,8 @@ export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, tar
     if (!jsonText) throw new Error("error.gemini.invalid_params");
     const parsed = JSON.parse(jsonText) as MasteringParams;
     const clamped = clampMasteringParams(parsed);
-    return { params: applySafetyGuard(clamped, data), rawResponseText: jsonText };
+    const sweetSpotControlled = applySweetSpotControl(clamped, data, specifics.targetLufs);
+    return { params: applySafetyGuard(sweetSpotControlled, data), rawResponseText: jsonText };
   } catch (error) {
     console.error("Gemini calculation failed:", error);
     throw new Error("error.gemini.fail");
