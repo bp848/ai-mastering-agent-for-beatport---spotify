@@ -54,4 +54,14 @@ describe('applySafetyGuard', () => {
 
     expect(stressed.limiter_ceiling_db).toBeLessThan(calm.limiter_ceiling_db);
   });
+
+  it('keeps limiter ceiling in bounded production-safe range', () => {
+    const out = applySafetyGuard(
+      baseParams({ limiter_ceiling_db: 1 }),
+      baseAnalysis({ truePeak: 2, distortionPercent: 300, crestFactor: 0.5, dynamicRange: 0.5, phaseCorrelation: -1 }),
+    );
+
+    expect(out.limiter_ceiling_db).toBeGreaterThanOrEqual(-2.4);
+    expect(out.limiter_ceiling_db).toBeLessThanOrEqual(-0.6);
+  });
 });

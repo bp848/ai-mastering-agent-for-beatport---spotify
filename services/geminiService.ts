@@ -3,6 +3,8 @@ import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../typ
 import { deriveMasteringParamsFromDecision } from './masteringDerivation';
 import { resolveMasteringDecision } from './aiDebateService';
 
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   return {
     ...raw,
@@ -12,21 +14,23 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
 
 export function applySafetyGuard(params: MasteringParams, analysis: AudioAnalysisData): MasteringParams {
   const safe = { ...params };
-  const profile = [
-    1 / (Math.abs(analysis.truePeak) + 1),
-    1 / (Math.abs(analysis.crestFactor) + 1),
-    1 / (Math.abs(analysis.dynamicRange) + 1),
-    Math.abs(analysis.distortionPercent),
-    1 / (Math.abs(analysis.phaseCorrelation) + 1),
-  ];
-  const pressure = profile.reduce((sum, value) => sum + value, 0) / (profile.length || 1);
+  const peakRisk = clamp((analysis.truePeak + 6) / 6, 0, 1);
+  const crestRisk = clamp((8 - analysis.crestFactor) / 8, 0, 1);
+  const dynamicRisk = clamp((8 - analysis.dynamicRange) / 8, 0, 1);
+  const distortionRisk = clamp(Math.abs(analysis.distortionPercent) / 100, 0, 1);
+  const phaseRisk = clamp((1 - analysis.phaseCorrelation) / 2, 0, 1);
+  const pressure = clamp(
+    peakRisk * 0.35 + crestRisk * 0.2 + dynamicRisk * 0.2 + distortionRisk * 0.2 + phaseRisk * 0.05,
+    0,
+    1,
+  );
 
-  const tubeDenominator = 1 + pressure;
-  const exciterDenominator = 1 + pressure + Math.abs(analysis.distortionPercent);
+  const tubeScale = 1 - pressure * 0.45;
+  const exciterScale = 1 - pressure * 0.7;
 
-  safe.tube_drive_amount = safe.tube_drive_amount / tubeDenominator;
-  safe.exciter_amount = safe.exciter_amount / exciterDenominator;
-  safe.limiter_ceiling_db = safe.limiter_ceiling_db - pressure;
+  safe.tube_drive_amount = Math.max(0, safe.tube_drive_amount * tubeScale);
+  safe.exciter_amount = Math.max(0, safe.exciter_amount * exciterScale);
+  safe.limiter_ceiling_db = clamp(Math.min(safe.limiter_ceiling_db, -0.6 - pressure * 0.8), -2.4, -0.6);
 
   return safe;
 }
