@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AudioAnalysisData } from '../types';
-import { generateConsensusPrompt, generateGeminiInitialPrompt, generateGptReviewPrompt, getPlatformSpecifics } from '../services/masteringPrompts';
+import { generateConsensusPrompt, generateGeminiInitialPrompt, generateGptReviewPrompt, generateMasteringPrompt, getPlatformSpecifics } from '../services/masteringPrompts';
 
 const sampleAnalysis: AudioAnalysisData = {
   lufs: -10,
@@ -43,5 +43,15 @@ describe('mastering prompt persona policy', () => {
     const prompt = generateConsensusPrompt('{"a":1}', '{"b":2}');
     expect(prompt).toContain('top DJ who leads the crowd into trance + Beatport Top 10 mastering engineer');
     expect(prompt).toContain('bass that never crackles when volume is turned up');
+  });
+
+
+  it('includes Beatport technical low-end and TP guidance in mastering prompt', () => {
+    const prompt = generateMasteringPrompt(sampleAnalysis, getPlatformSpecifics('beatport'));
+    expect(prompt).toContain('For Beatport masters: enforce TP at -1.0 dBTP');
+    expect(prompt).toContain('tight punchy kick (48–55 Hz)');
+    expect(prompt).toContain('mono low-end lock below 120 Hz');
+    expect(prompt).toContain('crisp airy percussion (+2 dB around 8–10 kHz maximum)');
+    expect(prompt).toContain('INTEGRATED LUFS: -9');
   });
 });
