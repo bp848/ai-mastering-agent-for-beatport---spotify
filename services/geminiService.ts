@@ -8,8 +8,8 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
     // 音割れの主因は「過大ゲイン」なので上限を強制的に低くする
     gain_adjustment_db: Math.round(Math.max(-5, Math.min(3, Number(raw.gain_adjustment_db) || 0)) * 100) / 100,
-    // フォールバックで 0dB 近辺に寄せない。共有クランプ側も上限 -0.3 dB に統一
-    limiter_ceiling_db: Math.max(-6, Math.min(-0.3, Number(raw.limiter_ceiling_db) ?? -1.0)),
+    // レッド張り付き防止: 天井 -1.0 dB 以上余裕（-0.3 だとメーター張り付きで音悪化）
+    limiter_ceiling_db: Math.max(-6, Math.min(-1.0, Number(raw.limiter_ceiling_db) ?? -1.0)),
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
     tube_drive_amount: Math.max(0, Math.min(2, Number(raw.tube_drive_amount) ?? 0)),
     exciter_amount: Math.max(0, Math.min(0.12, Number(raw.exciter_amount) ?? 0)),
@@ -39,7 +39,7 @@ export function applySafetyGuard(
 
   const out = { ...params };
   if (peakHot || lowCrest || highDistortion) {
-    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.3);
+    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -1.0);
     out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
     out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
   }

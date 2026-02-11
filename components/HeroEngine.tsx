@@ -31,16 +31,62 @@ const SpecCard: React.FC<SpecCardProps> = ({ number, title, titleEn, body }) => 
 
 interface HeroEngineProps {
   language: 'ja' | 'en';
+  /** 左カラム用：タグライン・タイトル・短いリード・4軸のみ */
+  compact?: boolean;
 }
 
-const HeroEngine: React.FC<HeroEngineProps> = ({ language }) => {
+const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) => {
   const { t } = useTranslation();
   const ja = language === 'ja';
+
+  if (compact) {
+    return (
+      <section className="animate-fade-up">
+        <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
+          <div className="inline-flex flex-col gap-0.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <span className="text-xs font-bold text-amber-400">
+              {ja ? '今だけ１曲無料キャンペーン中' : 'Limited time: 1 track free'}
+            </span>
+            <span className="text-[10px] text-amber-400/80">
+              {ja ? 'おひとり様１回限り' : 'One per person, one time only'}
+            </span>
+          </div>
+          <p className="text-sm sm:text-base font-bold text-cyan-200/95">
+            {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
+          </p>
+          <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
+            <br />
+            <span className="text-sm font-semibold text-zinc-300">
+              {ja ? 'AIの感性と、物理学の絶対領域。' : 'AI Sensibility \u00D7 Physics.'}
+            </span>
+          </h2>
+          <p className="text-xs sm:text-sm leading-relaxed text-zinc-400">
+            {ja
+              ? 'AIが楽曲のDNAを解析し、ハイブリッド・ループが特徴を最大限に引き出します。'
+              : 'AI analyzes your track\u2019s DNA; our hybrid-loop unlocks its full potential.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(ja ? ['音量', '音質', '音圧', '音像'] : ['Volume', 'Tone', 'Loudness', 'Image']).map((pillar) => (
+              <span key={pillar} className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-bold text-cyan-300">
+                {pillar}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="animate-fade-up space-y-8">
       {/* ── Hero Header ──────────────────────────────────── */}
       <div className="glass rounded-2xl p-6 sm:p-10 text-center space-y-5">
+        {/* 1. Tagline */}
+        <p className="text-sm sm:text-base font-bold text-cyan-200/95">
+          {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
+        </p>
+
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />

@@ -535,11 +535,11 @@ export const buildMasteringChain = (
   const airShelf = ctx.createBiquadFilter();
   airShelf.type = 'highshelf';
   airShelf.frequency.value = 10000;
-  airShelf.gain.value = 1.0;
+  airShelf.gain.value = 3.5; // 10kHz+ Air ブースト（トップが聴こえるように。1.0 だと変化がほぼない）
   energyFilter.connect(airShelf);
 
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.14;
+  neuroWetGain.gain.value = 0.18; // 開放感が聴こえる程度に（潰さない範囲）
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
@@ -554,9 +554,9 @@ export const buildMasteringChain = (
   lastNode.connect(makeupGain);
   lastNode = makeupGain;
 
-  // [4] Soft Clipper → Limiter（ここでコード側の固定ゲインは入れない。AI のゲインをそのまま使う） — 閾値手前から tanh で丸め、リミッターは Attack 極短でトランジェント潰しを最小化。
-  const limiterCeilingDb = params.limiter_ceiling_db ?? -0.3;
-  const clipperThreshold = Math.max(0.92, Math.min(0.99, dbToLinear(limiterCeilingDb - 0.3)));
+  // [4] Soft Clipper → Limiter — レッド張り付き防止: 天井に余裕 (-1.0 dB デフォルト)、ニーで硬く潰しすぎない
+  const limiterCeilingDb = params.limiter_ceiling_db ?? -1.0;
+  const clipperThreshold = Math.max(0.88, Math.min(0.98, dbToLinear(limiterCeilingDb - 0.5)));
   const clipper = ctx.createWaveShaper();
   clipper.curve = asCurve(makeClipperCurve(clipperThreshold));
   clipper.oversample = '4x';
@@ -565,12 +565,10 @@ export const buildMasteringChain = (
 
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = limiterCeilingDb;
-  limiter.knee.value = 0;
-  // WebAudio の DynamicsCompressor は「完全なブリックウォール」ではないため、
-  // 比率とアタックを強めてピークの突き抜けを抑える
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.12;
+  limiter.knee.value = 2.5; // ニーを入れて張り付きを緩和（0 だと常時 GR）
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.002;
+  limiter.release.value = 0.15;
   lastNode.connect(limiter);
   lastNode = limiter;
 
@@ -636,10 +634,9 @@ export const optimizeMasteringParams = async (
   aiParams: MasteringParams,
 ): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
-  // target_lufs が渡らない場合は「安全側」に倒す（過大ゲインで割れないため）
   const TARGET_LUFS = aiParams.target_lufs ?? -14.0;
-  // ceiling は -0.3 dB に統一（過激な ceiling 指示を封じる）
-  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -0.3);
+  // レッド張り付き防止: 目標 True Peak は -1.0 dB 以上余裕を持たせる
+  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -1.0);
 
   // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
   const chunkDuration = 10;

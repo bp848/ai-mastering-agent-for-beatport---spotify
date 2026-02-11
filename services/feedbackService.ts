@@ -70,7 +70,7 @@ export const applyFeedbackAdjustment = (
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
       newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.2);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.limiter_ceiling_db = -1.0;
       newParams.eq_adjustments.push(
         { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
         { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
@@ -123,17 +123,17 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'squashed':
-      // 「潰れすぎ」= 目標を少し下げて自己補正で追従。ceiling は -0.3 dB 固定で危険値に寄せない
+      // 「潰れすぎ」= 目標を少し下げて自己補正で追従。ceiling -1.0 dB でレッド張り付き防止
       bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.limiter_ceiling_db = -1.0;
       break;
 
     case 'not_loud':
-      // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -0.3 dB 固定で歪みを避ける
+      // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -1.0 dB でレッド張り付き防止
       bumpTargetLufs(+1.0);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.limiter_ceiling_db = -1.0;
       break;
   }
 

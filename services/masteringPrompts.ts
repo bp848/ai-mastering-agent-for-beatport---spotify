@@ -11,9 +11,9 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
   }
   return {
     platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
-    targetLufs: -8.0,
-    targetPeak: -0.3,
-    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. True peak -0.3 dBTP for safe playback at any volume.'
+    targetLufs: -9.0,
+    targetPeak: -1.0,
+    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. Keep true peak at -1.0 dBTP so the meter is NOT constantly in the red (レッド張り付き禁止). Quality over loudness.'
   };
 };
 
@@ -127,8 +127,8 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
    - Calculate the gain that would reach ${specifics.targetLufs} LUFS, then *prefer a more conservative value* if the gap is large (e.g. if raw gain would be +4 dB or more, cap your suggestion at around +2 to +2.5 dB and let the mix breathe).
    - If the Crest Factor is low (< 10), do NOT add much gain; rely on the limiter ceiling. If the mix is dynamic (Crest Factor > 14), you may use slightly more gain—but never at the cost of headroom or that delicate balance. Prioritize hi-fi separation over loudness.
 
-2. LIMITER:
-   - Ceiling exactly ${specifics.targetPeak} dBTP. This headroom is essential so that when the listener turns up the volume, the bass and transients do not crackle or distort.
+2. LIMITER (レッド張り付き禁止):
+   - Ceiling exactly ${specifics.targetPeak} dBTP. The meter must NOT stay in the red (レッドメーター張り付き)—that destroys quality. This headroom is essential: when the listener turns up the volume, the bass and transients must not crackle or distort. Prefer -1.0 dBTP or more headroom over pushing to the limit.
 
 3. EQ STRATEGY (SUBTRACTIVE FIRST, THEN ADDITIVE):
    - **STEP 1: CLEAN UP (MUD REMOVAL)**

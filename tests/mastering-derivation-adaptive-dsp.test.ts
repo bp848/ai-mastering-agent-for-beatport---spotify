@@ -36,6 +36,35 @@ const analysisBase = (overrides: Partial<AudioAnalysisData> = {}): AudioAnalysis
 });
 
 describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
+  it('keeps platform targets fixed while allowing decision-driven parameter changes', () => {
+    const analysis = analysisBase();
+    const conservative = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        saturationNeed: 'none',
+        highFreqTreatment: 'leave',
+        stereoIntent: 'narrow',
+      },
+      analysis,
+      'beatport',
+    );
+    const aggressive = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        saturationNeed: 'heavy',
+        highFreqTreatment: 'lift',
+        stereoIntent: 'wide',
+      },
+      analysis,
+      'beatport',
+    );
+    expect(conservative.target_lufs).toBe(aggressive.target_lufs);
+    expect(conservative.limiter_ceiling_db).toBe(aggressive.limiter_ceiling_db);
+    expect(conservative.tube_drive_amount).toBeLessThan(aggressive.tube_drive_amount);
+    expect(conservative.exciter_amount).toBeLessThan(aggressive.exciter_amount);
+    expect(conservative.width_amount).toBeLessThan(aggressive.width_amount);
+  });
+
   it('forces safer low-end image and contour when collision risk is high', () => {
     const derived = deriveMasteringParamsFromDecision(
       decisionBase,

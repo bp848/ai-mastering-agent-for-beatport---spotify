@@ -210,6 +210,7 @@ const AppContent: React.FC = () => {
 
       setAnalysisData(result);
       setAudioBuffer(buffer);
+      trackEvent('analysis_complete', { target, lufs: result.lufs, true_peak: result.truePeak }, session?.user?.id ?? undefined);
       addLog(t('log.audio.analysis_complete'));
     } catch (err) {
       const errorKey = err instanceof Error ? err.message : 'error.audio.analysis';
@@ -218,7 +219,7 @@ const AppContent: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [t, language, addLog, addActionLog]);
+  }, [t, language, addLog, addActionLog, session?.user?.id]);
 
   // ── Phase 3-4: AIマスタリング実行（ユーザーが Execute ボタンを押した後）──
   const executeMastering = useCallback(async () => {
@@ -392,6 +393,7 @@ const AppContent: React.FC = () => {
         // Storage 未設定やアップロード失敗時は履歴のみ（再DL不可）
       }
       await recordDownload(session.user.id, audioFile.name, masteringTarget, undefined, storagePath);
+      trackEvent('download', { file_name: audioFile.name, target: masteringTarget, storage_path: storagePath }, session.user.id);
       setShowResultsModal(false);
       setSection('mypage');
     } catch (e) {
@@ -475,7 +477,7 @@ const AppContent: React.FC = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-base font-bold text-white tracking-tight">{t('header.title')}</h1>
-              <span className="text-[10px] text-zinc-500">{language === 'ja' ? 'Beatport top を目指す・忖度なしの解析' : 'Beatport top · no-deference analysis'}</span>
+              <span className="text-[10px] text-zinc-500">{language === 'ja' ? '音源をアップロードしてAI解析（配信先は診断画面で選択）' : 'Upload to analyze · choose target on diagnosis'}</span>
             </div>
             <div className="shrink-0 ml-2">
               <LanguageSwitcher />
@@ -570,34 +572,61 @@ const AppContent: React.FC = () => {
             ))}
           </div>
 
-          {/* ── 分析前はファイルアップロードのみ。配信先（Beatport/Spotify）は診断画面で選択 ── */}
+          {/* トップ: 未アップロード時は2カラム（左・省略説明 / 右・アップロード） ── */}
           {(!analysisData || masteringParams) && (
-            <div className="glass rounded-2xl p-4 sm:p-6">
-              {!audioFile && !isProcessing && (
-                <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
-                  {t('ux.upload_first')}
-                </p>
-              )}
-              <FileUpload
-                onFileChange={handleFileChange}
-                fileName={audioFile?.name}
-                isAnalyzing={isProcessing}
-                pyodideStatus={pyodideStatus}
-                compact={!!(audioFile || isProcessing)}
-              />
-              {error && (
-                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
-                  <p>{error}</p>
-                  <button
-                    type="button"
-                    onClick={() => { setError(''); resetToUpload(); }}
-                    className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
-                  >
-                    {t('ux.error_retry')}
-                  </button>
+            <>
+              {!audioFile && !isProcessing ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+                  <HeroEngine language={language} compact />
+                  <div className="glass rounded-2xl p-4 sm:p-6">
+                    <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
+                      {t('ux.upload_first')}
+                    </p>
+                    <FileUpload
+                      onFileChange={handleFileChange}
+                      fileName={audioFile?.name}
+                      isAnalyzing={isProcessing}
+                      pyodideStatus={pyodideStatus}
+                      compact={false}
+                    />
+                    {error && (
+                      <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                        <p>{error}</p>
+                        <button
+                          type="button"
+                          onClick={() => { setError(''); resetToUpload(); }}
+                          className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                        >
+                          {t('ux.error_retry')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="glass rounded-2xl p-4 sm:p-6">
+                  <FileUpload
+                    onFileChange={handleFileChange}
+                    fileName={audioFile?.name}
+                    isAnalyzing={isProcessing}
+                    pyodideStatus={pyodideStatus}
+                    compact={!!(audioFile || isProcessing)}
+                  />
+                  {error && (
+                    <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                      <p>{error}</p>
+                      <button
+                        type="button"
+                        onClick={() => { setError(''); resetToUpload(); }}
+                        className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                      >
+                        {t('ux.error_retry')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
@@ -661,11 +690,6 @@ const AppContent: React.FC = () => {
                 </button>
               </div>
             </div>
-          )}
-
-          {/* ── Phase: Idle (Hero Engine) ── */}
-          {!audioFile && !isProcessing && (
-            <HeroEngine language={language} />
           )}
         </main>
         )}
