@@ -37,6 +37,7 @@ export const applyFeedbackAdjustment = (
   currentParams: MasteringParams,
   feedback: FeedbackType,
 ): MasteringParams => {
+  const FINE = 0.01;
   const gain = n(currentParams.gain_adjustment_db, 0);
   const tube = n(currentParams.tube_drive_amount, 0);
   const exciter = n(currentParams.exciter_amount, 0);
@@ -66,73 +67,73 @@ export const applyFeedbackAdjustment = (
     case 'distortion':
       // 「割れ/歪み」= まずは安全側に寄せる（音圧より品質）
       // キック + ベース同時発音時の歪みを抑えるため、低域の衝突ポイントも軽く整理する。
-      bumpTargetLufs(-1.0);
-      newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
-      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
-      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.2);
+      bumpTargetLufs(-0.10);
+      newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 5 * FINE);
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 2 * FINE);
+      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 5 * FINE);
       newParams.limiter_ceiling_db = -0.3;
       newParams.eq_adjustments.push(
-        { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
-        { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
+        { frequency: 35, gain_db: -0.5, q: 0.7, type: 'lowshelf' },
+        { frequency: 120, gain_db: -0.7, q: 1.2, type: 'peak' },
       );
       break;
 
     case 'muddy':
       newParams.eq_adjustments.push(
-        { frequency: 250, gain_db: -3.0, q: 1.5, type: 'peak' },
-        { frequency: 8000, gain_db: 2.0, q: 0.7, type: 'highshelf' },
+        { frequency: 250, gain_db: -0.8, q: 1.5, type: 'peak' },
+        { frequency: 8000, gain_db: 0.6, q: 0.7, type: 'highshelf' },
       );
-      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
+      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 2 * FINE);
       break;
 
     case 'harsh':
       newParams.eq_adjustments.push(
-        { frequency: 4000, gain_db: -2.5, q: 2.0, type: 'peak' },
+        { frequency: 4000, gain_db: -0.8, q: 2.0, type: 'peak' },
       );
-      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.05);
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 2 * FINE);
       break;
 
     case 'vocals_buried':
       newParams.eq_adjustments.push(
-        { frequency: 1500, gain_db: 2.0, q: 1.0, type: 'peak' },
+        { frequency: 1500, gain_db: 0.7, q: 1.0, type: 'peak' },
       );
-      newParams.width_amount = Math.max(0.8, newParams.width_amount - 0.2);
+      newParams.width_amount = Math.max(0.8, newParams.width_amount - 3 * FINE);
       break;
 
     case 'weak_kick':
-      newParams.low_contour_amount = Math.min(1.0, newParams.low_contour_amount + 0.3);
+      newParams.low_contour_amount = Math.min(1.0, newParams.low_contour_amount + 4 * FINE);
       newParams.eq_adjustments.push(
-        { frequency: 60, gain_db: 2.0, q: 1.0, type: 'peak' },
+        { frequency: 60, gain_db: 0.7, q: 1.0, type: 'peak' },
       );
       break;
 
     case 'boomy':
-      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.3);
+      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 4 * FINE);
       newParams.eq_adjustments.push(
-        { frequency: 120, gain_db: -3.0, q: 1.5, type: 'peak' },
+        { frequency: 120, gain_db: -0.8, q: 1.5, type: 'peak' },
       );
       break;
 
     case 'thin':
-      newParams.tube_drive_amount = Math.min(3, newParams.tube_drive_amount + 1.0);
+      newParams.tube_drive_amount = Math.min(3, newParams.tube_drive_amount + 4 * FINE);
       break;
 
     case 'narrow':
-      newParams.width_amount = Math.min(1.4, newParams.width_amount + 0.3);
-      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
+      newParams.width_amount = Math.min(1.4, newParams.width_amount + 3 * FINE);
+      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 2 * FINE);
       break;
 
     case 'squashed':
       // 「潰れすぎ」= 目標を少し下げて自己補正で追従。ceiling は -0.3 dB 固定で危険値に寄せない
-      bumpTargetLufs(-1.0);
-      newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
-      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
+      bumpTargetLufs(-0.08);
+      newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 3 * FINE);
+      newParams.exciter_amount = Math.max(0, newParams.exciter_amount - FINE);
       newParams.limiter_ceiling_db = -0.3;
       break;
 
     case 'not_loud':
       // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -0.3 dB 固定で歪みを避ける
-      bumpTargetLufs(+1.0);
+      bumpTargetLufs(+0.08);
       newParams.limiter_ceiling_db = -0.3;
       break;
   }

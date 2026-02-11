@@ -17,14 +17,14 @@ describe('applyFeedbackAdjustment', () => {
   it('reduces low-end overload risk when feedback is distortion', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'distortion');
 
-    expect(adjusted.target_lufs).toBe(-9);
-    expect(adjusted.tube_drive_amount).toBe(1);
-    expect(adjusted.exciter_amount).toBeCloseTo(0.05, 6);
-    expect(adjusted.low_contour_amount).toBeCloseTo(0.4, 6);
+    expect(adjusted.target_lufs).toBeCloseTo(-8.1, 6);
+    expect(adjusted.tube_drive_amount).toBeCloseTo(1.95, 6);
+    expect(adjusted.exciter_amount).toBeCloseTo(0.06, 6);
+    expect(adjusted.low_contour_amount).toBeCloseTo(0.55, 6);
     expect(adjusted.limiter_ceiling_db).toBe(-0.3);
     expect(adjusted.eq_adjustments).toEqual([
-      { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
-      { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
+      { frequency: 35, gain_db: -0.5, q: 0.7, type: 'lowshelf' },
+      { frequency: 120, gain_db: -0.7, q: 1.2, type: 'peak' },
     ]);
   });
 
@@ -39,22 +39,22 @@ describe('applyFeedbackAdjustment', () => {
       'distortion',
     );
 
-    expect(adjusted.tube_drive_amount).toBe(0);
+    expect(adjusted.tube_drive_amount).toBeCloseTo(0.25, 6);
     expect(adjusted.exciter_amount).toBe(0);
-    expect(adjusted.low_contour_amount).toBe(0);
+    expect(adjusted.low_contour_amount).toBeCloseTo(0.05, 6);
   });
 
   it('boosts loudness target safely when feedback is not_loud', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'not_loud');
 
-    expect(adjusted.target_lufs).toBe(-7);
+    expect(adjusted.target_lufs).toBeCloseTo(-7.92, 6);
     expect(adjusted.limiter_ceiling_db).toBe(-0.3);
   });
 
   it('adds focused low-end boost for weak kick', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'weak_kick');
 
-    expect(adjusted.low_contour_amount).toBeCloseTo(0.9, 6);
-    expect(adjusted.eq_adjustments.at(-1)).toEqual({ frequency: 60, gain_db: 2.0, q: 1.0, type: 'peak' });
+    expect(adjusted.low_contour_amount).toBeCloseTo(0.64, 6);
+    expect(adjusted.eq_adjustments.at(-1)).toEqual({ frequency: 60, gain_db: 0.7, q: 1.0, type: 'peak' });
   });
 });
