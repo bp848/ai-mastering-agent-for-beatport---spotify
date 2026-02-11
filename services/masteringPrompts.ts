@@ -13,7 +13,7 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
     platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
     targetLufs: -9.0,
     targetPeak: -1.0,
-    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. Keep true peak at -1.0 dBTP so the meter is NOT constantly in the red (レッド張り付き禁止). Quality over loudness.'
+    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. Keep true peak at -1.0 dBTP so the meter is NOT constantly in the red (レッド張り付き禁止). Tight punchy kick at 48–55 Hz, sub-bass at 30–60 Hz, low end locked mono below 120 Hz, filtered pads, and crisp airy percussion with up to +2 dB around 8–10 kHz. Balance headroom with -9.0 LUFS loudness, subtle limiting, and surgical EQ for clarity and powerful movement. Quality over loudness.'
   };
 };
 
@@ -106,6 +106,7 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
 - INTEGRATED LUFS: ${specifics.targetLufs} dB
 - TRUE PEAK: ${specifics.targetPeak} dBTP
 - CONTEXT: ${specifics.genreContext}
+- For Beatport masters: enforce TP at -1.0 dBTP, tight punchy kick (48–55 Hz), controlled sub-bass (30–60 Hz), mono low-end lock below 120 Hz, filtered pads, and crisp airy percussion (+2 dB around 8–10 kHz maximum).
 
 # CURRENT ANALYSIS
 - Integrated LUFS: ${data.lufs.toFixed(2)}

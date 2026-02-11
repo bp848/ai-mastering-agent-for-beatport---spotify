@@ -57,7 +57,7 @@ export function deriveMasteringParamsFromDecision(
     : Math.min(0.8, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
 
   const widthAmountRaw =
-    decision.stereoIntent === 'monoSafe' ? 1 :
+    decision.stereoIntent === 'narrow' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
   const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
@@ -71,7 +71,7 @@ export function deriveMasteringParamsFromDecision(
 
   const transientAttack =
     decision.transientHandling === 'preserve' ? 0.01 :
-    decision.transientHandling === 'soften' ? 0.02 + (1 / (Math.abs(gainBounded) + 1)) * 0.02 :
+    decision.transientHandling === 'smooth' ? 0.02 + (1 / (Math.abs(gainBounded) + 1)) * 0.02 :
     0.03 + (1 / (Math.abs(gainBounded) + 1)) * 0.03;
   const transientRelease = Math.max(0.1, Math.min(0.5, (lowContour + exciterAmount + 1) / (Math.abs(gainBounded) + 1) * 0.15));
 
@@ -87,7 +87,7 @@ export function deriveMasteringParamsFromDecision(
       q: 1,
     });
   }
-  if (high4k > -32 && decision.highFreqTreatment === 'restrain') {
+  if (high4k > -32 && decision.highFreqTreatment !== 'lift') {
     eqAdjustments.push({
       type: 'peak',
       frequency: 5000,

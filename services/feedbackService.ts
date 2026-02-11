@@ -59,14 +59,31 @@ export const applyFeedbackAdjustment = (
   const bumpTargetLufs = (delta: number) => {
     if (typeof newParams.target_lufs !== 'number' || !Number.isFinite(newParams.target_lufs)) return;
     // 過激な範囲に飛ばないようにガード
-    newParams.target_lufs = Math.max(-20, Math.min(-5, newParams.target_lufs + delta));
+    const next = Math.max(-20, Math.min(-5, newParams.target_lufs + delta));
+    newParams.target_lufs = Math.round(next * 100) / 100;
+  };
+
+  const getGentleLufsStep = (direction: 'up' | 'down'): number => {
+    const currentTarget = n(newParams.target_lufs, -10);
+    const tolerance = Math.max(0.2, Math.min(2.0, n(newParams.self_correction_lufs_tolerance_db, 1.0)));
+    const toleranceDrivenStep = Math.max(0.2, Math.min(0.8, tolerance * 0.35));
+    const configuredStep = n(newParams.self_correction_max_gain_step_db, toleranceDrivenStep);
+    const boundedStep = Math.max(0.2, Math.min(0.8, configuredStep));
+    const directionWeightedStep = direction === 'up' ? boundedStep : boundedStep * 1.2;
+    const loudnessGuardedStep = direction === 'up' && currentTarget >= -8
+      ? directionWeightedStep * 0.75
+      : directionWeightedStep;
+    const roomToLimit = direction === 'up'
+      ? Math.max(0, -5 - currentTarget)
+      : Math.max(0, currentTarget + 20);
+    return Math.min(loudnessGuardedStep, roomToLimit);
   };
 
   switch (feedback) {
     case 'distortion':
       // 「割れ/歪み」= まずは安全側に寄せる（音圧より品質）
       // キック + ベース同時発音時の歪みを抑えるため、低域の衝突ポイントも軽く整理する。
-      bumpTargetLufs(-1.0);
+      bumpTargetLufs(-getGentleLufsStep('down'));
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
       newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.2);
@@ -124,7 +141,7 @@ export const applyFeedbackAdjustment = (
 
     case 'squashed':
       // 「潰れすぎ」= 目標を少し下げて自己補正で追従。ceiling -1.0 dB でレッド張り付き防止
-      bumpTargetLufs(-1.0);
+      bumpTargetLufs(-getGentleLufsStep('down'));
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
       newParams.limiter_ceiling_db = -1.0;
@@ -132,7 +149,7 @@ export const applyFeedbackAdjustment = (
 
     case 'not_loud':
       // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -1.0 dB でレッド張り付き防止
-      bumpTargetLufs(+1.0);
+      bumpTargetLufs(getGentleLufsStep('up'));
       newParams.limiter_ceiling_db = -1.0;
       break;
   }
