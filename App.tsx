@@ -367,7 +367,7 @@ const AppContent: React.FC = () => {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
-      await recordDownload(session.user.id, audioFile.name, masteringTarget);
+      await recordDownload(session.user.id, audioFile.name, masteringTarget, 1000);
     } catch (e) {
       setError(t('error.download.fail'));
     } finally {

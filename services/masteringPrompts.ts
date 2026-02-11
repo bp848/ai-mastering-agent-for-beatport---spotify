@@ -104,3 +104,69 @@ Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (a
 Prioritize **cutting mud** over **boosting bass** in EQ.
 `.trim();
 };
+
+// --- AI 議論レイヤー用：数値は返さず意図のみ ---
+
+const formatAnalysisSummary = (data: AudioAnalysisData): string => {
+  const subBass = data.frequencyData.find(f => f.name === '20-60')?.level ?? -100;
+  const bass = data.frequencyData.find(f => f.name === '60-250')?.level ?? -100;
+  const lowMid = data.frequencyData.find(f => f.name === '250-1k')?.level ?? -100;
+  const mid = data.frequencyData.find(f => f.name === '1k-4k')?.level ?? -100;
+  const highMid = data.frequencyData.find(f => f.name === '4k-8k')?.level ?? -100;
+  const high = data.frequencyData.find(f => f.name === '8k-20k')?.level ?? -100;
+  return `LUFS: ${data.lufs.toFixed(1)}, True Peak: ${data.truePeak.toFixed(1)}, Crest: ${data.crestFactor.toFixed(1)}, StereoWidth: ${data.stereoWidth.toFixed(0)}%, Phase: ${data.phaseCorrelation.toFixed(2)}, Distortion: ${data.distortionPercent.toFixed(2)}%. Bands: sub ${subBass.toFixed(0)} bass ${bass.toFixed(0)} lowMid ${lowMid.toFixed(0)} mid ${mid.toFixed(0)} highMid ${highMid.toFixed(0)} high ${high.toFixed(0)}.`;
+};
+
+export const generateGeminiInitialPrompt = (
+  data: AudioAnalysisData,
+  specifics: PlatformSpecifics,
+): string => {
+  const summary = formatAnalysisSummary(data);
+  return `You are an objective mastering analyst for ${specifics.platformName}. Based ONLY on the following analysis, output a qualitative assessment. Do not output any numbers (no dB, Hz, or ms).
+
+ANALYSIS: ${summary}
+CONTEXT: ${specifics.genreContext}
+
+OUTPUT: Valid JSON only. Exactly these keys with ONLY these allowed string values:
+- kickSafety: "safe" | "borderline" | "danger"
+- saturationNeed: "none" | "light" | "moderate"
+- transientHandling: "preserve" | "soften" | "control"
+- highFreqTreatment: "leave" | "polish" | "restrain"
+- stereoIntent: "monoSafe" | "balanced" | "wide"
+- confidence: number between 0 and 1
+
+Example: {"kickSafety":"safe","saturationNeed":"light","transientHandling":"preserve","highFreqTreatment":"polish","stereoIntent":"balanced","confidence":0.85}`.trim();
+};
+
+export const generateGptReviewPrompt = (
+  data: AudioAnalysisData,
+  specifics: PlatformSpecifics,
+  geminiJson: string,
+): string => {
+  const summary = formatAnalysisSummary(data);
+  return `You are a mastering QC reviewer. Gemini's initial assessment and the raw analysis are below. Do you agree? If not, propose a corrected intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
+
+ANALYSIS: ${summary}
+GEMINI ASSESSMENT: ${geminiJson}
+CONTEXT: ${specifics.genreContext}
+
+OUTPUT: Valid JSON only. Same schema:
+- kickSafety: "safe" | "borderline" | "danger"
+- saturationNeed: "none" | "light" | "moderate"
+- transientHandling: "preserve" | "soften" | "control"
+- highFreqTreatment: "leave" | "polish" | "restrain"
+- stereoIntent: "monoSafe" | "balanced" | "wide"
+- confidence: number 0-1`.trim();
+};
+
+export const generateConsensusPrompt = (
+  geminiJson: string,
+  gptJson: string,
+): string => {
+  return `Two assessments are given. Resolve any disagreement and output the final agreed intent as JSON only. No commentary, no numbers.
+
+GEMINI: ${geminiJson}
+GPT: ${gptJson}
+
+OUTPUT: Single JSON object with keys: kickSafety, saturationNeed, transientHandling, highFreqTreatment, stereoIntent, confidence (0-1). Use only the allowed string values.`.trim();
+};

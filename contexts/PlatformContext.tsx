@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { LibraryTrack, PlaylistCheckItem, EmailContact } from '../types';
 
-const STORAGE_KEYS = {
+const STORAGE_KEYS: {
+  readonly tracks: string;
+  readonly checklist: string;
+  readonly emails: string;
+} = {
   tracks: 'platform_library_tracks',
   checklist: 'platform_playlist_checklist',
   emails: 'platform_email_contacts',
-} as const;
+};
 
 function loadJson<T>(key: string, fallback: T): T {
   try {

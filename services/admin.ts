@@ -1,10 +1,14 @@
 import { supabase } from './supabase';
 
-const ADMIN_SETTINGS_KEYS = {
+const ADMIN_SETTINGS_KEYS: {
+  readonly GEMINI_API_KEY: string;
+  readonly STRIPE_SECRET_KEY: string;
+  readonly STRIPE_PUBLISHABLE_KEY: string;
+} = {
   GEMINI_API_KEY: 'gemini_api_key',
   STRIPE_SECRET_KEY: 'stripe_secret_key',
   STRIPE_PUBLISHABLE_KEY: 'stripe_publishable_key',
-} as const;
+};
 
 export type AdminSettingKey = keyof typeof ADMIN_SETTINGS_KEYS;
 

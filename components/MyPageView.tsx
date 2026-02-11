@@ -164,7 +164,7 @@ export default function MyPageView() {
                 </div>
                 {row.amount_cents != null && (
                   <span className="text-xs font-mono text-zinc-400 shrink-0 tabular-nums">
-                    ¥{(row.amount_cents / 100).toLocaleString()}
+                    ¥{Number(row.amount_cents).toLocaleString()}
                   </span>
                 )}
               </li>

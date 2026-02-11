@@ -50,13 +50,13 @@ export const LANGUAGES = [
   ['wa', 'Walon'],          ['wo', 'Wolof'],      ['xh', 'isiXhosa'],    ['yi', 'ייִדיש'],
   ['yo', 'Yorùbá'],         ['za', 'Vahcuengh'],   ['zh', '中文'],        ['zu', 'isiZulu'],
   ['haw', 'ʻŌlelo Hawaiʻi'], // ISO 639-2/3, commonly used
-] as const;
+] satisfies readonly (readonly [string, string])[];
 
-export type LanguageCode = typeof LANGUAGES[number][0];
+export type LanguageCode = (typeof LANGUAGES)[number][0];
 
-export const LANG_NAMES: Record<LanguageCode, string> = Object.fromEntries(
+export const LANG_NAMES: Record<string, string> = Object.fromEntries(
   LANGUAGES.map(([code, name]) => [code, name])
-) as Record<LanguageCode, string>;
+);
 
 export const SUPPORTED_LANGUAGES: LanguageCode[] = [...new Set(LANGUAGES.map(([code]) => code))];
 
