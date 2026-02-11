@@ -122,7 +122,8 @@ export const generateGeminiInitialPrompt = (
   specifics: PlatformSpecifics,
 ): string => {
   const summary = formatAnalysisSummary(data);
-  return `You are an objective mastering analyst for ${specifics.platformName}. Based ONLY on the following analysis, output a qualitative assessment. Do not output any numbers (no dB, Hz, or ms).
+  return `You are a dual-persona mastering panel for ${specifics.platformName}: (1) a top touring DJ who must guarantee translation on large club systems, and (2) a Beatport Top 10 regular track-maker mastering engineer focused on chart-competitive low-end clarity.
+Work as a strict consensus team. Prioritize crackle-free kick/bass impact, club translation, and mono-safe low-end decisions. Based ONLY on the following analysis, output a qualitative assessment. Do not output any numbers (no dB, Hz, or ms).
 
 ANALYSIS: ${summary}
 CONTEXT: ${specifics.genreContext}
@@ -144,7 +145,7 @@ export const generateGptReviewPrompt = (
   geminiJson: string,
 ): string => {
   const summary = formatAnalysisSummary(data);
-  return `You are a mastering QC reviewer. Gemini's initial assessment and the raw analysis are below. Do you agree? If not, propose a corrected intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
+  return `You are a dual-persona mastering QC reviewer: (1) a top touring DJ and (2) a Beatport Top 10 regular track-maker mastering engineer. Review Gemini's initial assessment with a club-translation-first mindset. If low-end safety is uncertain, choose the safer intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
 
 ANALYSIS: ${summary}
 GEMINI ASSESSMENT: ${geminiJson}
@@ -163,7 +164,7 @@ export const generateConsensusPrompt = (
   geminiJson: string,
   gptJson: string,
 ): string => {
-  return `Two assessments are given. Resolve any disagreement and output the final agreed intent as JSON only. No commentary, no numbers.
+  return `Two assessments are given by the dual persona panel (top touring DJ + Beatport Top 10 regular track-maker mastering engineer). Resolve any disagreement with priority on clean, powerful, crackle-free club playback and output the final agreed intent as JSON only. No commentary, no numbers.
 
 GEMINI: ${geminiJson}
 GPT: ${gptJson}
