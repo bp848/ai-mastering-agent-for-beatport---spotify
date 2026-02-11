@@ -479,7 +479,7 @@ export const buildMasteringChain = (
 
     const sideHP = ctx.createBiquadFilter();
     sideHP.type = 'highpass';
-    sideHP.frequency.value = 150;
+    sideHP.frequency.value = params.low_mono_hz != null ? Math.max(100, Math.min(320, params.low_mono_hz)) : 150;
     sideHP.Q.value = 0.7;
     sideDiff.connect(sideHP);
 

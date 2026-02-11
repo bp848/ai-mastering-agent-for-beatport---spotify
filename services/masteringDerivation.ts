@@ -16,9 +16,10 @@ export function deriveMasteringParamsFromDecision(
   const bass = analysis.bassVolume;
   const peak = analysis.truePeak;
   const width = Math.max(0.1, Math.min(100, analysis.stereoWidth));
-  const phase = Math.max(0, analysis.phaseCorrelation);
-  const dist = analysis.distortionPercent;
+  const phase = Math.max(-1, Math.min(1, analysis.phaseCorrelation));
+  const dist = Math.max(0, analysis.distortionPercent);
 
+  const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
   const high8k = analysis.frequencyData.find(f => f.name === '8k-20k')?.level ?? -60;
   const high4k = analysis.frequencyData.find(f => f.name === '4k-8k')?.level ?? -60;
   const lowMid = analysis.frequencyData.find(f => f.name === '250-1k')?.level ?? -60;
@@ -28,10 +29,21 @@ export function deriveMasteringParamsFromDecision(
 
   const limiterCeiling = specifics.targetPeak;
 
-  const tubeDrive =
+  const baseTubeDrive =
     decision.saturationNeed === 'none' ? 0 :
     decision.saturationNeed === 'light' ? Math.min(2, (dr / 10) * (crest / 12)) :
     Math.min(3, (dr / 8) * 0.7);
+
+  const lowEndCollisionRisk =
+    (dist > 0.9 ? 1 : 0) +
+    (crest < 8.5 ? 1 : 0) +
+    (phase < 0.2 ? 1 : 0) +
+    (subBass > -14 && bass > -12 ? 1 : 0) +
+    (peak > -0.9 ? 1 : 0);
+
+  const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
+  const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
+  const tubeDrive = Math.max(0, Math.min(3, baseTubeDrive + harmonicLift));
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
@@ -39,12 +51,20 @@ export function deriveMasteringParamsFromDecision(
     Math.min(0.15, (-high4k - 30) / 500);
   const exciterAmount = Math.max(0, Math.min(0.2, exciterRaw));
 
-  const lowContour = Math.max(0, Math.min(1, (bass + 50) / 50 * 0.5 + (decision.kickSafety === 'danger' ? 0.2 : 0)));
+  const lowContourBase = Math.max(0, Math.min(1, (bass + 50) / 50 * 0.5 + (decision.kickSafety === 'danger' ? 0.2 : 0)));
+  const lowContour = lowEndCollisionRisk >= 3
+    ? Math.max(0, lowContourBase - 0.25)
+    : Math.min(1, lowContourBase + (canAddBassHarmonics ? 0.08 : 0));
 
-  const widthAmount =
+  const widthAmountRaw =
     decision.stereoIntent === 'monoSafe' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
+  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
+
+  const lowMonoHz = Math.round(Math.max(120, Math.min(280,
+    140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),
+  )));
 
   const tubeHpfHz = Math.max(20, Math.min(120, 30 + (bass + 60) * 0.5 + crest * 2));
   const exciterHpfHz = Math.max(4000, Math.min(10000, 6000 + (high8k + 50) * 50));
@@ -75,6 +95,14 @@ export function deriveMasteringParamsFromDecision(
       q: 1.2,
     });
   }
+  if (canAddBassHarmonics && lowMid < -24) {
+    eqAdjustments.push({
+      type: 'peak',
+      frequency: 700,
+      gain_db: Math.min(1.8, 0.6 + (-24 - lowMid) * 0.04),
+      q: 0.9,
+    });
+  }
 
   return {
     gain_adjustment_db: Math.round(gainBounded * 20) / 20,
@@ -87,6 +115,7 @@ export function deriveMasteringParamsFromDecision(
     target_lufs: specifics.targetLufs,
     tube_hpf_hz: Math.round(tubeHpfHz),
     exciter_hpf_hz: Math.round(exciterHpfHz),
+    low_mono_hz: lowMonoHz,
     transient_attack_s: Math.round(transientAttack * 1000) / 1000,
     transient_release_s: Math.round(transientRelease * 1000) / 1000,
     limiter_attack_s: Math.round(limiterAttack * 1000) / 1000,

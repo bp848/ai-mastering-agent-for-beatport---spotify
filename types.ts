@@ -68,6 +68,7 @@ export interface MasteringParams {
   transient_release_s?: number;
   limiter_attack_s?: number;
   limiter_release_s?: number;
+  low_mono_hz?: number;
 }
 
 // --- 楽曲管理プラットフォーム ---

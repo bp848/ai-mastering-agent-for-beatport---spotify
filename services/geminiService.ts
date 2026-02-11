@@ -24,6 +24,7 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   if (raw.transient_release_s != null) safe.transient_release_s = Number(raw.transient_release_s);
   if (raw.limiter_attack_s != null) safe.limiter_attack_s = Number(raw.limiter_attack_s);
   if (raw.limiter_release_s != null) safe.limiter_release_s = Number(raw.limiter_release_s);
+  if (raw.low_mono_hz != null) safe.low_mono_hz = Math.max(100, Math.min(320, Number(raw.low_mono_hz) || 150));
   return safe;
 }
 
