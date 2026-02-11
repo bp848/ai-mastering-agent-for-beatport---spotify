@@ -1,6 +1,6 @@
 import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
 import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
-import { clampMasteringParams, applySafetyGuard } from './geminiService';
+import { clampMasteringParams, applySafetyGuard, applySweetSpotControl } from './geminiService';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -48,5 +48,6 @@ export async function getMasteringSuggestionsOpenAI(
 
   const parsed = JSON.parse(text) as MasteringParams;
   const clamped = clampMasteringParams(parsed);
-  return { params: applySafetyGuard(clamped, data), rawResponseText: text };
+  const sweetSpotControlled = applySweetSpotControl(clamped, data, specifics.targetLufs);
+  return { params: applySafetyGuard(sweetSpotControlled, data), rawResponseText: text };
 }

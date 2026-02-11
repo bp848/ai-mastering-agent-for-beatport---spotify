@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applySafetyGuard } from '../services/geminiService';
+import { applySafetyGuard, applySweetSpotControl } from '../services/geminiService';
 import type { MasteringParams, AudioAnalysisData } from '../types';
 
 const baseParams = (overrides: Partial<MasteringParams> = {}): MasteringParams => ({
@@ -46,7 +46,7 @@ describe('applySafetyGuard', () => {
     const out = applySafetyGuard(params, analysis);
     expect(out.tube_drive_amount).toBeLessThan(2);
     expect(out.exciter_amount).toBeLessThan(0.12);
-    expect(out.limiter_ceiling_db).toBe(-0.3); // 危険時は上限 -0.3 にクランプ
+    expect(out.limiter_ceiling_db).toBe(-0.5);
   });
 
   it('reduces when crest factor is low', () => {
@@ -61,5 +61,34 @@ describe('applySafetyGuard', () => {
     const analysis = baseAnalysis({ distortionPercent: 5 });
     const out = applySafetyGuard(params, analysis);
     expect(out.exciter_amount).toBeLessThan(0.1);
+  });
+});
+
+describe('applySweetSpotControl', () => {
+  it('pulls excessive AI gain back toward sweet spot and scales aggressive processing', () => {
+    const params = baseParams({
+      gain_adjustment_db: 3,
+      tube_drive_amount: 2,
+      exciter_amount: 0.12,
+      low_contour_amount: 0.8,
+      width_amount: 1.4,
+      target_lufs: -8,
+    });
+    const analysis = baseAnalysis({
+      lufs: -12,
+      truePeak: -0.2,
+      crestFactor: 7,
+      distortionPercent: 2.5,
+      phaseCorrelation: 0.1,
+      bassVolume: -10,
+    });
+
+    const out = applySweetSpotControl(params, analysis, -8);
+    expect(out.gain_adjustment_db).toBeLessThanOrEqual(0.8);
+    expect(out.tube_drive_amount).toBeLessThanOrEqual(0.45);
+    expect(out.exciter_amount).toBeLessThanOrEqual(0.04);
+    expect(out.low_contour_amount).toBeLessThanOrEqual(0.3);
+    expect(out.width_amount).toBeLessThanOrEqual(1.03);
+    expect(out.limiter_ceiling_db).toBeLessThanOrEqual(-0.5);
   });
 });
