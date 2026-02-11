@@ -21,7 +21,7 @@ describe('applyFeedbackAdjustment', () => {
     expect(adjusted.tube_drive_amount).toBeCloseTo(1.95, 6);
     expect(adjusted.exciter_amount).toBeCloseTo(0.06, 6);
     expect(adjusted.low_contour_amount).toBeCloseTo(0.55, 6);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.limiter_ceiling_db).toBe(-1);
     expect(adjusted.eq_adjustments).toEqual([
       { frequency: 35, gain_db: -0.5, q: 0.7, type: 'lowshelf' },
       { frequency: 120, gain_db: -0.7, q: 1.2, type: 'peak' },
@@ -48,7 +48,7 @@ describe('applyFeedbackAdjustment', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'not_loud');
 
     expect(adjusted.target_lufs).toBeCloseTo(-7.92, 6);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.limiter_ceiling_db).toBe(-1);
   });
 
   it('adds focused low-end boost for weak kick', () => {
@@ -56,5 +56,26 @@ describe('applyFeedbackAdjustment', () => {
 
     expect(adjusted.low_contour_amount).toBeCloseTo(0.64, 6);
     expect(adjusted.eq_adjustments.at(-1)).toEqual({ frequency: 60, gain_db: 0.7, q: 1.0, type: 'peak' });
+  });
+
+  it('merges repeated EQ moves per band without overstacking', () => {
+    const first = applyFeedbackAdjustment(baseParams(), 'distortion');
+    const second = applyFeedbackAdjustment(first, 'distortion');
+    const third = applyFeedbackAdjustment(second, 'distortion');
+
+    const lowShelf35 = third.eq_adjustments.find((eq) => eq.frequency === 35 && eq.type === 'lowshelf');
+    const peak120 = third.eq_adjustments.find((eq) => eq.frequency === 120 && eq.type === 'peak' && eq.q === 1.2);
+
+    expect(lowShelf35?.gain_db).toBeCloseTo(-1.2, 6);
+    expect(peak120?.gain_db).toBeCloseTo(-1.2, 6);
+    expect(third.eq_adjustments.filter((eq) => eq.frequency === 35 && eq.type === 'lowshelf')).toHaveLength(1);
+  });
+
+  it('relaxes squashed feedback without narrowing stereo image', () => {
+    const adjusted = applyFeedbackAdjustment({ ...baseParams(), width_amount: 1.02 }, 'squashed');
+
+    expect(adjusted.width_amount).toBeCloseTo(1.03, 6);
+    expect(adjusted.low_contour_amount).toBeCloseTo(0.58, 6);
+    expect(adjusted.limiter_ceiling_db).toBe(-1);
   });
 });

@@ -63,6 +63,20 @@ export const applyFeedbackAdjustment = (
     newParams.target_lufs = Math.max(-20, Math.min(-5, newParams.target_lufs + delta));
   };
 
+
+  const pushEqFine = (band: { frequency: number; gain_db: number; q: number; type: 'peak' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass' }) => {
+    const existingIndex = newParams.eq_adjustments.findIndex((eq) =>
+      eq.type === band.type && eq.frequency === band.frequency && Math.abs(eq.q - band.q) < 0.0001,
+    );
+    if (existingIndex >= 0) {
+      const merged = newParams.eq_adjustments[existingIndex].gain_db + band.gain_db;
+      newParams.eq_adjustments[existingIndex].gain_db = Math.max(-1.2, Math.min(1.2, merged));
+      return;
+    }
+    if (newParams.eq_adjustments.length >= 10) return;
+    newParams.eq_adjustments.push(band);
+  };
+
   switch (feedback) {
     case 'distortion':
       // 「割れ/歪み」= まずは安全側に寄せる（音圧より品質）
@@ -71,47 +85,35 @@ export const applyFeedbackAdjustment = (
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 5 * FINE);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 2 * FINE);
       newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 5 * FINE);
-      newParams.limiter_ceiling_db = -0.3;
-      newParams.eq_adjustments.push(
-        { frequency: 35, gain_db: -0.5, q: 0.7, type: 'lowshelf' },
-        { frequency: 120, gain_db: -0.7, q: 1.2, type: 'peak' },
-      );
+      newParams.limiter_ceiling_db = Math.min(newParams.limiter_ceiling_db, -0.5);
+      pushEqFine({ frequency: 35, gain_db: -0.5, q: 0.7, type: 'lowshelf' });
+      pushEqFine({ frequency: 120, gain_db: -0.7, q: 1.2, type: 'peak' });
       break;
 
     case 'muddy':
-      newParams.eq_adjustments.push(
-        { frequency: 250, gain_db: -0.8, q: 1.5, type: 'peak' },
-        { frequency: 8000, gain_db: 0.6, q: 0.7, type: 'highshelf' },
-      );
+      pushEqFine({ frequency: 250, gain_db: -0.8, q: 1.5, type: 'peak' });
+      pushEqFine({ frequency: 8000, gain_db: 0.6, q: 0.7, type: 'highshelf' });
       newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 2 * FINE);
       break;
 
     case 'harsh':
-      newParams.eq_adjustments.push(
-        { frequency: 4000, gain_db: -0.8, q: 2.0, type: 'peak' },
-      );
+      pushEqFine({ frequency: 4000, gain_db: -0.8, q: 2.0, type: 'peak' });
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 2 * FINE);
       break;
 
     case 'vocals_buried':
-      newParams.eq_adjustments.push(
-        { frequency: 1500, gain_db: 0.7, q: 1.0, type: 'peak' },
-      );
+      pushEqFine({ frequency: 1500, gain_db: 0.7, q: 1.0, type: 'peak' });
       newParams.width_amount = Math.max(0.8, newParams.width_amount - 3 * FINE);
       break;
 
     case 'weak_kick':
       newParams.low_contour_amount = Math.min(1.0, newParams.low_contour_amount + 4 * FINE);
-      newParams.eq_adjustments.push(
-        { frequency: 60, gain_db: 0.7, q: 1.0, type: 'peak' },
-      );
+      pushEqFine({ frequency: 60, gain_db: 0.7, q: 1.0, type: 'peak' });
       break;
 
     case 'boomy':
       newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 4 * FINE);
-      newParams.eq_adjustments.push(
-        { frequency: 120, gain_db: -0.8, q: 1.5, type: 'peak' },
-      );
+      pushEqFine({ frequency: 120, gain_db: -0.8, q: 1.5, type: 'peak' });
       break;
 
     case 'thin':
@@ -128,13 +130,15 @@ export const applyFeedbackAdjustment = (
       bumpTargetLufs(-0.08);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 3 * FINE);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - FINE);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 2 * FINE);
+      newParams.width_amount = Math.min(1.4, newParams.width_amount + FINE);
+      newParams.limiter_ceiling_db = Math.min(newParams.limiter_ceiling_db, -0.5);
       break;
 
     case 'not_loud':
       // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -0.3 dB 固定で歪みを避ける
       bumpTargetLufs(+0.08);
-      newParams.limiter_ceiling_db = -0.3;
+      newParams.limiter_ceiling_db = Math.min(newParams.limiter_ceiling_db, -0.5);
       break;
   }
 
