@@ -31,9 +31,10 @@ export function deriveMasteringParamsFromDecision(
   const lowMid = analysis.frequencyData.find(f => f.name === '250-1k')?.level ?? -60;
 
   const gainDb = specifics.targetLufs - analysis.lufs;
-  const sweetSpotGain = gainDb * 0.55;
-  const maxSafeGain = Math.max(0.8, Math.min(2.5, 2.5 - safetyRiskScore * 0.3));
-  const gainBounded = Math.max(-5, Math.min(maxSafeGain, sweetSpotGain));
+  const truePeakHeadroom = Math.max(0, -1.0 - analysis.truePeak);
+  const sweetSpotGain = Math.min(gainDb, truePeakHeadroom - 0.25);
+  const gainWindow = Math.max(0.4, Math.min(1.2, 1.2 - safetyRiskScore * 0.1));
+  const gainBounded = Math.max(-5, Math.min(3, sweetSpotGain + gainWindow));
 
   const limiterCeiling = specifics.targetPeak;
 
@@ -51,28 +52,31 @@ export function deriveMasteringParamsFromDecision(
 
   const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
   const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  const tubeCap = Math.max(0.45, Math.min(1.4, 1.4 - safetyRiskScore * 0.12));
-  const tubeDrive = Math.max(0, Math.min(tubeCap, baseTubeDrive + harmonicLift));
+  const headroomScale = Math.max(0.45, Math.min(1, (-0.2 - analysis.truePeak) / 1.6));
+  const riskScale = Math.max(0.25, Math.min(1, 1 - safetyRiskScore * 0.1));
+  const processingScale = safetyRiskScore >= 5
+    ? headroomScale * riskScale
+    : Math.min(1, Math.max(headroomScale, riskScale));
+  const tubeDrive = Math.max(0, Math.min(2, (baseTubeDrive + harmonicLift) * processingScale));
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
     decision.highFreqTreatment === 'polish' ? (high8k > -40 ? 0.02 : (-high8k - 40) / 2000) :
     Math.min(0.15, (-high4k - 30) / 500);
-  const exciterCap = Math.max(0.025, Math.min(0.09, 0.09 - safetyRiskScore * 0.007));
-  const exciterAmount = Math.max(0, Math.min(exciterCap, exciterRaw));
+  const exciterAmount = Math.max(0, Math.min(0.12, exciterRaw * processingScale));
 
   const lowContourBase = Math.max(0, Math.min(0.8, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0)));
-  const lowContourRiskCap = Math.max(0.3, Math.min(0.7, 0.7 - safetyRiskScore * 0.05));
   const lowContour = lowEndCollisionRisk >= 3
-    ? Math.max(0, lowContourBase - 0.2)
-    : Math.min(lowContourRiskCap, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
+    ? Math.max(0, (lowContourBase - 0.2) * processingScale)
+    : Math.min(0.8, (lowContourBase + (canAddBassHarmonics ? 0.06 : 0)) * processingScale);
 
   const widthAmountRaw =
     decision.stereoIntent === 'monoSafe' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
-  const widthRiskCap = Math.max(1.03, Math.min(1.25, 1.25 - safetyRiskScore * 0.03));
-  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : Math.min(widthAmountRaw, widthRiskCap);
+  const widthAmount = lowEndCollisionRisk >= 3
+    ? Math.min(widthAmountRaw, 1 + processingScale * 0.08)
+    : Math.min(widthAmountRaw, 1 + processingScale * 0.4);
 
   const lowMonoHz = Math.round(Math.max(120, Math.min(280,
     140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),

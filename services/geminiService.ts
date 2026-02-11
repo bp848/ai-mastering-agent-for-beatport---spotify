@@ -41,6 +41,19 @@ function getSafetyRiskScore(analysis: AudioAnalysisData): number {
   return score;
 }
 
+function getObjectiveSweetSpotGain(
+  analysis: AudioAnalysisData,
+  targetLufs?: number,
+): number {
+  const resolvedTargetLufs = Number.isFinite(targetLufs)
+    ? targetLufs as number
+    : analysis.lufs;
+  const lufsGap = resolvedTargetLufs - analysis.lufs;
+  const truePeakHeadroom = Math.max(0, -1.0 - analysis.truePeak);
+  const safeGainFromPeak = truePeakHeadroom - 0.25;
+  return clamp(Math.min(lufsGap, safeGainFromPeak), -5, 3);
+}
+
 export function applySweetSpotControl(
   params: MasteringParams,
   analysis: AudioAnalysisData,
@@ -52,23 +65,24 @@ export function applySweetSpotControl(
   const resolvedTargetLufs = Number.isFinite(targetLufs)
     ? targetLufs as number
     : (Number.isFinite(params.target_lufs) ? params.target_lufs as number : analysis.lufs);
-  const lufsGap = resolvedTargetLufs - analysis.lufs;
-  const sweetSpotGain = clamp(lufsGap * 0.55, -5, 2.5);
+  const sweetSpotGain = getObjectiveSweetSpotGain(analysis, resolvedTargetLufs);
   const aiGain = Number(params.gain_adjustment_db) || 0;
-  const blendedGain = sweetSpotGain + (aiGain - sweetSpotGain) * 0.35;
-  const maxSafeGain = clamp(2.5 - riskScore * 0.3, 0.8, 2.5);
-  out.gain_adjustment_db = Math.round(clamp(blendedGain, -5, maxSafeGain) * 100) / 100;
+  const gainWindow = clamp(1.2 - riskScore * 0.1, 0.4, 1.2);
+  const minGain = clamp(sweetSpotGain - gainWindow, -5, 3);
+  const maxGain = clamp(sweetSpotGain + gainWindow, -5, 3);
+  out.gain_adjustment_db = Math.round(clamp(aiGain, minGain, maxGain) * 100) / 100;
 
-  const processingScale = clamp(1 - riskScore * 0.11 - Math.max(0, out.gain_adjustment_db - 1.8) * 0.15, 0.35, 1);
-  const tubeCap = clamp(1.4 - riskScore * 0.12, 0.45, 1.4);
-  const exciterCap = clamp(0.09 - riskScore * 0.007, 0.025, 0.09);
-  const contourCap = clamp(0.7 - riskScore * 0.05, 0.3, 0.7);
-  const widthCap = clamp(1.25 - riskScore * 0.03, 1.03, 1.25);
+  const headroomScale = clamp((-0.2 - analysis.truePeak) / 1.6, 0.45, 1);
+  const riskScale = clamp(1 - riskScore * 0.1, 0.25, 1);
+  const processingScale = riskScore >= 5
+    ? headroomScale * riskScale
+    : Math.min(1, Math.max(headroomScale, riskScale));
 
-  out.tube_drive_amount = Math.round(clamp((out.tube_drive_amount ?? 0) * processingScale, 0, tubeCap) * 100) / 100;
-  out.exciter_amount = Math.round(clamp((out.exciter_amount ?? 0) * processingScale, 0, exciterCap) * 1000) / 1000;
-  out.low_contour_amount = Math.round(clamp((out.low_contour_amount ?? 0) * processingScale, 0, contourCap) * 100) / 100;
-  out.width_amount = Math.round(clamp(out.width_amount ?? 1, 1, widthCap) * 100) / 100;
+  out.tube_drive_amount = Math.round(clamp((out.tube_drive_amount ?? 0) * processingScale, 0, 2) * 100) / 100;
+  out.exciter_amount = Math.round(clamp((out.exciter_amount ?? 0) * processingScale, 0, 0.12) * 1000) / 1000;
+  out.low_contour_amount = Math.round(clamp((out.low_contour_amount ?? 0) * processingScale, 0, 0.8) * 100) / 100;
+  const widthReduction = riskScore >= 5 ? 0.45 : 0.2;
+  out.width_amount = Math.round(clamp((out.width_amount ?? 1) - (1 - processingScale) * widthReduction, 1, 1.4) * 100) / 100;
 
   if (riskScore >= 3) {
     out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.5);
