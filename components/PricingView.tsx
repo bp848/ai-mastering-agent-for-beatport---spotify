@@ -109,33 +109,33 @@ const Card: React.FC<{
   isLoggedIn?: boolean;
   signInLabel?: string;
 }> = ({ plan, isJa, onSelect, loading, isLoggedIn, signInLabel }) => (
-  <div className={`relative flex flex-col rounded-2xl p-6 transition-all ${
+  <div className={`relative flex flex-col rounded-xl p-7 transition-all duration-300 ${
     plan.best
-      ? 'glass-elevated glow-cyan scale-[1.02]'
-      : 'glass hover:border-white/15'
+      ? 'bg-white/[0.06] border-2 border-cyan-400/50 shadow-xl shadow-cyan-500/20 scale-[1.03]'
+      : 'bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.05] hover:border-white/20'
   }`}>
     {plan.best && (
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-cyan-500 text-black text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-black text-xs font-extrabold uppercase tracking-widest whitespace-nowrap shadow-lg shadow-cyan-500/30">
         Best Value
       </div>
     )}
-    <h3 className="text-base font-bold text-white mb-1">
+    <h3 className="text-lg font-extrabold text-white mb-2">
       {isJa ? plan.name : plan.nameEn}
     </h3>
-    <div className="mb-4">
-      <span className="text-2xl font-extrabold text-white tabular-nums">
+    <div className="mb-5">
+      <span className="text-3xl font-extrabold text-white tabular-nums">
         {isJa ? plan.priceLabel : plan.priceLabelEn}
       </span>
       {plan.perTrack && (
-        <span className="text-xs text-zinc-500 ml-2">
+        <span className="text-sm text-zinc-400 ml-2 font-semibold">
           ({isJa ? `¥${plan.perTrack}/曲` : `$${(plan.perTrack / 150).toFixed(2)}/track`})
         </span>
       )}
     </div>
-    <ul className="flex-1 space-y-2 mb-6">
+    <ul className="flex-1 space-y-3 mb-7">
       {(isJa ? plan.features : plan.featuresEn).map((f) => (
-        <li key={f} className="flex items-start gap-2 text-xs text-zinc-400">
-          <span className="text-cyan-400 mt-0.5 shrink-0">✓</span>
+        <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
+          <span className="text-cyan-400 mt-0.5 shrink-0 text-base">✓</span>
           <span>{f}</span>
         </li>
       ))}
@@ -144,10 +144,10 @@ const Card: React.FC<{
       type="button"
       onClick={() => onSelect(plan)}
       disabled={loading}
-      className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
+      className={`w-full py-3.5 rounded-xl font-extrabold text-sm transition-all active:scale-[0.97] touch-manipulation disabled:opacity-60 ${
         plan.best
-          ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/20'
-          : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+          ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-black hover:from-cyan-400 hover:to-cyan-300 shadow-xl shadow-cyan-500/30'
+          : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
       }`}
     >
       {loading ? (isJa ? '送信中...' : 'Loading...') : isLoggedIn ? (isJa ? '選択する' : 'Select') : (signInLabel ?? (isJa ? 'ログインして購入' : 'Sign in to purchase'))}
@@ -196,21 +196,21 @@ export default function PricingView() {
   ];
 
   return (
-    <div className="animate-fade-up space-y-8">
+    <div className="animate-fade-up space-y-10">
       {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
-          <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
-            {isJa ? '無料' : 'Free'}
+      <div className="text-center space-y-5">
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-500/15 border border-green-400/40 shadow-lg shadow-green-500/10">
+          <span className="text-sm font-extrabold text-green-300 uppercase tracking-wider">
+            {isJa ? '無料プレビュー可能' : 'Free Preview Available'}
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-white">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
           {t('pricing.title')}
         </h2>
-        <p className="text-sm sm:text-base text-cyan-200/90 font-medium max-w-lg mx-auto">
+        <p className="text-base sm:text-lg text-white font-semibold max-w-2xl mx-auto">
           {t('pricing.free_preview_cta')}
         </p>
-        <p className="text-xs text-zinc-500 max-w-lg mx-auto">
+        <p className="text-sm text-zinc-300 max-w-2xl mx-auto leading-relaxed">
           {isJa
             ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
             : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
@@ -219,16 +219,16 @@ export default function PricingView() {
 
       {/* ── Tab Switcher ── */}
       <div className="flex justify-center">
-        <div className="inline-flex rounded-xl bg-white/5 border border-white/10 p-1">
+        <div className="inline-flex rounded-xl bg-white/[0.05] border border-white/[0.12] p-1.5 shadow-lg">
           {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+              className={`px-5 sm:px-7 py-3 rounded-lg text-sm font-extrabold transition-all whitespace-nowrap ${
                 tab === t.id
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-black shadow-xl shadow-cyan-500/30'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
               }`}
             >
               {isJa ? t.label : t.labelEn}

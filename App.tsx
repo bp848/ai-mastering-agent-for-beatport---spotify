@@ -25,6 +25,7 @@ import AnalysisTerminal from './components/AnalysisTerminal';
 import StatusLoader from './components/StatusLoader';
 import DiagnosisReport from './components/DiagnosisReport';
 import PlatformSelector from './components/PlatformSelector';
+import FlowSteps from './components/FlowSteps';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
 import { recordDownload } from './services/downloadHistory';
@@ -576,35 +577,38 @@ const AppContent: React.FC = () => {
           {(!analysisData || masteringParams) && (
             <>
               {!audioFile && !isProcessing ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
-                  <HeroEngine language={language} compact />
-                  <div className="glass rounded-2xl p-4 sm:p-6">
-                    <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
-                      {t('ux.upload_first')}
-                    </p>
-                    <FileUpload
-                      onFileChange={handleFileChange}
-                      fileName={audioFile?.name}
-                      isAnalyzing={isProcessing}
-                      pyodideStatus={pyodideStatus}
-                      compact={false}
-                    />
-                    {error && (
-                      <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
-                        <p>{error}</p>
-                        <button
-                          type="button"
-                          onClick={() => { setError(''); resetToUpload(); }}
-                          className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
-                        >
-                          {t('ux.error_retry')}
-                        </button>
-                      </div>
-                    )}
+                <div className="space-y-6">
+                  <FlowSteps language={language} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+                    <HeroEngine language={language} compact />
+                    <div className="rounded-xl bg-white/[0.03] border border-white/[0.08] p-6 sm:p-8">
+                      <p className="text-sm font-semibold text-zinc-300 mb-4" id="upload-instruction">
+                        {t('ux.upload_first')}
+                      </p>
+                      <FileUpload
+                        onFileChange={handleFileChange}
+                        fileName={audioFile?.name}
+                        isAnalyzing={isProcessing}
+                        pyodideStatus={pyodideStatus}
+                        compact={false}
+                      />
+                      {error && (
+                        <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                          <p>{error}</p>
+                          <button
+                            type="button"
+                            onClick={() => { setError(''); resetToUpload(); }}
+                            className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                          >
+                            {t('ux.error_retry')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="glass rounded-2xl p-4 sm:p-6">
+                <div className="rounded-xl bg-white/[0.03] border border-white/[0.08] p-6 sm:p-8">
                   <FileUpload
                     onFileChange={handleFileChange}
                     fileName={audioFile?.name}
@@ -654,37 +658,37 @@ const AppContent: React.FC = () => {
 
           {/* ── Phase: Mastering Complete → View Results ── */}
           {!isProcessing && analysisData && masteringParams && (
-            <div className="glass rounded-2xl p-6 sm:p-8 animate-fade-up text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
+            <div className="rounded-xl bg-white/[0.05] border border-white/[0.12] p-8 sm:p-10 animate-fade-up text-center space-y-5 shadow-xl">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/15 border border-green-400/40 shadow-lg shadow-green-500/10">
+                <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
+                <span className="text-sm font-extrabold text-green-300 uppercase tracking-wider">
                   {language === 'ja' ? 'マスタリング完了' : 'Mastering Complete'}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-white">
                 {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
               </h2>
               {masterMetrics && (
-                <p className="text-sm text-zinc-400 font-mono">
+                <p className="text-base text-zinc-300 font-mono font-semibold">
                   {language === 'ja' ? 'マスター実測' : 'Master'} LUFS {masterMetrics.lufs.toFixed(1)}
                   {language === 'ja' ? ' · 目標' : ' · Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
                 </p>
               )}
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
                 {t('flow.complete_teaser')}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowResultsModal(true)}
-                  className="px-8 py-3.5 min-h-[52px] rounded-xl bg-cyan-500 text-black font-bold text-base hover:bg-cyan-400 active:scale-[0.98] touch-manipulation shadow-lg shadow-cyan-500/25"
+                  className="px-10 py-4 min-h-[56px] rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-extrabold text-base hover:from-cyan-400 hover:to-cyan-300 active:scale-[0.97] touch-manipulation shadow-xl shadow-cyan-500/30"
                 >
                   {language === 'ja' ? '結果を見る（聴く・購入）' : 'View result (listen & purchase)'}
                 </button>
                 <button
                   type="button"
                   onClick={resetToUpload}
-                  className="text-sm text-zinc-400 hover:text-white underline underline-offset-2"
+                  className="text-sm text-zinc-400 hover:text-white underline underline-offset-2 font-medium"
                 >
                   {t('ux.choose_other_file')}
                 </button>
