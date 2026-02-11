@@ -615,6 +615,18 @@ export function predictPostGainPeakDb(
   return measuredPeakDb + (candidateGainDb - currentGainDb);
 }
 
+export function deriveSelfCorrectionGainStepCap(
+  lufsToleranceDb: number | undefined,
+  configuredMaxStepDb: number | undefined,
+): number {
+  const safeTolerance = Number.isFinite(lufsToleranceDb)
+    ? Math.max(0.2, Math.min(2, lufsToleranceDb as number))
+    : 1.0;
+  const toleranceDrivenStep = Math.max(0.2, Math.min(0.8, safeTolerance * 0.35));
+  if (!Number.isFinite(configuredMaxStepDb)) return toleranceDrivenStep;
+  return Math.max(0.2, Math.min(0.8, configuredMaxStepDb as number));
+}
+
 /**
  * AI の提案値を物理的な計測に基づいて補正する。
  * 高速な部分レンダリング（曲の中央 10 秒）を行い、
@@ -709,7 +721,10 @@ export const optimizeMasteringParams = async (
 
   // --- 補正: 調整幅を抑えてつぶれを防ぐ（小さなステップ・ゆるい許容） ---
   const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 1.0;
-  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 0.8;
+  const MAX_GAIN_STEP_DB = deriveSelfCorrectionGainStepCap(
+    aiParams.self_correction_lufs_tolerance_db,
+    aiParams.self_correction_max_gain_step_db,
+  );
   const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 1.5;
   const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
   const GAIN_CAP_DB = 3;
@@ -720,7 +735,8 @@ export const optimizeMasteringParams = async (
   let newGain = optimizedParams.gain_adjustment_db;
 
   if (Math.abs(diff) > LUFS_THRESHOLD) {
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), MAX_GAIN_STEP_DB);
+    const dynamicStepCap = Math.min(MAX_GAIN_STEP_DB, Math.max(0.2, Math.abs(diff) * 0.25));
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), dynamicStepCap);
     newGain += step;
     if (diff > 0) {
       newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);

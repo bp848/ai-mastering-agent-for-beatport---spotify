@@ -27,21 +27,21 @@ const sampleAnalysis: AudioAnalysisData = {
 describe('mastering prompt persona policy', () => {
   it('injects top DJ and Beatport Top 10 engineer personas into initial prompt', () => {
     const prompt = generateGeminiInitialPrompt(sampleAnalysis, getPlatformSpecifics('beatport'));
-    expect(prompt).toContain('top touring DJ');
+    expect(prompt).toContain('top DJ whose job is to take the audience into a trance state');
     expect(prompt).toContain('Beatport Top 10 regular track-maker mastering engineer');
     expect(prompt).toContain('crackle-free kick/bass impact');
   });
 
   it('keeps reviewer prompt aligned to the same personas and safety stance', () => {
     const prompt = generateGptReviewPrompt(sampleAnalysis, getPlatformSpecifics('beatport'), '{"kickSafety":"danger"}');
-    expect(prompt).toContain('top touring DJ');
+    expect(prompt).toContain('top DJ who takes the crowd into a trance state');
     expect(prompt).toContain('Beatport Top 10 regular track-maker mastering engineer');
     expect(prompt).toContain('If low-end safety is uncertain, choose the safer intent');
   });
 
   it('enforces persona framing in consensus stage', () => {
     const prompt = generateConsensusPrompt('{"a":1}', '{"b":2}');
-    expect(prompt).toContain('top touring DJ + Beatport Top 10 regular track-maker mastering engineer');
-    expect(prompt).toContain('clean, powerful, crackle-free club playback');
+    expect(prompt).toContain('top DJ who leads the crowd into trance + Beatport Top 10 mastering engineer');
+    expect(prompt).toContain('bass that never crackles when volume is turned up');
   });
 });

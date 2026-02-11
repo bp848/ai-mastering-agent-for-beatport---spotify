@@ -17,11 +17,11 @@ describe('applyFeedbackAdjustment', () => {
   it('reduces low-end overload risk when feedback is distortion', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'distortion');
 
-    expect(adjusted.target_lufs).toBe(-9);
+    expect(adjusted.target_lufs).toBe(-8.42);
     expect(adjusted.tube_drive_amount).toBe(1);
     expect(adjusted.exciter_amount).toBeCloseTo(0.05, 6);
     expect(adjusted.low_contour_amount).toBeCloseTo(0.4, 6);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.limiter_ceiling_db).toBe(-1.0);
     expect(adjusted.eq_adjustments).toEqual([
       { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
       { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
@@ -47,8 +47,32 @@ describe('applyFeedbackAdjustment', () => {
   it('boosts loudness target safely when feedback is not_loud', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'not_loud');
 
-    expect(adjusted.target_lufs).toBe(-7);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.target_lufs).toBe(-7.74);
+    expect(adjusted.limiter_ceiling_db).toBe(-1.0);
+  });
+
+  it('uses smaller loudness bump when already very loud', () => {
+    const adjusted = applyFeedbackAdjustment(
+      {
+        ...baseParams(),
+        target_lufs: -7.8,
+      },
+      'not_loud',
+    );
+
+    expect(adjusted.target_lufs).toBe(-7.54);
+  });
+
+  it('uses configured self-correction step as LUFS nudge basis', () => {
+    const adjusted = applyFeedbackAdjustment(
+      {
+        ...baseParams(),
+        self_correction_max_gain_step_db: 0.6,
+      },
+      'not_loud',
+    );
+
+    expect(adjusted.target_lufs).toBe(-7.55);
   });
 
   it('adds focused low-end boost for weak kick', () => {

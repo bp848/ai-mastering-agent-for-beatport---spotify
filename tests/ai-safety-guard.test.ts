@@ -46,7 +46,7 @@ describe('applySafetyGuard', () => {
     const out = applySafetyGuard(params, analysis);
     expect(out.tube_drive_amount).toBeLessThan(2);
     expect(out.exciter_amount).toBeLessThan(0.12);
-    expect(out.limiter_ceiling_db).toBe(-0.3); // 危険時は上限 -0.3 にクランプ
+    expect(out.limiter_ceiling_db).toBe(-1.0);
   });
 
   it('reduces when crest factor is low', () => {
