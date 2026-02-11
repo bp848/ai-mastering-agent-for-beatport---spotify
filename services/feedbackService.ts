@@ -65,10 +65,16 @@ export const applyFeedbackAdjustment = (
   switch (feedback) {
     case 'distortion':
       // 「割れ/歪み」= まずは安全側に寄せる（音圧より品質）
+      // キック + ベース同時発音時の歪みを抑えるため、低域の衝突ポイントも軽く整理する。
       bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
+      newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.2);
       newParams.limiter_ceiling_db = -0.3;
+      newParams.eq_adjustments.push(
+        { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
+        { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
+      );
       break;
 
     case 'muddy':

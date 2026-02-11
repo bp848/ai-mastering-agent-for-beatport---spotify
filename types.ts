@@ -21,6 +21,16 @@ export interface AudioAnalysisData {
 
 export type MasteringTarget = 'beatport' | 'spotify';
 
+/** AI 議論レイヤーが出力するマスタリング意図（deriveMasteringParamsFromDecision の入力） */
+export interface AIDecision {
+  kickSafety?: 'safe' | 'caution' | 'danger';
+  saturationNeed?: 'none' | 'light' | 'medium' | 'heavy';
+  transientHandling?: 'preserve' | 'smooth' | 'control';
+  highFreqTreatment?: 'leave' | 'polish' | 'lift';
+  stereoIntent?: 'narrow' | 'keep' | 'wide';
+  confidence?: number;
+}
+
 export type MetricStatus = 'good' | 'warning' | 'bad' | 'neutral';
 
 export interface EQAdjustment {
@@ -50,6 +60,15 @@ export interface MasteringParams {
   self_correction_max_gain_step_db?: number;
   self_correction_max_boost_db?: number;
   self_correction_max_peak_cut_db?: number;
+
+  // --- 導出パラメータ（分析＋AIDecision から算出。未指定時は DSP 内フォールバック） ---
+  tube_hpf_hz?: number;
+  exciter_hpf_hz?: number;
+  transient_attack_s?: number;
+  transient_release_s?: number;
+  limiter_attack_s?: number;
+  limiter_release_s?: number;
+  low_mono_hz?: number;
 }
 
 // --- 楽曲管理プラットフォーム ---

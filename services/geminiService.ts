@@ -17,6 +17,13 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
     width_amount: Math.max(1.0, Math.min(1.4, Number(raw.width_amount) ?? 1)),
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
+  if (raw.tube_hpf_hz != null) safe.tube_hpf_hz = Number(raw.tube_hpf_hz);
+  if (raw.exciter_hpf_hz != null) safe.exciter_hpf_hz = Number(raw.exciter_hpf_hz);
+  if (raw.transient_attack_s != null) safe.transient_attack_s = Number(raw.transient_attack_s);
+  if (raw.transient_release_s != null) safe.transient_release_s = Number(raw.transient_release_s);
+  if (raw.limiter_attack_s != null) safe.limiter_attack_s = Number(raw.limiter_attack_s);
+  if (raw.limiter_release_s != null) safe.limiter_release_s = Number(raw.limiter_release_s);
+  if (raw.low_mono_hz != null) safe.low_mono_hz = Math.max(100, Math.min(320, Number(raw.low_mono_hz) || 150));
   return safe;
 }
 
