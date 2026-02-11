@@ -328,7 +328,7 @@ const makeBrickwallCurve = (): Float32Array => {
 };
 
 const dbToLinear = (db: number): number => Math.pow(10, db / 20);
-const originalSampleRateFactor = (ctx: BaseAudioContext): number => Math.sqrt(ctx.sampleRate);
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
@@ -413,7 +413,7 @@ export const buildMasteringChain = (
   if (params.low_contour_amount > 0) {
     const subCut = ctx.createBiquadFilter();
     subCut.type = 'highpass';
-    subCut.frequency.value = Math.abs(params.tube_hpf_hz ?? params.low_contour_amount * originalSampleRateFactor(ctx));
+    subCut.frequency.value = clamp(Math.abs(params.tube_hpf_hz ?? 30), 20, 120);
     subCut.Q.value = 0.707;
     lastNode.connect(subCut);
     lastNode = subCut;
@@ -445,7 +445,7 @@ export const buildMasteringChain = (
   if (params.exciter_amount > 0) {
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = Math.abs(params.exciter_hpf_hz ?? params.width_amount * originalSampleRateFactor(ctx));
+    hp.frequency.value = clamp(Math.abs(params.exciter_hpf_hz ?? 6000), 4000, 12000);
     hp.Q.value = 0.5;
 
     const shaper = ctx.createWaveShaper();
@@ -523,8 +523,8 @@ export const buildMasteringChain = (
   hyperComp.threshold.value = -26;
   hyperComp.knee.value = 10;
   hyperComp.ratio.value = 3;
-  hyperComp.attack.value = Math.abs(params.transient_attack_s ?? (params.width_amount / (Math.abs(params.gain_adjustment_db) + 1)));
-  hyperComp.release.value = Math.abs(params.transient_release_s ?? (params.low_contour_amount + params.exciter_amount + 1) / (Math.abs(params.gain_adjustment_db) + 1));
+  hyperComp.attack.value = Math.abs(params.transient_attack_s ?? 0.02);
+  hyperComp.release.value = Math.abs(params.transient_release_s ?? 0.25);
   lastNode.connect(hyperComp);
 
   const energyFilter = ctx.createBiquadFilter();
@@ -557,7 +557,8 @@ export const buildMasteringChain = (
 
   // [4] Soft Clipper → Limiter（ここでコード側の固定ゲインは入れない。AI のゲインをそのまま使う） — 閾値手前から tanh で丸め、リミッターは Attack 極短でトランジェント潰しを最小化。
   const limiterCeilingDb = params.limiter_ceiling_db ?? -0.3;
-  const clipperThreshold = dbToLinear(limiterCeilingDb - Math.abs(params.transient_attack_s ?? 0));
+  const clipperMarginDb = clamp(Math.abs((params.transient_attack_s ?? 0.02) * 10), 0.1, 0.5);
+  const clipperThreshold = dbToLinear(limiterCeilingDb - clipperMarginDb);
   const clipper = ctx.createWaveShaper();
   clipper.curve = asCurve(makeClipperCurve(clipperThreshold));
   clipper.oversample = '4x';
@@ -570,8 +571,8 @@ export const buildMasteringChain = (
   // WebAudio の DynamicsCompressor は「完全なブリックウォール」ではないため、
   // 比率とアタックを強めてピークの突き抜けを抑える
   limiter.ratio.value = 20;
-  limiter.attack.value = Math.abs(params.limiter_attack_s ?? (params.width_amount / (Math.abs(params.tube_drive_amount) + Math.abs(params.gain_adjustment_db) + 1)));
-  limiter.release.value = Math.abs(params.limiter_release_s ?? ((params.low_contour_amount + params.exciter_amount + params.width_amount) / (Math.abs(params.gain_adjustment_db) + 1)));
+  limiter.attack.value = Math.abs(params.limiter_attack_s ?? 0.001);
+  limiter.release.value = Math.abs(params.limiter_release_s ?? 0.12);
   lastNode.connect(limiter);
   lastNode = limiter;
 
@@ -711,13 +712,13 @@ export const optimizeMasteringParams = async (
   const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
 
   // --- 補正: 数字は AI が渡す params を優先。未指定時のみフォールバック（目標 LUFS に届くようにする） ---
-  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? Math.abs(aiParams.limiter_ceiling_db - aiParams.gain_adjustment_db);
-  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? Math.abs(aiParams.gain_adjustment_db - aiParams.limiter_ceiling_db);
-  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? Math.abs(aiParams.limiter_release_s ?? 0) + Math.abs(aiParams.transient_release_s ?? 0);
-  const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? Math.abs(aiParams.limiter_attack_s ?? 0) + Math.abs(aiParams.transient_attack_s ?? 0);
+  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.6;
+  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 2;
+  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 3;
+  const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 3;
   const GAIN_CAP_DB = Math.max(aiParams.gain_adjustment_db, aiParams.limiter_ceiling_db);
   const GAIN_FLOOR_DB = Math.min(aiParams.gain_adjustment_db, aiParams.limiter_ceiling_db);
-  const GAIN_RESOLUTION = Math.abs(aiParams.gain_adjustment_db) + Math.abs(aiParams.limiter_ceiling_db) + 1;
+  const GAIN_RESOLUTION = 10;
 
   const diff = TARGET_LUFS - measuredLUFS;
   let newGain = optimizedParams.gain_adjustment_db;
