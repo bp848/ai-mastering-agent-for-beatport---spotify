@@ -627,6 +627,23 @@ export function deriveSelfCorrectionGainStepCap(
   return Math.max(0.2, Math.min(0.8, configuredMaxStepDb as number));
 }
 
+export function deriveSelfCorrectionWindowStarts(
+  totalSamples: number,
+  sampleRate: number,
+  chunkDurationSec = 10,
+): number[] {
+  const chunkSamples = Math.max(1, Math.floor(sampleRate * chunkDurationSec));
+  const maxStart = Math.max(0, totalSamples - chunkSamples);
+  const candidates = [
+    Math.floor(totalSamples * 0.25),
+    Math.floor(totalSamples * 0.5),
+    Math.floor(totalSamples * 0.75),
+    maxStart,
+  ];
+  const starts = candidates.map((s) => Math.max(0, Math.min(maxStart, s)));
+  return [...new Set(starts)].sort((a, b) => a - b);
+}
+
 /**
  * AI の提案値を物理的な計測に基づいて補正する。
  * 高速な部分レンダリング（曲の中央 10 秒）を行い、
@@ -650,74 +667,93 @@ export const optimizeMasteringParams = async (
   // レッド張り付き防止: 目標 True Peak は -1.0 dB 以上余裕を持たせる
   const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -1.0);
 
-  // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
+  // 分析用に複数セクション（前半/中盤/後半/末尾）を切り出し、
+  // 後半のみ歪むケースを見逃さないようにする。
   const chunkDuration = 10;
-  const startSample = Math.floor(originalBuffer.length / 2);
-  const endSample = Math.min(
-    startSample + originalBuffer.sampleRate * chunkDuration,
+  const startSamples = deriveSelfCorrectionWindowStarts(
     originalBuffer.length,
-  );
-  const length = endSample - startSample;
-
-  if (length <= 0) return { params: aiParams, measuredLufs: -60, measuredPeakDb: -100 };
-
-  const offlineCtx = new OfflineAudioContext(
-    originalBuffer.numberOfChannels,
-    length,
     originalBuffer.sampleRate,
+    chunkDuration,
   );
-  const chunkBuffer = offlineCtx.createBuffer(
-    originalBuffer.numberOfChannels,
-    length,
-    originalBuffer.sampleRate,
-  );
+  const chunkSamples = Math.max(1, Math.floor(originalBuffer.sampleRate * chunkDuration));
 
-  for (let ch = 0; ch < originalBuffer.numberOfChannels; ch++) {
-    const raw = originalBuffer.getChannelData(ch);
-    const chunk = chunkBuffer.getChannelData(ch);
-    for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
+  if (startSamples.length === 0 || chunkSamples <= 0) {
+    return { params: aiParams, measuredLufs: -60, measuredPeakDb: -100 };
   }
 
-  // [1] Self-Correction Loop — 本番と同一チェーンでレンダリングし、目標 LUFS との誤差を 0.1 dB 単位で補正する。
-  const source = offlineCtx.createBufferSource();
-  source.buffer = chunkBuffer;
-  buildMasteringChain(
-    offlineCtx,
-    source,
-    optimizedParams,
-    originalBuffer.numberOfChannels,
-    offlineCtx.destination,
-  );
+  const lufsMeasurements: number[] = [];
+  let measuredPeakDb = -100;
 
-  source.start(0);
-  const renderedBuffer = await offlineCtx.startRendering();
+  for (const startSample of startSamples) {
+    const endSample = Math.min(startSample + chunkSamples, originalBuffer.length);
+    const length = endSample - startSample;
+    if (length <= 0) continue;
 
-  // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
-  const data = renderedBuffer.getChannelData(0);
-  const sr = renderedBuffer.sampleRate;
-  const blockSamples = Math.max(1, Math.floor(0.4 * sr));
-  const blocks: number[] = [];
-  for (let i = 0; i + blockSamples <= data.length; i += blockSamples) {
-    let sumSq = 0;
-    for (let j = 0; j < blockSamples; j++) sumSq += data[i + j] * data[i + j];
-    const meanSq = sumSq / blockSamples;
-    if (meanSq > 1e-20) blocks.push(-0.691 + 10 * Math.log10(meanSq));
-  }
-  const measuredLUFS =
-    blocks.length === 0
-      ? -60
-      : 10 * Math.log10(blocks.reduce((acc, Lk) => acc + Math.pow(10, Lk / 10), 0) / blocks.length);
+    const offlineCtx = new OfflineAudioContext(
+      originalBuffer.numberOfChannels,
+      length,
+      originalBuffer.sampleRate,
+    );
+    const chunkBuffer = offlineCtx.createBuffer(
+      originalBuffer.numberOfChannels,
+      length,
+      originalBuffer.sampleRate,
+    );
 
-  // マスター実測 True Peak（全チャンネル・全サンプル）
-  let maxSample = 0;
-  for (let ch = 0; ch < renderedBuffer.numberOfChannels; ch++) {
-    const chan = renderedBuffer.getChannelData(ch);
-    for (let i = 0; i < chan.length; i++) {
-      const v = Math.abs(chan[i]);
-      if (v > maxSample) maxSample = v;
+    for (let ch = 0; ch < originalBuffer.numberOfChannels; ch++) {
+      const raw = originalBuffer.getChannelData(ch);
+      const chunk = chunkBuffer.getChannelData(ch);
+      for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
     }
+
+    // [1] Self-Correction Loop — 本番と同一チェーンでレンダリングし、目標 LUFS との誤差を補正する。
+    const source = offlineCtx.createBufferSource();
+    source.buffer = chunkBuffer;
+    buildMasteringChain(
+      offlineCtx,
+      source,
+      optimizedParams,
+      originalBuffer.numberOfChannels,
+      offlineCtx.destination,
+    );
+
+    source.start(0);
+    const renderedBuffer = await offlineCtx.startRendering();
+
+    // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
+    const data = renderedBuffer.getChannelData(0);
+    const sr = renderedBuffer.sampleRate;
+    const blockSamples = Math.max(1, Math.floor(0.4 * sr));
+    const blocks: number[] = [];
+    for (let i = 0; i + blockSamples <= data.length; i += blockSamples) {
+      let sumSq = 0;
+      for (let j = 0; j < blockSamples; j++) sumSq += data[i + j] * data[i + j];
+      const meanSq = sumSq / blockSamples;
+      if (meanSq > 1e-20) blocks.push(-0.691 + 10 * Math.log10(meanSq));
+    }
+    const windowLUFS =
+      blocks.length === 0
+        ? -60
+        : 10 * Math.log10(blocks.reduce((acc, Lk) => acc + Math.pow(10, Lk / 10), 0) / blocks.length);
+    lufsMeasurements.push(windowLUFS);
+
+    // マスター実測 True Peak（全チャンネル・全サンプル）
+    let maxSample = 0;
+    for (let ch = 0; ch < renderedBuffer.numberOfChannels; ch++) {
+      const chan = renderedBuffer.getChannelData(ch);
+      for (let i = 0; i < chan.length; i++) {
+        const v = Math.abs(chan[i]);
+        if (v > maxSample) maxSample = v;
+      }
+    }
+    const windowPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
+    measuredPeakDb = Math.max(measuredPeakDb, windowPeakDb);
   }
-  const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
+
+  const measuredLUFS =
+    lufsMeasurements.length === 0
+      ? -60
+      : lufsMeasurements.reduce((acc, v) => acc + v, 0) / lufsMeasurements.length;
 
   // --- 補正: 調整幅を抑えてつぶれを防ぐ（小さなステップ・ゆるい許容） ---
   const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 1.0;
