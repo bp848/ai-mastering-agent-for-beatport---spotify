@@ -12,13 +12,13 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({ currentTarget, onTa
   const { t } = useTranslation();
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-3 sm:gap-4 flex-wrap">
       <button
         onClick={() => onTargetChange('beatport')}
-        className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all touch-manipulation ${
+        className={`px-6 py-3.5 min-h-[52px] rounded-2xl text-base sm:text-lg font-bold transition-all touch-manipulation ${
           currentTarget === 'beatport'
-            ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
-            : 'bg-white/5 text-zinc-400 border border-transparent hover:bg-white/10 hover:text-zinc-300'
+            ? 'bg-cyan-500/30 text-cyan-200 border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/20'
+            : 'bg-white/5 text-zinc-400 border-2 border-white/10 hover:bg-white/10 hover:text-zinc-300 hover:border-white/20'
         }`}
         aria-pressed={currentTarget === 'beatport'}
       >
@@ -26,10 +26,10 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({ currentTarget, onTa
       </button>
       <button
         onClick={() => onTargetChange('spotify')}
-        className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all touch-manipulation ${
+        className={`px-6 py-3.5 min-h-[52px] rounded-2xl text-base sm:text-lg font-bold transition-all touch-manipulation ${
           currentTarget === 'spotify'
-            ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
-            : 'bg-white/5 text-zinc-400 border border-transparent hover:bg-white/10 hover:text-zinc-300'
+            ? 'bg-cyan-500/30 text-cyan-200 border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/20'
+            : 'bg-white/5 text-zinc-400 border-2 border-white/10 hover:bg-white/10 hover:text-zinc-300 hover:border-white/20'
         }`}
         aria-pressed={currentTarget === 'spotify'}
       >

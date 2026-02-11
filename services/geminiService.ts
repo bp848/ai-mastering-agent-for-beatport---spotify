@@ -1,8 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, EQAdjustment } from '../types';
-import { getPlatformSpecifics } from './masteringPrompts';
-import { resolveMasteringDecision } from './aiDebateService';
-import { deriveMasteringParamsFromDecision } from './masteringDerivation';
+import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
 
 /** AI 出力を安全範囲にクランプし、精度・割れの原因を除去する（Gemini/OpenAI 共通） */
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
@@ -18,12 +17,6 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
     width_amount: Math.max(1.0, Math.min(1.4, Number(raw.width_amount) ?? 1)),
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
-  if (raw.tube_hpf_hz != null) safe.tube_hpf_hz = Number(raw.tube_hpf_hz);
-  if (raw.exciter_hpf_hz != null) safe.exciter_hpf_hz = Number(raw.exciter_hpf_hz);
-  if (raw.transient_attack_s != null) safe.transient_attack_s = Number(raw.transient_attack_s);
-  if (raw.transient_release_s != null) safe.transient_release_s = Number(raw.transient_release_s);
-  if (raw.limiter_attack_s != null) safe.limiter_attack_s = Number(raw.limiter_attack_s);
-  if (raw.limiter_release_s != null) safe.limiter_release_s = Number(raw.limiter_release_s);
   return safe;
 }
 
@@ -58,24 +51,68 @@ function sanitizeEq(eq: Partial<EQAdjustment>): EQAdjustment {
   };
 }
 
+const getMasteringParamsSchema = () => {
+  return {
+      type: Type.OBJECT,
+      properties: {
+        gain_adjustment_db: { type: Type.NUMBER, description: 'Gain value to reach exact target LUFS.' },
+        limiter_ceiling_db: { type: Type.NUMBER, description: 'Final limiter ceiling value (dBTP).' },
+        eq_adjustments: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, description: "Filter type: 'lowshelf', 'highshelf', or 'peak'." },
+              frequency: { type: Type.NUMBER, description: "Center frequency in Hz." },
+              gain_db: { type: Type.NUMBER, description: "Gain adjustment in dB." },
+              q: { type: Type.NUMBER, description: "Q factor." },
+            },
+            required: ['type', 'frequency', 'gain_db', 'q'],
+          },
+        },
+        // ★ Signature Engine Parameters
+        tube_drive_amount:   { type: Type.NUMBER, description: 'Tube saturation drive (0.0–3.0). 0 = bypass if crest factor < 9. 1.0–2.0 for warmth. Avoid >2.5.' },
+        exciter_amount:      { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.15). Adds shimmer; keep low if highs already present.' },
+        low_contour_amount:  { type: Type.NUMBER, description: 'Pultec sub-bass contour (0.0–1.0). 0 = bypass. ~0.5–0.8 tightens kick without mud.' },
+        width_amount:        { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.4). Do not exceed 1.25 unless mix is very narrow.' },
+      },
+      required: [
+        'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
+        'tube_drive_amount', 'exciter_amount', 'low_contour_amount',
+        'width_amount',
+      ],
+    };
+}
+
 export interface MasteringSuggestionsResult {
   params: MasteringParams;
   rawResponseText: string;
 }
 
-/**
- * 議論レイヤー（Gemini→GPT→合意）で AIDecision を確定し、
- * 分析値＋意図から DSP パラメータを導出 → クランプ → 安全ガード の順で適用する。
- */
-export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, language: 'ja' | 'en'): Promise<MasteringSuggestionsResult> => {
+export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, _language: 'ja' | 'en'): Promise<MasteringSuggestionsResult> => {
+    const specifics = getPlatformSpecifics(target);
+    const prompt = generateMasteringPrompt(data, specifics);
+    const schema = getMasteringParamsSchema();
+
   try {
-    const { decision, rawResponseText } = await resolveMasteringDecision(data, target, language);
-    const derived = deriveMasteringParamsFromDecision(decision, data, target);
-    const clamped = clampMasteringParams(derived);
-    const params = applySafetyGuard(clamped, data);
-    return { params, rawResponseText };
+    const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      },
+    });
+
+    const jsonText = response.text?.trim();
+    if (!jsonText) throw new Error("error.gemini.invalid_params");
+    const parsed = JSON.parse(jsonText) as MasteringParams;
+    const clamped = clampMasteringParams(parsed);
+    return { params: applySafetyGuard(clamped, data), rawResponseText: jsonText };
   } catch (error) {
-    console.error("Gemini mastering failed:", error);
+    console.error("Gemini calculation failed:", error);
     throw new Error("error.gemini.fail");
   }
 };

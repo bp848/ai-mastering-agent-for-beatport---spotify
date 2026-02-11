@@ -16,7 +16,7 @@
   --text-secondary: #a1a1aa;
   --gradient-start: #0c0c12;
   --gradient-end: #0f172a;
-  /* 可読性: フォント約1.2倍 */
+  /* 可読性: ベースを 1.2 倍に（html で 120% 指定と合わせて全体約20%拡大） */
   --text-tiny: 0.6875rem;
   --text-caption: 0.8125rem;
   --text-body: 0.9375rem;
@@ -28,6 +28,7 @@
 }
 
 html {
+  font-size: 120%; /* 全体のフォントを約20%拡大 */
   -webkit-tap-highlight-color: transparent;
 }
 

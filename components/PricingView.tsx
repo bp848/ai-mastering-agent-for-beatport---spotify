@@ -17,6 +17,8 @@ interface PlanCard {
   priceLabel: string;
   priceLabelEn: string;
   perTrack?: number;
+  /** 購入時にチャージするダウンロード回数（未指定は 1） */
+  tokenCount?: number;
   features: string[];
   featuresEn: string[];
   best?: boolean;
@@ -25,74 +27,75 @@ interface PlanCard {
 const SHOT_CARDS: PlanCard[] = [
   {
     name: 'Basic', nameEn: 'Basic',
-    price: 1000, priceLabel: '¥1,000', priceLabelEn: '¥1,000',
+    price: 1000, priceLabel: '¥1,000', priceLabelEn: '$7',
+    tokenCount: 1,
     features: ['WAV 16bit / 44.1kHz', 'Tube Saturation', 'Neuro-Drive Engine', 'プレビュー無制限'],
     featuresEn: ['WAV 16bit / 44.1kHz', 'Tube Saturation', 'Neuro-Drive Engine', 'Unlimited previews'],
   },
   {
     name: 'Pro 10', nameEn: 'Pro 10',
-    price: 10000, priceLabel: '¥10,000', priceLabelEn: '¥10,000',
-    perTrack: 1000,
+    price: 10000, priceLabel: '¥10,000', priceLabelEn: '$67',
+    perTrack: 1000, tokenCount: 10,
     features: ['10曲パック', '全DSP機能', 'Self-Correction Loop', 'プレビュー無制限'],
     featuresEn: ['10-track pack', 'Full DSP chain', 'Self-Correction Loop', 'Unlimited previews'],
   },
   {
     name: 'Pro 30', nameEn: 'Pro 30',
-    price: 20000, priceLabel: '¥20,000', priceLabelEn: '¥20,000',
-    perTrack: 667, best: true,
+    price: 20000, priceLabel: '¥20,000', priceLabelEn: '$133',
+    perTrack: 667, best: true, tokenCount: 30,
     features: ['30曲パック', '全DSP機能', 'Self-Correction Loop', '優先処理', '1曲あたり ¥667'],
-    featuresEn: ['30-track pack', 'Full DSP chain', 'Self-Correction Loop', 'Priority processing', '¥667 per track'],
+    featuresEn: ['30-track pack', 'Full DSP chain', 'Self-Correction Loop', 'Priority processing', '$4.45/track'],
   },
   {
     name: 'Studio 50', nameEn: 'Studio 50',
-    price: 30000, priceLabel: '¥30,000', priceLabelEn: '¥30,000',
-    perTrack: 600,
+    price: 30000, priceLabel: '¥30,000', priceLabelEn: '$200',
+    perTrack: 600, tokenCount: 50,
     features: ['50曲パック', '全DSP機能', '優先処理', '1曲あたり ¥600'],
-    featuresEn: ['50-track pack', 'Full DSP chain', 'Priority processing', '¥600 per track'],
+    featuresEn: ['50-track pack', 'Full DSP chain', 'Priority processing', '$4/track'],
   },
   {
     name: 'Studio 100', nameEn: 'Studio 100',
-    price: 50000, priceLabel: '¥50,000', priceLabelEn: '¥50,000',
-    perTrack: 500,
+    price: 50000, priceLabel: '¥50,000', priceLabelEn: '$333',
+    perTrack: 500, tokenCount: 100,
     features: ['100曲パック', '全DSP機能', '優先処理', '1曲あたり ¥500'],
-    featuresEn: ['100-track pack', 'Full DSP chain', 'Priority processing', '¥500 per track'],
+    featuresEn: ['100-track pack', 'Full DSP chain', 'Priority processing', '$3.33/track'],
   },
 ];
 
 const SUBSCRIPTION_CARDS: PlanCard[] = [
   {
     name: 'Monthly 30', nameEn: 'Monthly 30',
-    price: 10000, priceLabel: '¥10,000/月', priceLabelEn: '¥10,000/mo',
-    perTrack: 333,
+    price: 10000, priceLabel: '¥10,000/月', priceLabelEn: '$67/mo',
+    perTrack: 333, tokenCount: 30,
     features: ['30曲/月', '全DSP機能', 'Self-Correction Loop', '1曲あたり ¥333'],
-    featuresEn: ['30 tracks/mo', 'Full DSP chain', 'Self-Correction Loop', '¥333 per track'],
+    featuresEn: ['30 tracks/mo', 'Full DSP chain', 'Self-Correction Loop', '$2.22/track'],
   },
   {
     name: 'Monthly 50', nameEn: 'Monthly 50',
-    price: 30000, priceLabel: '¥30,000/月', priceLabelEn: '¥30,000/mo',
-    perTrack: 600, best: true,
+    price: 30000, priceLabel: '¥30,000/月', priceLabelEn: '$200/mo',
+    perTrack: 600, best: true, tokenCount: 50,
     features: ['50曲/月', '全DSP機能', '優先処理', 'Neuro-Drive 最適化', '1曲あたり ¥600'],
-    featuresEn: ['50 tracks/mo', 'Full DSP chain', 'Priority processing', 'Neuro-Drive optimized', '¥600 per track'],
+    featuresEn: ['50 tracks/mo', 'Full DSP chain', 'Priority processing', 'Neuro-Drive optimized', '$4/track'],
   },
   {
     name: 'Monthly 100', nameEn: 'Monthly 100',
-    price: 50000, priceLabel: '¥50,000/月', priceLabelEn: '¥50,000/mo',
-    perTrack: 500,
+    price: 50000, priceLabel: '¥50,000/月', priceLabelEn: '$333/mo',
+    perTrack: 500, tokenCount: 100,
     features: ['100曲/月', '全DSP機能', '優先処理', 'API利用可', '1曲あたり ¥500'],
-    featuresEn: ['100 tracks/mo', 'Full DSP chain', 'Priority processing', 'API access', '¥500 per track'],
+    featuresEn: ['100 tracks/mo', 'Full DSP chain', 'Priority processing', 'API access', '$3.33/track'],
   },
 ];
 
 const ENTERPRISE_CARDS: PlanCard[] = [
   {
     name: 'セルフデプロイ', nameEn: 'Self-Deploy',
-    price: 100000, priceLabel: '¥100,000', priceLabelEn: '¥100,000',
+    price: 100000, priceLabel: '¥100,000', priceLabelEn: '$670',
     features: ['アプリケーション買い切り', '自社サーバーで運用', '無制限トラック', '技術サポート 30日'],
     featuresEn: ['Application purchase', 'Run on your servers', 'Unlimited tracks', '30-day tech support'],
   },
   {
     name: 'ホワイトラベル', nameEn: 'White Label',
-    price: 200000, priceLabel: '¥200,000', priceLabelEn: '¥200,000',
+    price: 200000, priceLabel: '¥200,000', priceLabelEn: '$1,330',
     features: ['ブランドカスタマイズ', '再販ライセンス', '無制限トラック', '技術サポート 90日'],
     featuresEn: ['Brand customization', 'Resale license', 'Unlimited tracks', '90-day tech support'],
   },
@@ -125,7 +128,7 @@ const Card: React.FC<{
       </span>
       {plan.perTrack && (
         <span className="text-xs text-zinc-500 ml-2">
-          ({isJa ? `¥${plan.perTrack}/曲` : `¥${plan.perTrack}/track`})
+          ({isJa ? `¥${plan.perTrack}/曲` : `$${(plan.perTrack / 150).toFixed(2)}/track`})
         </span>
       )}
     </div>
@@ -170,10 +173,12 @@ export default function PricingView() {
       setError(null);
       setLoading(true);
       try {
+        const tokenCount = plan.tokenCount ?? 1;
         const { url } = await createCheckoutSession(
           accessToken,
           plan.price,
-          isJa ? plan.name : plan.nameEn
+          isJa ? plan.name : plan.nameEn,
+          tokenCount
         );
         window.location.href = url;
       } catch (e) {

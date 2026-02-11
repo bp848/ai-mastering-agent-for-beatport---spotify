@@ -36,27 +36,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('email', user.email ?? '')
     .maybeSingle();
   if (adminRow) {
-    return res.status(200).json({ allowed: true });
+    return res.status(200).json({ allowed: true, remaining: null });
   }
 
-  // 一般ユーザー: service role で download_tokens を確認（RLSを超えて確実に判定）
+  // 一般ユーザー: service role で download_tokens 件数を確認
   if (!supabaseServiceKey) {
     return res.status(500).json({ allowed: false, code: 'server_config' });
   }
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
-  const { data: tokenRow, error: tokenError } = await supabaseAdmin
+  const { count, error: tokenError } = await supabaseAdmin
     .from('download_tokens')
-    .select('token')
+    .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
-    .eq('paid', true)
-    .limit(1)
-    .maybeSingle();
+    .eq('paid', true);
   if (tokenError) {
     console.error('check-download-entitlement:', tokenError);
     return res.status(403).json({ allowed: false, code: 'db_error' });
   }
-  if (tokenRow) {
-    return res.status(200).json({ allowed: true });
+  const remaining = count ?? 0;
+  if (remaining > 0) {
+    return res.status(200).json({ allowed: true, remaining });
   }
-  return res.status(403).json({ allowed: false, code: 'no_entitlement' });
+  return res.status(403).json({ allowed: false, remaining: 0, code: 'no_entitlement' });
 }

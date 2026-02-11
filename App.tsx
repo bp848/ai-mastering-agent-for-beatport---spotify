@@ -24,6 +24,7 @@ import HeroEngine from './components/HeroEngine';
 import AnalysisTerminal from './components/AnalysisTerminal';
 import StatusLoader from './components/StatusLoader';
 import DiagnosisReport from './components/DiagnosisReport';
+import PlatformSelector from './components/PlatformSelector';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
 import { recordDownload } from './services/downloadHistory';
@@ -357,6 +358,21 @@ const AppContent: React.FC = () => {
       setShowPaywall(true);
       return;
     }
+    // ダウンロード実行前にトークン1件消費（管理者は消費されない）
+    try {
+      const consumeRes = await fetch(`${base}/api/consume-download-token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const consumeData = await consumeRes.json().catch(() => ({}));
+      if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) {
+        setShowPaywall(true);
+        return;
+      }
+    } catch (_) {
+      setShowPaywall(true);
+      return;
+    }
     try {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
@@ -367,7 +383,7 @@ const AppContent: React.FC = () => {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
-      await recordDownload(session.user.id, audioFile.name, masteringTarget, 1000);
+      await recordDownload(session.user.id, audioFile.name, masteringTarget);
     } catch (e) {
       setError(t('error.download.fail'));
     } finally {
@@ -544,10 +560,23 @@ const AppContent: React.FC = () => {
             ))}
           </div>
 
-          {/* ── Upload Area ── */}
-          <div className="glass rounded-2xl p-4 sm:p-8">
+          {/* ── 無料コピー ＋ Beatport / Spotify を目立たせる ── */}
+          <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
+            <p className="text-center text-sm sm:text-base text-zinc-300 font-medium" id="free-mastering-copy">
+              {t('ux.free_mastering_copy')}
+            </p>
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-[10px] sm:text-xs uppercase tracking-wider text-zinc-500 font-medium">
+                {t('platform_selector.title')}
+              </span>
+              <PlatformSelector currentTarget={masteringTarget} onTargetChange={setMasteringTarget} />
+            </div>
+          </div>
+
+          {/* ── ファイル選択（コンパクト・ドラッグ領域なし） ── */}
+          <div className="glass rounded-2xl p-4 sm:p-6">
             {!audioFile && !isProcessing && (
-              <p className="text-center text-sm font-medium text-white mb-3" id="upload-instruction">
+              <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
                 {t('ux.upload_first')}
               </p>
             )}
@@ -556,6 +585,7 @@ const AppContent: React.FC = () => {
               fileName={audioFile?.name}
               isAnalyzing={isProcessing}
               pyodideStatus={pyodideStatus}
+              compact
             />
             {error && (
               <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
@@ -644,7 +674,7 @@ const AppContent: React.FC = () => {
         <footer className="mt-8 sm:mt-12 py-4 sm:py-6 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 flex-wrap gap-2">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
           <div className="flex items-center gap-3 flex-wrap">
-            <a className="hover:text-cyan-400 transition-colors" href="/operator.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-cyan-400 transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
               {language === 'ja' ? '運営者情報' : 'Operator'}
             </a>
             <a className="hover:text-cyan-400 transition-colors" href="/terms.html" target="_blank" rel="noreferrer">

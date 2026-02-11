@@ -8,9 +8,11 @@ interface FileUploadProps {
   fileName?: string;
   isAnalyzing: boolean;
   pyodideStatus: string;
+  /** true のときドラッグ＆ドロップ領域を出さず、ボタン＋ファイル名のみの1行表示 */
+  compact?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnalyzing, pyodideStatus }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnalyzing, pyodideStatus, compact = false }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -64,6 +66,50 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
       handleClick();
     }
   };
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
+          accept="audio/*,.wav,.mp3,.aiff,.aif,.m4a"
+          disabled={isDisabled}
+        />
+        {!isReady ? (
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 shrink-0 text-cyan-400">
+              <Spinner />
+            </div>
+            <span className="text-sm text-zinc-400">{t('upload.pyodide.loading')}</span>
+          </div>
+        ) : isAnalyzing ? (
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 shrink-0 text-cyan-400">
+              <Spinner />
+            </div>
+            <span className="text-sm text-zinc-400">{t('upload.analyzing')}</span>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleClick(); }}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
+              aria-label={t('upload.aria.label')}
+            >
+              {t('ux.select_file_button')}
+            </button>
+            {fileName && (
+              <span className="text-sm text-cyan-400 truncate max-w-[200px] sm:max-w-none">{fileName}</span>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

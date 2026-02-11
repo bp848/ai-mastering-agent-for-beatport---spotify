@@ -3,7 +3,7 @@ import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../typ
 import AnalysisDisplay from './AnalysisDisplay';
 import MasteringAgent from './MasteringAgent';
 import Console, { type ActionLog } from './Console';
-import { Spinner, DownloadIcon } from './Icons';
+import { Spinner, DownloadIcon, CardIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface ResultsModalProps {
@@ -260,7 +260,7 @@ export default function ResultsModal({
                   </>
                 ) : (
                   <>
-                    <DownloadIcon />
+                    <CardIcon className="w-5 h-5 shrink-0" />
                     <span className="whitespace-nowrap">{purchaseLabel}</span>
                   </>
                 )}

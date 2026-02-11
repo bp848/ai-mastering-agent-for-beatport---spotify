@@ -52,6 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = event.data.object as Stripe.Checkout.Session;
   const userId = session.client_reference_id || session.metadata?.user_id;
   const amountCents = session.metadata?.amount_cents ? parseInt(session.metadata.amount_cents, 10) : (session.amount_total ?? 0);
+  const tokenCount = session.metadata?.token_count ? Math.max(1, Math.min(1000, parseInt(session.metadata.token_count, 10))) : 1;
 
   if (!userId || !supabaseServiceKey) {
     console.error('Webhook: missing user_id or SUPABASE_SERVICE_ROLE_KEY');
@@ -60,15 +61,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
 
-  // 1) ダウンロード権限付与（download_tokens）
-  const { error: tokenError } = await supabase.from('download_tokens').insert({
+  // 1) ダウンロード権限付与（download_tokens）— プランに応じて N 件挿入（回数分チャージ）
+  const rows = Array.from({ length: tokenCount }, () => ({
     user_id: userId,
     file_path: 'pack',
     file_name: 'pack',
     mastering_target: 'beatport',
     amount_cents: amountCents,
     paid: true,
-  });
+  }));
+  const { error: tokenError } = await supabase.from('download_tokens').insert(rows);
   if (tokenError) {
     console.error('Webhook: insert download_tokens failed', tokenError);
     return res.status(500).json({ error: 'Database error' });

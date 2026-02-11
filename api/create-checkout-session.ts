@@ -28,9 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid or expired token', code: 'auth_failed' });
   }
 
-  const body = req.body as { amountCents?: number; planName?: string };
+  const body = req.body as { amountCents?: number; planName?: string; tokenCount?: number };
   const amountCents = Number(body?.amountCents);
   const planName = typeof body?.planName === 'string' ? body.planName : 'Download pack';
+  const tokenCount = Math.max(1, Math.min(1000, Math.floor(Number(body?.tokenCount) || 1)));
   if (!Number.isInteger(amountCents) || amountCents < 100) {
     return res.status(400).json({ error: 'Invalid amountCents (min 100)', code: 'bad_request' });
   }
@@ -61,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       metadata: {
         user_id: user.id,
         amount_cents: String(amountCents),
+        token_count: String(tokenCount),
       },
     });
 

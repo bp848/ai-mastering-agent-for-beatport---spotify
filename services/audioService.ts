@@ -408,11 +408,11 @@ export const buildMasteringChain = (
     lastNode = tubeShaper;
   }
 
-  // [3] Pultec Style Low-End — コンセプト体現: 導出HPF or 30Hz以下カット＋その直上をレゾナンスで音楽的に強調
+  // [3] Pultec Style Low-End — コンセプト体現: 30Hz以下カット＋その直上をレゾナンスで音楽的に強調
   if (params.low_contour_amount > 0) {
     const subCut = ctx.createBiquadFilter();
     subCut.type = 'highpass';
-    subCut.frequency.value = params.tube_hpf_hz != null ? Math.max(20, Math.min(120, params.tube_hpf_hz)) : 30;
+    subCut.frequency.value = 30;
     subCut.Q.value = 0.707;
     lastNode.connect(subCut);
     lastNode = subCut;
@@ -444,7 +444,7 @@ export const buildMasteringChain = (
   if (params.exciter_amount > 0) {
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = params.exciter_hpf_hz != null ? Math.max(4000, Math.min(12000, params.exciter_hpf_hz)) : 6000;
+    hp.frequency.value = 6000;
     hp.Q.value = 0.5;
 
     const shaper = ctx.createWaveShaper();
@@ -522,8 +522,8 @@ export const buildMasteringChain = (
   hyperComp.threshold.value = -26;
   hyperComp.knee.value = 10;
   hyperComp.ratio.value = 3;
-  hyperComp.attack.value = params.transient_attack_s != null ? Math.max(0.005, Math.min(0.1, params.transient_attack_s)) : 0.02;
-  hyperComp.release.value = params.transient_release_s != null ? Math.max(0.05, Math.min(0.5, params.transient_release_s)) : 0.25;
+  hyperComp.attack.value = 0.02;
+  hyperComp.release.value = 0.25;
   lastNode.connect(hyperComp);
 
   const energyFilter = ctx.createBiquadFilter();
@@ -556,8 +556,7 @@ export const buildMasteringChain = (
 
   // [4] Soft Clipper → Limiter（ここでコード側の固定ゲインは入れない。AI のゲインをそのまま使う） — 閾値手前から tanh で丸め、リミッターは Attack 極短でトランジェント潰しを最小化。
   const limiterCeilingDb = params.limiter_ceiling_db ?? -0.3;
-  const clipperMarginDb = params.transient_attack_s != null ? Math.min(0.5, Math.max(0.1, params.transient_attack_s * 10)) : 0.3;
-  const clipperThreshold = Math.max(0.92, Math.min(0.99, dbToLinear(limiterCeilingDb - clipperMarginDb)));
+  const clipperThreshold = Math.max(0.92, Math.min(0.99, dbToLinear(limiterCeilingDb - 0.3)));
   const clipper = ctx.createWaveShaper();
   clipper.curve = asCurve(makeClipperCurve(clipperThreshold));
   clipper.oversample = '4x';
@@ -570,8 +569,8 @@ export const buildMasteringChain = (
   // WebAudio の DynamicsCompressor は「完全なブリックウォール」ではないため、
   // 比率とアタックを強めてピークの突き抜けを抑える
   limiter.ratio.value = 20;
-  limiter.attack.value = params.limiter_attack_s != null ? Math.max(0.0003, Math.min(0.005, params.limiter_attack_s)) : 0.001;
-  limiter.release.value = params.limiter_release_s != null ? Math.max(0.05, Math.min(0.2, params.limiter_release_s)) : 0.12;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.12;
   lastNode.connect(limiter);
   lastNode = limiter;
 
