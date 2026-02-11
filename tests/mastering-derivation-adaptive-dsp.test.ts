@@ -56,8 +56,9 @@ describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
       'beatport',
     );
 
-    expect(derived.width_amount).toBeLessThanOrEqual(1.05);
-    expect(derived.low_contour_amount).toBeLessThan(0.25);
+    expect(derived.width_amount).toBeLessThanOrEqual(1.02);
+    expect(derived.low_contour_amount).toBeGreaterThanOrEqual(0.18);
+    expect(derived.low_contour_amount).toBeLessThanOrEqual(0.3);
     expect(derived.low_mono_hz).toBeGreaterThanOrEqual(220);
   });
 
@@ -85,7 +86,32 @@ describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
     expect(derived.eq_adjustments.some((eq) => eq.frequency === 700 && eq.gain_db > 0)).toBe(true);
   });
 
-  it('clamps low_mono_hz in safety layer', () => {
+
+  it('does not add harmonic boost when distortion risk is already present', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      decisionBase,
+      analysisBase({
+        bassVolume: -12,
+        distortionPercent: 0.6,
+        phaseCorrelation: 0.8,
+        crestFactor: 10,
+        truePeak: -1.5,
+        frequencyData: [
+          { name: '20-60', level: -18 },
+          { name: '60-250', level: -12 },
+          { name: '250-1k', level: -34 },
+          { name: '1k-4k', level: -36 },
+          { name: '4k-8k', level: -44 },
+          { name: '8k-20k', level: -48 },
+        ],
+      }),
+      'beatport',
+    );
+
+    expect(derived.eq_adjustments.some((eq) => eq.frequency === 700 && eq.gain_db > 0)).toBe(false);
+  });
+
+    it('clamps low_mono_hz in safety layer', () => {
     const clamped = clampMasteringParams({
       gain_adjustment_db: 0,
       limiter_ceiling_db: -1,

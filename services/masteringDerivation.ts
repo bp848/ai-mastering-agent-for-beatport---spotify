@@ -41,26 +41,27 @@ export function deriveMasteringParamsFromDecision(
     (subBass > -14 && bass > -12 ? 1 : 0) +
     (peak > -0.9 ? 1 : 0);
 
-  const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
-  const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  const tubeDrive = Math.max(0, Math.min(3, baseTubeDrive + harmonicLift));
+  const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.35 && phase > 0.35 && crest > 9.5 && peak < -1.2;
+  const harmonicLift = canAddBassHarmonics ? Math.min(0.45, (-Math.min(-10, bass) - 10) * 0.04 + 0.15) : 0;
+  const antiDistortionScale = lowEndCollisionRisk >= 3 ? 0.5 : lowEndCollisionRisk === 2 ? 0.7 : dist > 0.8 ? 0.75 : 1.0;
+  const tubeDrive = Math.max(0, Math.min(3, (baseTubeDrive + harmonicLift) * antiDistortionScale));
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
     decision.highFreqTreatment === 'polish' ? (high8k > -40 ? 0.02 : (-high8k - 40) / 2000) :
     Math.min(0.15, (-high4k - 30) / 500);
-  const exciterAmount = Math.max(0, Math.min(0.2, exciterRaw));
+  const exciterAmount = Math.max(0, Math.min(lowEndCollisionRisk >= 3 ? 0.08 : 0.2, exciterRaw));
 
   const lowContourBase = Math.max(0, Math.min(1, (bass + 50) / 50 * 0.5 + (decision.kickSafety === 'danger' ? 0.2 : 0)));
   const lowContour = lowEndCollisionRisk >= 3
-    ? Math.max(0, lowContourBase - 0.25)
+    ? Math.max(0.18, Math.min(0.55, lowContourBase - 0.15))
     : Math.min(1, lowContourBase + (canAddBassHarmonics ? 0.08 : 0));
 
   const widthAmountRaw =
     decision.stereoIntent === 'monoSafe' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
-  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
+  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.02) : widthAmountRaw;
 
   const lowMonoHz = Math.round(Math.max(120, Math.min(280,
     140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),
@@ -73,7 +74,8 @@ export function deriveMasteringParamsFromDecision(
     decision.transientHandling === 'preserve' ? 0.01 :
     decision.transientHandling === 'soften' ? 0.02 + (1 / (Math.abs(gainBounded) + 1)) * 0.02 :
     0.03 + (1 / (Math.abs(gainBounded) + 1)) * 0.03;
-  const transientRelease = Math.max(0.1, Math.min(0.5, (lowContour + exciterAmount + 1) / (Math.abs(gainBounded) + 1) * 0.15));
+  const transientReleaseBase = Math.max(0.1, Math.min(0.5, (lowContour + exciterAmount + 1) / (Math.abs(gainBounded) + 1) * 0.15));
+  const transientRelease = lowEndCollisionRisk >= 3 ? Math.min(0.22, transientReleaseBase) : transientReleaseBase;
 
   const limiterAttack = Math.max(0.0005, Math.min(0.003, (widthAmount / (Math.abs(tubeDrive) + Math.abs(gainBounded) + 1)) * 0.002));
   const limiterRelease = Math.max(0.05, Math.min(0.2, (lowContour + exciterAmount + widthAmount) / (Math.abs(gainBounded) + 1) * 0.08));
@@ -99,7 +101,7 @@ export function deriveMasteringParamsFromDecision(
     eqAdjustments.push({
       type: 'peak',
       frequency: 700,
-      gain_db: Math.min(1.8, 0.6 + (-24 - lowMid) * 0.04),
+      gain_db: Math.min(1.2, 0.4 + (-24 - lowMid) * 0.03),
       q: 0.9,
     });
   }

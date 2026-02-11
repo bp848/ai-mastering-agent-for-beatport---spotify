@@ -35,14 +35,16 @@ export function applySafetyGuard(
 ): MasteringParams {
   const peakHot = analysis.truePeak > -1; // dBTP が -1 より上はピーク過多
   const lowCrest = analysis.crestFactor < 9 && analysis.crestFactor > 0;
-  const highDistortion = analysis.distortionPercent > 2;
+  const highDistortion = analysis.distortionPercent > 1;
   if (!peakHot && !lowCrest && !highDistortion) return params;
 
   const out = { ...params };
   if (peakHot || lowCrest || highDistortion) {
     out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -0.3);
-    out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
-    out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
+    out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.5);
+    out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.4);
+    out.low_contour_amount = Math.max(0.2, Math.min(0.6, (out.low_contour_amount ?? 0.4) - 0.1));
+    out.width_amount = Math.min(out.width_amount ?? 1.0, 1.1);
   }
   return out;
 }

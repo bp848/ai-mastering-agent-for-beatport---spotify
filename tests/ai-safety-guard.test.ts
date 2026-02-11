@@ -56,7 +56,17 @@ describe('applySafetyGuard', () => {
     expect(out.tube_drive_amount).toBeLessThan(1.5);
   });
 
-  it('reduces when distortion is high', () => {
+
+  it('treats moderate distortion as dangerous and tightens width/contour', () => {
+    const params = baseParams({ exciter_amount: 0.1, width_amount: 1.25, low_contour_amount: 0.8 });
+    const analysis = baseAnalysis({ distortionPercent: 1.2 });
+    const out = applySafetyGuard(params, analysis);
+    expect(out.exciter_amount).toBeLessThan(0.1);
+    expect(out.width_amount).toBeLessThanOrEqual(1.1);
+    expect(out.low_contour_amount).toBeLessThan(0.8);
+  });
+
+    it('reduces when distortion is high', () => {
     const params = baseParams({ exciter_amount: 0.1 });
     const analysis = baseAnalysis({ distortionPercent: 5 });
     const out = applySafetyGuard(params, analysis);
