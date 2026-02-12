@@ -47,7 +47,7 @@
 }
 
 html {
-  font-size: 120%; /* 全体のフォントを約20%拡大 */
+  font-size: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
