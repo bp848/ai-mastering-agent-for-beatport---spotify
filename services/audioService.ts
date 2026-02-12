@@ -328,6 +328,86 @@ const makeBrickwallCurve = (): Float32Array => {
 };
 
 const dbToLinear = (db: number): number => Math.pow(10, db / 20);
+export const MASTERING_OVERSAMPLE_FACTOR = 32;
+
+const upsampleBufferLinear = (
+  source: AudioBuffer,
+  ctx: OfflineAudioContext,
+  factor: number,
+): AudioBuffer => {
+  if (factor <= 1) return source;
+  const upLength = source.length * factor;
+  const upsampled = ctx.createBuffer(source.numberOfChannels, upLength, ctx.sampleRate);
+
+  for (let ch = 0; ch < source.numberOfChannels; ch++) {
+    const src = source.getChannelData(ch);
+    const dst = upsampled.getChannelData(ch);
+    for (let i = 0; i < upLength; i++) {
+      const srcPos = i / factor;
+      const base = Math.floor(srcPos);
+      const next = Math.min(base + 1, src.length - 1);
+      const frac = srcPos - base;
+      dst[i] = src[base] + (src[next] - src[base]) * frac;
+    }
+  }
+
+  return upsampled;
+};
+
+const renderWithOversampledContext = async (
+  originalBuffer: AudioBuffer,
+  params: MasteringParams,
+): Promise<AudioBuffer> => {
+  const factor = MASTERING_OVERSAMPLE_FACTOR;
+  if (factor <= 1) {
+    const offlineCtx = new OfflineAudioContext(
+      originalBuffer.numberOfChannels,
+      originalBuffer.length,
+      originalBuffer.sampleRate,
+    );
+    const source = offlineCtx.createBufferSource();
+    source.buffer = originalBuffer;
+    buildMasteringChain(
+      offlineCtx,
+      source,
+      params,
+      originalBuffer.numberOfChannels,
+      offlineCtx.destination,
+    );
+    source.start(0);
+    return offlineCtx.startRendering();
+  }
+
+  const oversampledCtx = new OfflineAudioContext(
+    originalBuffer.numberOfChannels,
+    originalBuffer.length * factor,
+    originalBuffer.sampleRate * factor,
+  );
+
+  const oversampledInput = upsampleBufferLinear(originalBuffer, oversampledCtx, factor);
+  const oversampledSource = oversampledCtx.createBufferSource();
+  oversampledSource.buffer = oversampledInput;
+  buildMasteringChain(
+    oversampledCtx,
+    oversampledSource,
+    params,
+    originalBuffer.numberOfChannels,
+    oversampledCtx.destination,
+  );
+  oversampledSource.start(0);
+
+  const oversampledRender = await oversampledCtx.startRendering();
+  const downsampleCtx = new OfflineAudioContext(
+    oversampledRender.numberOfChannels,
+    originalBuffer.length,
+    originalBuffer.sampleRate,
+  );
+  const downsampleSource = downsampleCtx.createBufferSource();
+  downsampleSource.buffer = oversampledRender;
+  downsampleSource.connect(downsampleCtx.destination);
+  downsampleSource.start(0);
+  return downsampleCtx.startRendering();
+};
 
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
@@ -649,12 +729,12 @@ export const optimizeMasteringParams = async (
 
   if (length <= 0) return { params: aiParams, measuredLufs: -60, measuredPeakDb: -100 };
 
-  const offlineCtx = new OfflineAudioContext(
+  const tempCtx = new OfflineAudioContext(
     originalBuffer.numberOfChannels,
     length,
     originalBuffer.sampleRate,
   );
-  const chunkBuffer = offlineCtx.createBuffer(
+  const chunkBuffer = tempCtx.createBuffer(
     originalBuffer.numberOfChannels,
     length,
     originalBuffer.sampleRate,
@@ -667,18 +747,7 @@ export const optimizeMasteringParams = async (
   }
 
   // [1] Self-Correction Loop — 本番と同一チェーンでレンダリングし、目標 LUFS との誤差を 0.1 dB 単位で補正する。
-  const source = offlineCtx.createBufferSource();
-  source.buffer = chunkBuffer;
-  buildMasteringChain(
-    offlineCtx,
-    source,
-    optimizedParams,
-    originalBuffer.numberOfChannels,
-    offlineCtx.destination,
-  );
-
-  source.start(0);
-  const renderedBuffer = await offlineCtx.startRendering();
+  const renderedBuffer = await renderWithOversampledContext(chunkBuffer, optimizedParams);
 
   // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
   const data = renderedBuffer.getChannelData(0);
@@ -761,22 +830,7 @@ export const renderMasteredBuffer = async (
   originalBuffer: AudioBuffer,
   params: MasteringParams,
 ): Promise<AudioBuffer> => {
-  const offlineCtx = new OfflineAudioContext(
-    originalBuffer.numberOfChannels,
-    originalBuffer.length,
-    originalBuffer.sampleRate,
-  );
-  const source = offlineCtx.createBufferSource();
-  source.buffer = originalBuffer;
-  buildMasteringChain(
-    offlineCtx,
-    source,
-    params,
-    originalBuffer.numberOfChannels,
-    offlineCtx.destination,
-  );
-  source.start(0);
-  return offlineCtx.startRendering();
+  return renderWithOversampledContext(originalBuffer, params);
 };
 
 // ------------------------------------------------------------------
