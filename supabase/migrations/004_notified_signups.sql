@@ -13,3 +13,4 @@ create policy "Service role only (no direct client access)"
   on public.notified_signups for all
   using (false)
   with check (false);
+マスタリングすると音が悪くなる、ずっとレッドメーター張り付き状態、これじゃよくなるわけがない

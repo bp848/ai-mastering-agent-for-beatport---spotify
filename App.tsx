@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
 import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
@@ -71,6 +71,20 @@ const AppContent: React.FC = () => {
   const { addTrack } = usePlatform();
   const { session, loading: authLoading, signInWithGoogle } = useAuth();
 
+  const isProcessing = isAnalyzing || isMastering;
+  const processingRef = useRef(false);
+  processingRef.current = isProcessing;
+
+  // 処理中にタブを閉じる・リロード・外部へ移動 → ブラウザの離脱確認
+  useEffect(() => {
+    if (!isProcessing) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isProcessing]);
+
   // URLハッシュとセクションを同期（ページ共有可能にする）
   useEffect(() => {
     const newHash = showResultsModal ? 'result' : section;
@@ -79,10 +93,19 @@ const AppContent: React.FC = () => {
     }
   }, [section, showResultsModal]);
   useEffect(() => {
-    const onHash = () => setSection(getSectionFromHash());
+    const onHash = () => {
+      const newSection = getSectionFromHash();
+      if (processingRef.current && newSection !== section) {
+        if (!window.confirm(t('ux.leave_while_processing'))) {
+          window.location.hash = section;
+          return;
+        }
+      }
+      setSection(newSection);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
-  }, []);
+  }, [section, t]);
 
   useEffect(() => {
     if (session && showDownloadGate) setShowDownloadGate(false);
@@ -382,6 +405,20 @@ const AppContent: React.FC = () => {
     try {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
+      const baseName = audioFile.name.replace(/\.[^/.]+$/, '') || 'mastered';
+      const suggestedName = `${baseName}_${masteringTarget}_mastered.wav`;
+      const url = URL.createObjectURL(masteredBlob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = suggestedName;
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
       let storagePath: string | undefined;
       try {
         const path = `${session.user.id}/${crypto.randomUUID()}.wav`;
@@ -429,7 +466,6 @@ const AppContent: React.FC = () => {
   }, [audioFile, masteringTarget, addTrack, saveToLibraryForm]);
 
   // ── 4ステップ: アップロード → 分析 → 実行 → 聴く・購入 ──
-  const isProcessing = isAnalyzing || isMastering;
   const step = !audioFile ? 1 : isAnalyzing ? 2 : (!masteringParams && analysisData) ? 3 : masteringParams ? 4 : 2;
   const stepLabels = [t('steps.upload'), t('steps.analyze'), t('steps.run'), t('steps.listen')];
 
@@ -445,11 +481,21 @@ const AppContent: React.FC = () => {
     setShowResultsModal(false);
   }, []);
 
+  const handleSectionChange = useCallback(
+    (newSection: PlatformSection) => {
+      if (isProcessing && newSection !== section) {
+        if (!window.confirm(t('ux.leave_while_processing'))) return;
+      }
+      setSection(newSection);
+    },
+    [isProcessing, section, t]
+  );
+
   return (
-    <div className="min-h-screen min-h-[100dvh] text-zinc-300 px-3 py-4 sm:px-5 sm:py-6 lg:px-10 lg:py-8 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30">
-      <div className="max-w-screen-2xl mx-auto w-full">
+    <div className="h-full min-h-0 flex flex-col text-zinc-300 px-3 py-3 sm:px-5 sm:py-4 lg:px-10 lg:py-5 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30 overflow-hidden">
+      <div className="max-w-screen-2xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden">
         {showPostLoginBanner && (
-          <div className="mb-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+          <div className="mb-2 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up shrink-0">
             <p className="text-sm text-cyan-200">{t('flow.post_login_banner')}</p>
             <div className="flex items-center gap-2">
               <button
@@ -470,14 +516,14 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         )}
-        <header className="flex items-center justify-between gap-2 mb-6 sm:mb-8 flex-wrap sm:flex-nowrap">
+        <header className="flex items-center justify-between gap-2 mb-2 sm:mb-3 flex-wrap sm:flex-nowrap shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
               <BrandIcon />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-bold text-white tracking-tight">{t('header.title')}</h1>
-              <span className="text-[10px] text-zinc-500">{language === 'ja' ? '音源をアップロードしてAI解析（配信先は診断画面で選択）' : 'Upload to analyze · choose target on diagnosis'}</span>
+              <h1 className="text-sm font-semibold text-white tracking-tight">{t('header.title')}</h1>
+              <span className="text-xs text-zinc-500">{language === 'ja' ? '音源をアップロードしてAI解析' : 'Upload to analyze'}</span>
             </div>
             <div className="shrink-0 ml-2">
               <LanguageSwitcher />
@@ -486,16 +532,23 @@ const AppContent: React.FC = () => {
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <PlatformNav
               current={section}
-              onSelect={setSection}
+              onSelect={handleSectionChange}
               session={session}
               onLoginClick={() => {
-                if (session?.user) setSection('mypage');
+                if (session?.user) handleSectionChange('mypage');
                 else signInWithGoogle();
               }}
             />
           </div>
         </header>
 
+        {(section === 'mastering' || section === 'pricing') && (
+          <div className="shrink-0 mb-2 py-1.5 px-3 rounded-md bg-white/[0.04] border border-white/[0.06] text-center">
+            <span className="text-xs text-zinc-500">{t('campaign.banner')}</span>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-touch">
         {section !== 'mastering' && (
           <main className="animate-fade-up">
             {section === 'pricing' && <PricingView />}
@@ -551,23 +604,22 @@ const AppContent: React.FC = () => {
         )}
 
         {section === 'mastering' && (
-        <main className="space-y-4 sm:space-y-6">
-          {/* ── Step Indicator (4 steps) ── */}
+        <main className="space-y-3 sm:space-y-4">
           <div
-            className="flex items-center justify-center gap-1.5 sm:gap-3 py-3 flex-wrap"
+            className="flex items-center justify-center gap-2 sm:gap-4 py-2"
             role="progressbar"
             aria-valuenow={step}
             aria-valuemin={1}
             aria-valuemax={4}
-            aria-label={language === 'ja' ? `ステップ ${step} / 4: ${stepLabels[step - 1]}` : `Step ${step} of 4: ${stepLabels[step - 1]}`}
+            aria-label={language === 'ja' ? `ステップ ${step} / 4` : `Step ${step} of 4`}
           >
             {[1, 2, 3, 4].map((s) => (
               <React.Fragment key={s}>
                 <div className="flex items-center gap-1.5">
                   <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
-                  <span className={`text-[10px] sm:text-xs font-medium ${step === s ? 'text-cyan-400 font-bold' : step > s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
+                  <span className={`text-xs ${step === s ? 'text-cyan-400 font-medium' : step > s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
                 </div>
-                {s < 4 && <div className="w-4 sm:w-6 h-px bg-white/10" />}
+                {s < 4 && <div className="w-4 sm:w-8 h-px bg-white/10" />}
               </React.Fragment>
             ))}
           </div>
@@ -576,11 +628,18 @@ const AppContent: React.FC = () => {
           {(!analysisData || masteringParams) && (
             <>
               {!audioFile && !isProcessing ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
                   <HeroEngine language={language} compact />
-                  <div className="glass rounded-2xl p-4 sm:p-6">
-                    <p className="text-sm font-medium text-zinc-400 mb-3" id="upload-instruction">
-                      {t('ux.upload_first')}
+                  <div
+                    className="rounded-2xl p-4 sm:p-6 flex flex-col"
+                    style={{
+                      border: '1px solid rgba(34,211,238,0.2)',
+                      background: 'linear-gradient(180deg, rgba(34,211,238,0.06) 0%, rgba(5,5,8,0.6) 100%)',
+                      boxShadow: '0 0 30px rgba(34,211,238,0.06)',
+                    }}
+                  >
+                    <p className="text-xs font-bold text-cyan-400/90 uppercase tracking-wider mb-3">
+                      {language === 'ja' ? 'ここから始める' : 'Start here'}
                     </p>
                     <FileUpload
                       onFileChange={handleFileChange}
@@ -590,12 +649,12 @@ const AppContent: React.FC = () => {
                       compact={false}
                     />
                     {error && (
-                      <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                      <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm space-y-2">
                         <p>{error}</p>
                         <button
                           type="button"
                           onClick={() => { setError(''); resetToUpload(); }}
-                          className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                          className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20"
                         >
                           {t('ux.error_retry')}
                         </button>
@@ -604,7 +663,7 @@ const AppContent: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="glass rounded-2xl p-4 sm:p-6">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-6">
                   <FileUpload
                     onFileChange={handleFileChange}
                     fileName={audioFile?.name}
@@ -613,12 +672,12 @@ const AppContent: React.FC = () => {
                     compact={!!(audioFile || isProcessing)}
                   />
                   {error && (
-                    <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm space-y-3">
+                    <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm space-y-2">
                       <p>{error}</p>
                       <button
                         type="button"
                         onClick={() => { setError(''); resetToUpload(); }}
-                        className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20"
+                        className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20"
                       >
                         {t('ux.error_retry')}
                       </button>
@@ -693,8 +752,9 @@ const AppContent: React.FC = () => {
           )}
         </main>
         )}
+        </div>
 
-        <footer className="mt-8 sm:mt-12 py-4 sm:py-6 border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 flex-wrap gap-2">
+        <footer className="shrink-0 mt-2 sm:mt-3 py-3 sm:py-4 border-t border-white/5 flex justify-between items-center text-xs text-zinc-500 flex-wrap gap-2">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
           <div className="flex items-center gap-3 flex-wrap">
             <a className="hover:text-cyan-400 transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">

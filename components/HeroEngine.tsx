@@ -42,37 +42,30 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   if (compact) {
     return (
       <section className="animate-fade-up">
-        <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
-          <div className="inline-flex flex-col gap-0.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-            <span className="text-xs font-bold text-amber-400">
-              {ja ? '今だけ１曲無料キャンペーン中' : 'Limited time: 1 track free'}
-            </span>
-            <span className="text-[10px] text-amber-400/80">
-              {ja ? 'おひとり様１回限り' : 'One per person, one time only'}
-            </span>
-          </div>
-          <p className="text-sm sm:text-base font-bold text-cyan-200/95">
-            {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
-          </p>
-          <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-            <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
-            <br />
-            <span className="text-sm font-semibold text-zinc-300">
-              {ja ? 'AIの感性と、物理学の絶対領域。' : 'AI Sensibility \u00D7 Physics.'}
-            </span>
-          </h2>
-          <p className="text-xs sm:text-sm leading-relaxed text-zinc-400">
+        <div
+          className="relative rounded-2xl overflow-hidden p-8 sm:p-10 min-h-[200px] flex flex-col justify-center"
+          style={{
+            background: 'linear-gradient(145deg, rgba(6,78,99,0.25) 0%, rgba(15,23,42,0.6) 50%, rgba(5,5,8,0.95) 100%)',
+            border: '1px solid rgba(34,211,238,0.15)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 20px 40px rgba(0,0,0,0.4)',
+          }}
+        >
+          <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" aria-hidden />
+          <span className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-4 w-fit">
+            {ja ? '1曲無料で試せる' : '1 track free'}
+          </span>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight leading-tight mb-3">
             {ja
-              ? 'AIが楽曲のDNAを解析し、ハイブリッド・ループが特徴を最大限に引き出します。'
-              : 'AI analyzes your track\u2019s DNA; our hybrid-loop unlocks its full potential.'}
+              ? 'Beatport・Spotify 配信基準の'
+              : 'Beatport & Spotify ready.'}
+            <br />
+            <span className="text-cyan-400">{ja ? 'AIマスタリング' : 'AI Mastering'}</span>
+          </h2>
+          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-md">
+            {ja
+              ? 'アップロードするだけで、音量・音質・音圧をスタジオ品質に。聴いてから、気に入ったらだけ購入。'
+              : 'Upload once. Get studio-grade loudness, tone and punch. Listen first — pay only if you keep it.'}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {(ja ? ['音量', '音質', '音圧', '音像'] : ['Volume', 'Tone', 'Loudness', 'Image']).map((pillar) => (
-              <span key={pillar} className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-bold text-cyan-300">
-                {pillar}
-              </span>
-            ))}
-          </div>
         </div>
       </section>
     );

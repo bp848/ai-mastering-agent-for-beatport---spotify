@@ -31,6 +31,9 @@ export default function PaywallModal({
         <h3 id="paywall-title" className="text-sm font-black text-white uppercase tracking-widest mb-2">
           {t('paywall.title')}
         </h3>
+        <p className="text-sm text-cyan-300 mb-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-3 py-2">
+          {t('paywall.campaign_note')}
+        </p>
         <p className="text-sm text-gray-400 mb-6">
           {t('paywall.description')}
         </p>

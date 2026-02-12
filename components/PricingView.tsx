@@ -167,11 +167,16 @@ export default function PricingView() {
     async (plan: PlanCard) => {
       const accessToken = session?.access_token;
       if (!accessToken) {
+        setError(null);
         signInWithGoogle();
         return;
       }
       setError(null);
       setLoading(true);
+      const timeoutId = window.setTimeout(() => {
+        setLoading(false);
+        setError(t('pricing.checkout_failed'));
+      }, 15000);
       try {
         const tokenCount = plan.tokenCount ?? 1;
         const { url } = await createCheckoutSession(
@@ -180,13 +185,17 @@ export default function PricingView() {
           isJa ? plan.name : plan.nameEn,
           tokenCount
         );
-        window.location.href = url;
+        window.clearTimeout(timeoutId);
+        if (url) window.location.href = url;
+        else setError(t('pricing.checkout_failed'));
+        setLoading(false);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Checkout failed');
+        window.clearTimeout(timeoutId);
+        setError(e instanceof Error ? e.message : t('pricing.checkout_failed'));
         setLoading(false);
       }
     },
-    [session?.access_token, signInWithGoogle, isJa]
+    [session?.access_token, signInWithGoogle, isJa, t]
   );
 
   const tabs: { id: Tab; label: string; labelEn: string }[] = [
@@ -197,6 +206,25 @@ export default function PricingView() {
 
   return (
     <div className="animate-fade-up space-y-8">
+      {/* ── キャンペーン案内 ── */}
+      <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-4 py-3 text-center space-y-2">
+        <p className="text-sm font-bold text-cyan-300">
+          {t('campaign.banner')}
+        </p>
+        <p className="text-xs text-cyan-200/80">
+          {t('campaign.pricing_lead')}
+        </p>
+        <p className="text-xs text-amber-200/90 pt-1 border-t border-white/10 mt-2">
+          {t('campaign.youtube.title')} →{' '}
+          <a
+            href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(isJa ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
+            className="underline font-bold text-amber-300 hover:text-amber-200"
+          >
+            {t('campaign.youtube.cta')}
+          </a>
+        </p>
+      </div>
+
       {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
@@ -237,10 +265,15 @@ export default function PricingView() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 text-center">
-          {error}
+      {(error || (loading && !!session)) && (
+        <div className={`rounded-xl border text-sm p-3 text-center ${error ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200'}`}>
+          {error || t('pricing.checkout_redirecting')}
         </div>
+      )}
+      {!session && !loading && (
+        <p className="text-xs text-zinc-500 text-center">
+          {t('pricing.sign_in_hint')}
+        </p>
       )}
 
       {/* ── Cards Grid ── */}

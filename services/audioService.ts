@@ -755,22 +755,19 @@ export const optimizeMasteringParams = async (
 };
 
 // ------------------------------------------------------------------
-// Export (WAV 書き出し)
+// マスター波形表示用: 本番チェーンと同一処理でレンダリングした AudioBuffer を返す（固定ゲイン近似なし）
 // ------------------------------------------------------------------
-
-export const applyMasteringAndExport = async (
+export const renderMasteredBuffer = async (
   originalBuffer: AudioBuffer,
   params: MasteringParams,
-): Promise<Blob> => {
+): Promise<AudioBuffer> => {
   const offlineCtx = new OfflineAudioContext(
     originalBuffer.numberOfChannels,
     originalBuffer.length,
     originalBuffer.sampleRate,
   );
-
   const source = offlineCtx.createBufferSource();
   source.buffer = originalBuffer;
-
   buildMasteringChain(
     offlineCtx,
     source,
@@ -778,8 +775,18 @@ export const applyMasteringAndExport = async (
     originalBuffer.numberOfChannels,
     offlineCtx.destination,
   );
-
   source.start(0);
-  const renderedBuffer = await offlineCtx.startRendering();
+  return offlineCtx.startRendering();
+};
+
+// ------------------------------------------------------------------
+// Export (WAV 書き出し)
+// ------------------------------------------------------------------
+
+export const applyMasteringAndExport = async (
+  originalBuffer: AudioBuffer,
+  params: MasteringParams,
+): Promise<Blob> => {
+  const renderedBuffer = await renderMasteredBuffer(originalBuffer, params);
   return bufferToWave(renderedBuffer);
 };

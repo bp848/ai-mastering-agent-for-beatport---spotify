@@ -18,7 +18,22 @@ import RetryModal from './RetryModal';
    4. Download with WAV specs
    ───────────────────────────────────────────────────────────────── */
 
-/* ── Waveform Overlay: オリジナル＋マスター重ね表示。再生位置プレイヘッドでプロが判断しやすい ─── */
+/* ── Waveform Overlay: Before/After 収録用。常に両波形表示・高解像・スムーズ描画 ─── */
+const SMOOTH_RADIUS = 2;
+function smoothBins(arr: number[], radius: number): number[] {
+  if (radius < 1) return arr;
+  const out: number[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    let sum = 0, count = 0;
+    for (let r = -radius; r <= radius; r++) {
+      const j = i + r;
+      if (j >= 0 && j < arr.length) { sum += arr[j]; count++; }
+    }
+    out.push(count ? sum / count : arr[i]);
+  }
+  return out;
+}
+
 const WaveformOverlay: React.FC<{
   originalBuffer: AudioBuffer;
   gainDb: number;
@@ -35,24 +50,26 @@ const WaveformOverlay: React.FC<{
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-
     const w = rect.width;
     const h = rect.height;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     const mid = h / 2;
     const data = originalBuffer.getChannelData(0);
-    const numBins = Math.min(w * 3, 4096);
+    const numBins = Math.min(Math.max(Math.floor(w * 4), 1024), 8192);
     const step = data.length / numBins;
     const gainLinear = Math.pow(10, gainDb / 20);
 
-    const minsOrig: number[] = [];
     const maxsOrig: number[] = [];
-    const minsMaster: number[] = [];
+    const minsOrig: number[] = [];
     const maxsMaster: number[] = [];
+    const minsMaster: number[] = [];
     for (let i = 0; i < numBins; i++) {
       const start = Math.floor(i * step);
       const end = Math.min(Math.floor((i + 1) * step), data.length);
@@ -67,15 +84,18 @@ const WaveformOverlay: React.FC<{
       minsOrig.push(loO); maxsOrig.push(hiO);
       minsMaster.push(loM); maxsMaster.push(hiM);
     }
+    const smoothMaxO = smoothBins(maxsOrig, SMOOTH_RADIUS);
+    const smoothMinO = smoothBins(minsOrig, SMOOTH_RADIUS);
+    const smoothMaxM = smoothBins(maxsMaster, SMOOTH_RADIUS);
+    const smoothMinM = smoothBins(minsMaster, SMOOTH_RADIUS);
 
-    const amp = mid * 0.9;
-    const scale = (numBins - 1) / w;
+    const amp = mid * 0.92;
 
-    ctx.fillStyle = '#08080c';
+    ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 0.75;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, mid);
     ctx.lineTo(w, mid);
@@ -86,58 +106,66 @@ const WaveformOverlay: React.FC<{
 
     const drawShape = (maxs: number[], mins: number[]) => {
       ctx.beginPath();
-      ctx.moveTo(0, mid);
-      for (let x = 0; x <= w; x++) {
-        const idx = Math.min(Math.floor(x * scale), numBins - 1);
-        ctx.lineTo(x, mid - maxs[idx] * amp);
+      ctx.moveTo(0, mid - maxs[0] * amp);
+      for (let i = 1; i < numBins; i++) {
+        const x = (i / (numBins - 1)) * w;
+        ctx.lineTo(x, mid - maxs[i] * amp);
       }
-      for (let x = w; x >= 0; x--) {
-        const idx = Math.min(Math.floor(x * scale), numBins - 1);
-        ctx.lineTo(x, mid - mins[idx] * amp);
+      for (let i = numBins - 1; i >= 0; i--) {
+        const x = (i / (numBins - 1)) * w;
+        ctx.lineTo(x, mid - mins[i] * amp);
       }
       ctx.closePath();
     };
 
-    ctx.fillStyle = '#3f3f46';
-    ctx.strokeStyle = '#52525b';
-    ctx.lineWidth = 1;
-    drawShape(maxsOrig, minsOrig);
+    // BEFORE: 常に表示（薄いグレー・収録で判別しやすい）
+    ctx.fillStyle = 'rgba(161,161,170,0.35)';
+    ctx.strokeStyle = 'rgba(212,212,216,0.5)';
+    ctx.lineWidth = 1.5;
+    drawShape(smoothMaxO, smoothMinO);
     ctx.fill();
     ctx.stroke();
 
-    if (!isHoldingOriginal) {
-      ctx.globalAlpha = 0.8;
-      ctx.fillStyle = '#22d3ee';
-      ctx.strokeStyle = 'rgba(34,211,238,0.9)';
-      ctx.lineWidth = 1;
-      drawShape(maxsMaster, minsMaster);
-      ctx.fill();
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-  }, [originalBuffer, gainDb, isHoldingOriginal]);
+    // AFTER: 常に表示（シアン・Before/After が一画面で分かる）
+    ctx.fillStyle = 'rgba(34,211,238,0.4)';
+    ctx.strokeStyle = 'rgba(103,232,249,0.85)';
+    ctx.lineWidth = 2;
+    drawShape(smoothMaxM, smoothMinM);
+    ctx.fill();
+    ctx.stroke();
+  }, [originalBuffer, gainDb]);
 
   const playheadPct = durationSec > 0 && playbackPositionSec != null ? (playbackPositionSec / durationSec) * 100 : 0;
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden" style={{ boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), 0 4px 24px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div className="absolute top-3 left-3 z-10 flex gap-2">
-        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${isHoldingOriginal ? 'bg-white/90 text-black' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
-          Original
-        </span>
-        <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono transition-all ${!isHoldingOriginal ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
-          AI Mastered
-        </span>
+    <div className="relative w-full rounded-xl overflow-hidden bg-[#050508]" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-bold uppercase tracking-widest text-zinc-400">Before</span>
+          <span className="text-xs text-zinc-500 font-mono">Original</span>
+        </div>
+        <div className="flex flex-col gap-0.5 text-right">
+          <span className="text-sm font-bold uppercase tracking-widest text-cyan-400">After</span>
+          <span className="text-xs text-cyan-400/80 font-mono">AI Mastered</span>
+        </div>
       </div>
       <div className="relative">
-        <canvas ref={canvasRef} className="w-full h-44 sm:h-52 block" />
+        <canvas ref={canvasRef} className="w-full block" style={{ minHeight: 220, height: 280 }} />
         {playbackPositionSec != null && (
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 pointer-events-none z-10 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
-            style={{ left: `${playheadPct}%` }}
+            className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 pointer-events-none z-10"
+            style={{
+              left: `${playheadPct}%`,
+              boxShadow: '0 0 20px rgba(34,211,238,0.9), 0 0 40px rgba(34,211,238,0.5)',
+            }}
             aria-hidden
           />
         )}
+      </div>
+      <div className="absolute bottom-3 left-4 z-10 pointer-events-none">
+        <span className={`text-xs font-mono uppercase tracking-wider ${isHoldingOriginal ? 'text-amber-400' : 'text-cyan-400'}`}>
+          {isHoldingOriginal ? '▶ Original' : '▶ Mastered'}
+        </span>
       </div>
     </div>
   );

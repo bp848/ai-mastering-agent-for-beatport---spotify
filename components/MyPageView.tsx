@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchDownloadHistory } from '../services/downloadHistory';
+import { fetchDownloadHistory, fetchDownloadHistoryViaApi } from '../services/downloadHistory';
 import { useTranslation } from '../contexts/LanguageContext';
 import { UserIcon } from './Icons';
 import type { MasteringTarget } from '../types';
@@ -31,14 +31,20 @@ export default function MyPageView() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchDownloadHistory(user.id);
+      const data = session?.access_token
+        ? await fetchDownloadHistoryViaApi(session.access_token)
+        : await fetchDownloadHistory(user.id);
       setHistory(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'unknown');
+      const msg = e instanceof Error ? e.message : 'unknown';
+      setError(msg);
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('MyPageView: fetch download history failed', e);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   useEffect(() => {
     if (user?.id) loadHistory();
@@ -116,9 +122,16 @@ export default function MyPageView() {
 
         {/* Error state */}
         {error && (
-          <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+          <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
             <p className="text-sm text-amber-400">
-              {ja ? '履歴の読み込みに失敗しました。' : 'Failed to load history.'}
+              {ja
+                ? '履歴の読み込みに失敗しました。しばらくしてから「再読み込み」を押してください。'
+                : 'Failed to load history. Please try "Retry" again in a moment.'}
+            </p>
+            <p className="text-xs text-zinc-500">
+              {ja
+                ? '繰り返し発生する場合は、お手数ですが ishijima@b-p.co.jp までご連絡ください。'
+                : 'If this keeps happening, please contact ishijima@b-p.co.jp.'}
             </p>
             <button
               type="button"
@@ -144,14 +157,14 @@ export default function MyPageView() {
             <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-600 text-2xl">
               ♪
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm font-medium text-zinc-400">
                 {ja ? 'まだ履歴がありません' : 'No history yet'}
               </p>
-              <p className="text-xs text-zinc-600">
+              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
                 {ja
-                  ? '最初のトラックをアップロードして、世界最高峰のサウンドを体験してください。'
-                  : 'Upload your first track to experience world-class mastering.'}
+                  ? 'マスタリング完了後、結果画面の「購入してWAVを取得」からダウンロードすると、ここに表示されます。'
+                  : 'After mastering, download from "Purchase → Download" on the result screen; it will appear here.'}
               </p>
             </div>
           </div>

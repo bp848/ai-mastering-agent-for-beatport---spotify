@@ -197,6 +197,26 @@ export default function ResultsModal({
                 </p>
               </section>
 
+              {/* YouTube Before/After → 30曲無料キャンペーン */}
+              <a
+                href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(language === 'ja' ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 hover:bg-amber-500/15 transition-colors"
+              >
+                <p className="text-sm font-bold text-amber-200">
+                  {language === 'ja' ? '🎬 YouTubeでBefore/Afterをアップしてくれたら30曲無料' : '🎬 30 tracks free — upload Before/After to YouTube'}
+                </p>
+                <p className="text-xs text-amber-200/80 mt-1">
+                  {language === 'ja'
+                    ? '本サービスのBefore/AfterをYouTubeで紹介してくださった方に、30曲分のダウンロード権をプレゼント。応募はメールで。'
+                    : 'We gift 30 download credits to anyone who shares a Before/After on YouTube. Apply by email.'}
+                </p>
+                <span className="inline-block mt-2 text-xs font-bold text-amber-400 underline underline-offset-2">
+                  {language === 'ja' ? '応募・お問い合わせ' : 'Apply / Contact'}
+                </span>
+              </a>
+
               <MasteringAgent
                 params={masteringParams}
                 isLoading={false}

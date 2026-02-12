@@ -143,9 +143,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-white">{t('upload.pyodide.loading')}</p>
+            <p className="text-sm text-white">{t('upload.pyodide.loading')}</p>
             <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.detail')}</p>
-            <p className="text-[11px] text-zinc-500 mt-2">{t('upload.pyodide.wait')}</p>
+            <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.wait')}</p>
           </div>
         </div>
       ) : isAnalyzing ? (
@@ -154,7 +154,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-white">{t('upload.analyzing')}</p>
+            <p className="text-sm text-white">{t('upload.analyzing')}</p>
             <p className="text-xs text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
           </div>
         </div>
@@ -164,12 +164,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
             <UploadIcon />
           </div>
           {fileName ? (
-            <p className="text-sm font-medium text-cyan-400 truncate max-w-full">{fileName}</p>
+            <p className="text-sm text-cyan-400 truncate max-w-full">{fileName}</p>
           ) : (
             <>
-              <p className="text-base font-semibold text-white">{t('upload.cta.title')}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{t('upload.cta.detail')}</p>
-              <p className="text-[11px] text-zinc-400 mt-2">{t('upload.cta.hint')}</p>
+              <p className="text-sm font-medium text-white">{t('upload.cta.title')}</p>
+              <p className="text-xs text-zinc-500 mt-1">{t('upload.cta.detail')}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{t('upload.cta.hint')}</p>
             </>
           )}
         </div>

@@ -141,7 +141,17 @@ const ja = {
   "result.purchase_cta_aria": "マスタリング音源を1,000円で購入。マイページで7日間ダウンロード可能（ログインが必要）",
   "flow.post_login_banner": "ログインしました。マスタリング画面でもう一度プレビューしてダウンロードできます。",
   "flow.post_login_cta": "マスタリングへ",
-  "mypage.cta_master_again": "もう1曲マスタリングする"
+  "mypage.cta_master_again": "もう1曲マスタリングする",
+  "campaign.banner": "今だけ1曲無料キャンペーン中（おひとり様1回限り）",
+  "campaign.pricing_lead": "今なら1曲無料キャンペーン実施中。Basic 1曲からご購入いただけます。",
+  "paywall.campaign_note": "今なら1曲無料キャンペーン実施中。料金ページで Basic（1曲・¥1,000）をご選択ください。",
+  "pricing.checkout_redirecting": "決済ページへ移動中… 切り替わらない場合はポップアップを許可してください",
+  "pricing.sign_in_hint": "※ クリックでGoogleログイン画面が開きます",
+  "pricing.checkout_failed": "決済の開始に失敗しました。しばらくして再度お試しください。",
+  "ux.leave_while_processing": "処理中です。離脱すると結果が失われます。よろしいですか？",
+  "campaign.youtube.title": "YouTubeでBefore/Afterをアップしてくれたら30曲無料",
+  "campaign.youtube.lead": "本サービスのBefore/AfterをYouTubeで紹介してくださった方に、30曲分のダウンロード権をプレゼント。",
+  "campaign.youtube.cta": "応募・お問い合わせ"
 };
 
 const en = {
@@ -266,7 +276,17 @@ const en = {
   "result.purchase_cta_aria": "Purchase mastered file for ¥1,000. Download from My Page within 7 days (sign-in required)",
   "flow.post_login_banner": "You're signed in. Go to Mastering to preview again and download.",
   "flow.post_login_cta": "Go to Mastering",
-  "mypage.cta_master_again": "Master another track"
+  "mypage.cta_master_again": "Master another track",
+  "campaign.banner": "Limited time: 1 track free (one per person)",
+  "campaign.pricing_lead": "1 track free campaign now. Start with Basic (1 track).",
+  "paywall.campaign_note": "1 track free campaign. Select Basic (1 track, ¥1,000) on the pricing page.",
+  "pricing.checkout_redirecting": "Redirecting to checkout… Allow pop-ups if the page doesn't change",
+  "pricing.sign_in_hint": "Click to open Google sign-in",
+  "pricing.checkout_failed": "Could not start checkout. Please try again later.",
+  "ux.leave_while_processing": "Processing in progress. Leave anyway? Progress will be lost.",
+  "campaign.youtube.title": "30 tracks free — upload Before/After to YouTube",
+  "campaign.youtube.lead": "We'll gift 30 download credits to anyone who shares a Before/After of this service on YouTube.",
+  "campaign.youtube.cta": "Apply / Contact"
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };
