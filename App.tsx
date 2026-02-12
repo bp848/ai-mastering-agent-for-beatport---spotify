@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
 import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
@@ -13,7 +13,7 @@ import PaywallModal from './components/PaywallModal';
 import ResultsModal from './components/ResultsModal';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
-import LP from './components/lp/LP';
+const LP = lazy(() => import('./components/lp/LP'));
 import { createCheckoutSession } from './services/stripeCheckout';
 import { recordDownload } from './services/downloadHistory';
 import { supabase } from './services/supabase';
@@ -557,6 +557,7 @@ const AppContent: React.FC = () => {
 
         {(section === 'mastering' || section === 'library' || section === 'checklist' || section === 'email' || section === 'sns' || section === 'admin') && (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-touch">
+            <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading…</div>}>
 
         <DownloadGateModal
           open={showDownloadGate}
@@ -623,6 +624,7 @@ const AppContent: React.FC = () => {
               onPerTrackSelect={onPerTrackSelect}
               onMonthlySelect={onMonthlySelect}
             />
+            </Suspense>
           </div>
         )}
       </div>
