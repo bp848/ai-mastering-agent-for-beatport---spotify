@@ -18,14 +18,13 @@ interface SpecCardProps {
 }
 
 const SpecCard: React.FC<SpecCardProps> = ({ number, title, titleEn, body }) => (
-  <div className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 sm:p-6 hover:border-cyan-500/30 transition-colors">
-    {/* Number badge */}
-    <span className="absolute -top-3 left-4 inline-flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold ring-1 ring-cyan-500/30">
+  <div className="group relative rounded-2xl border border-border bg-card/50 p-5 sm:p-6 hover:border-primary/30 transition-colors">
+    <span className="absolute -top-3 left-4 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold ring-1 ring-primary/30">
       {number}
     </span>
-    <h3 className="text-sm font-bold text-white leading-snug mb-0.5">{title}</h3>
-    <p className="text-[10px] font-medium text-cyan-500/70 tracking-wider uppercase mb-3">{titleEn}</p>
-    <p className="text-xs leading-relaxed text-zinc-400">{body}</p>
+    <h3 className="text-sm font-bold text-foreground leading-snug mb-0.5">{title}</h3>
+    <p className="text-xs font-medium text-primary/80 tracking-wider uppercase mb-3">{titleEn}</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">{body}</p>
   </div>
 );
 
@@ -42,26 +41,23 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   if (compact) {
     return (
       <section className="animate-fade-up">
-        <div
-          className="relative rounded-2xl overflow-hidden p-8 sm:p-10 min-h-[200px] flex flex-col justify-center"
-          style={{
-            background: 'linear-gradient(145deg, rgba(6,78,99,0.25) 0%, rgba(15,23,42,0.6) 50%, rgba(5,5,8,0.95) 100%)',
-            border: '1px solid rgba(34,211,238,0.15)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 20px 40px rgba(0,0,0,0.4)',
-          }}
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" aria-hidden />
-          <span className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-4 w-fit">
+        <div className="relative rounded-2xl overflow-hidden p-8 sm:p-10 min-h-[200px] flex flex-col justify-center border border-primary/20 bg-gradient-to-br from-primary/10 via-card/80 to-background shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_20px_40px_rgba(0,0,0,0.4)]">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" aria-hidden />
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-bold uppercase tracking-widest mb-4 w-fit">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            </span>
             {ja ? '1曲無料で試せる' : '1 track free'}
           </span>
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight leading-tight mb-3">
+          <h2 className="text-balance text-xl sm:text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight leading-tight mb-3">
             {ja
               ? 'Beatport・Spotify 配信基準の'
               : 'Beatport & Spotify ready.'}
             <br />
-            <span className="text-cyan-400">{ja ? 'AIマスタリング' : 'AI Mastering'}</span>
+            <span className="text-primary">{ja ? 'AIマスタリング' : 'AI Mastering'}</span>
           </h2>
-          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-md">
+          <p className="text-pretty text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md">
             {ja
               ? 'アップロードするだけで、音量・音質・音圧をスタジオ品質に。聴いてから、気に入ったらだけ購入。'
               : 'Upload once. Get studio-grade loudness, tone and punch. Listen first — pay only if you keep it.'}
@@ -74,25 +70,25 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   return (
     <section className="animate-fade-up space-y-8">
       {/* ── Hero Header ──────────────────────────────────── */}
-      <div className="glass rounded-2xl p-6 sm:p-10 text-center space-y-5">
+      <div className="rounded-2xl border border-border bg-card/80 backdrop-blur p-6 sm:p-10 text-center space-y-5 shadow-lg">
         {/* 1. Tagline */}
-        <p className="text-sm sm:text-base font-bold text-cyan-200/95">
+        <p className="text-sm sm:text-base font-bold text-primary/95">
           {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
         </p>
 
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[10px] font-semibold text-cyan-400 uppercase tracking-widest">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          <span className="text-xs font-semibold text-primary uppercase tracking-widest">
             {ja ? 'エンジン技術解説' : 'Engine Architecture'}
           </span>
         </div>
 
         {/* Title */}
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
-          <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
+        <h2 className="text-balance text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground tracking-tight leading-tight">
+          <span className="text-primary">&quot;Hybrid-Analog Engine&quot;</span>
           <br />
-          <span className="text-base sm:text-lg font-semibold text-zinc-300">
+          <span className="text-base sm:text-lg font-semibold text-muted-foreground">
             {ja
               ? 'AIの感性と、物理学の絶対領域。'
               : 'AI Sensibility \u00D7 The Absolute Domain of Physics.'}
@@ -101,17 +97,17 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
 
         {/* Lead */}
         <div className="max-w-4xl mx-auto space-y-3">
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
+          <p className="text-pretty text-sm sm:text-base leading-relaxed text-muted-foreground">
             {ja
               ? '既存のAIマスタリングは、プリセットを当てはめて「平均的な音」を作るだけでした。それでは世界観が小さくまとまってしまいます。'
               : 'Existing AI mastering just applies presets to produce "average sound." That only shrinks your creative vision.'}
           </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-300 font-medium">
+          <p className="text-sm sm:text-base leading-relaxed text-foreground font-medium">
             {ja
               ? '我々のエンジンは違います。目指したのは、特定のチャートへの迎合ではなく、世界最高峰のスタジオ品質に負けない「音量」「音質」「音圧」、そして明確な「音像」です。'
               : 'Our engine is different. We don\u2019t chase charts \u2014 we pursue world-class studio quality: Volume, Tone, Loudness, and a definitive Sonic Image.'}
           </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
+          <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
             {ja
               ? 'AIが楽曲のDNAを解析し、独自開発のハイブリッド・ループシステムが、楽曲の持つそれぞれの特徴を最大限に引き出します。'
               : 'AI analyzes your track\u2019s DNA, and our proprietary hybrid-loop system unlocks the full potential of every characteristic your music holds.'}
@@ -126,7 +122,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
           ).map((pillar) => (
             <span
               key={pillar}
-              className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs sm:text-sm font-bold text-cyan-300 tracking-wider"
+              className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-xs sm:text-sm font-bold text-primary tracking-wider"
             >
               {pillar}
             </span>
@@ -189,12 +185,12 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
       </div>
 
       {/* ── CTA: 聴いてから決める。ログインはダウンロードのときだけ ───────── */}
-      <p className="text-center text-xs text-zinc-500">
+      <p className="text-center text-xs text-muted-foreground">
         {ja
           ? '↑ 上のドロップエリアにトラックを投入すると、このエンジンがリアルタイムで起動します。'
           : '↑ Drop a track in the area above to start this engine in real time.'}
       </p>
-      <p className="text-center text-[11px] text-cyan-400/90 font-medium mt-2">
+      <p className="text-center text-xs text-primary font-medium mt-2">
         {t('flow.preview_no_login')}
       </p>
     </section>

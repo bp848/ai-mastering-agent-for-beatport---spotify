@@ -80,30 +80,30 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
         />
         {!isReady ? (
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 shrink-0 text-cyan-400">
+            <div className="w-5 h-5 shrink-0 text-primary">
               <Spinner />
             </div>
-            <span className="text-sm text-zinc-400">{t('upload.pyodide.loading')}</span>
+            <span className="text-sm text-muted-foreground">{t('upload.pyodide.loading')}</span>
           </div>
         ) : isAnalyzing ? (
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 shrink-0 text-cyan-400">
+            <div className="w-5 h-5 shrink-0 text-primary">
               <Spinner />
             </div>
-            <span className="text-sm text-zinc-400">{t('upload.analyzing')}</span>
+            <span className="text-sm text-muted-foreground">{t('upload.analyzing')}</span>
           </div>
         ) : (
           <>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); handleClick(); }}
-              className="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30 transition-colors"
               aria-label={t('upload.aria.label')}
             >
               {t('ux.select_file_button')}
             </button>
             {fileName && (
-              <span className="text-sm text-cyan-400 truncate max-w-[200px] sm:max-w-none">{fileName}</span>
+              <span className="text-sm text-primary truncate max-w-[200px] sm:max-w-none">{fileName}</span>
             )}
           </>
         )}
@@ -124,7 +124,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
       className={`
         relative min-h-[180px] sm:min-h-[200px] flex flex-col items-center justify-center rounded-2xl
         border-2 border-dashed transition-all duration-300 cursor-pointer
-        ${isDragOver ? 'border-cyan-500/60 bg-cyan-500/10 scale-[1.02]' : 'border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.02]'}
+        ${isDragOver ? 'border-primary/60 bg-primary/15 shadow-[0_0_30px_hsl(180_100%_50%/0.2)] scale-[1.02]' : 'border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10 hover:shadow-[0_0_25px_hsl(180_100%_50%/0.15)]'}
         ${isDisabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}
       `}
     >
@@ -139,37 +139,37 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
 
       {!isReady ? (
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary animate-float">
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm text-white">{t('upload.pyodide.loading')}</p>
-            <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.detail')}</p>
-            <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.wait')}</p>
+            <p className="text-sm text-foreground">{t('upload.pyodide.loading')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('upload.pyodide.detail')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('upload.pyodide.wait')}</p>
           </div>
         </div>
       ) : isAnalyzing ? (
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm text-white">{t('upload.analyzing')}</p>
-            <p className="text-xs text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
+            <p className="text-sm text-foreground">{t('upload.analyzing')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('upload.analyzing.detail')}</p>
           </div>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 text-center px-6">
-          <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+          <div className="w-14 h-14 rounded-2xl border border-primary/30 bg-primary/15 flex items-center justify-center text-primary animate-float shadow-[0_0_20px_hsl(180_100%_50%/0.2)]">
             <UploadIcon />
           </div>
           {fileName ? (
-            <p className="text-sm text-cyan-400 truncate max-w-full">{fileName}</p>
+            <p className="text-sm text-primary truncate max-w-full">{fileName}</p>
           ) : (
             <>
-              <p className="text-sm font-medium text-white">{t('upload.cta.title')}</p>
-              <p className="text-xs text-zinc-500 mt-1">{t('upload.cta.detail')}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{t('upload.cta.hint')}</p>
+              <p className="text-lg font-bold text-foreground">{t('upload.cta.title')}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('upload.cta.detail')}</p>
+              <p className="text-xs text-primary/80 mt-0.5">{t('upload.cta.hint')}</p>
             </>
           )}
         </div>

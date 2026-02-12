@@ -109,33 +109,33 @@ const Card: React.FC<{
   isLoggedIn?: boolean;
   signInLabel?: string;
 }> = ({ plan, isJa, onSelect, loading, isLoggedIn, signInLabel }) => (
-  <div className={`relative flex flex-col rounded-2xl p-6 transition-all ${
+  <div className={`relative flex flex-col rounded-xl p-6 transition-all border ${
     plan.best
-      ? 'glass-elevated glow-cyan scale-[1.02]'
-      : 'glass hover:border-white/15'
+      ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10 scale-[1.02]'
+      : 'border-border/50 bg-card hover:border-border'
   }`}>
     {plan.best && (
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-cyan-500 text-black text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest whitespace-nowrap">
         Best Value
       </div>
     )}
-    <h3 className="text-base font-bold text-white mb-1">
+    <h3 className="text-base font-bold text-foreground mb-1">
       {isJa ? plan.name : plan.nameEn}
     </h3>
     <div className="mb-4">
-      <span className="text-2xl font-extrabold text-white tabular-nums">
+      <span className="text-2xl font-extrabold text-foreground tabular-nums">
         {isJa ? plan.priceLabel : plan.priceLabelEn}
       </span>
       {plan.perTrack && (
-        <span className="text-xs text-zinc-500 ml-2">
+        <span className="text-xs text-muted-foreground ml-2">
           ({isJa ? `¥${plan.perTrack}/曲` : `$${(plan.perTrack / 150).toFixed(2)}/track`})
         </span>
       )}
     </div>
     <ul className="flex-1 space-y-2 mb-6">
       {(isJa ? plan.features : plan.featuresEn).map((f) => (
-        <li key={f} className="flex items-start gap-2 text-xs text-zinc-400">
-          <span className="text-cyan-400 mt-0.5 shrink-0">✓</span>
+        <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+          <span className="text-primary mt-0.5 shrink-0">✓</span>
           <span>{f}</span>
         </li>
       ))}
@@ -144,10 +144,10 @@ const Card: React.FC<{
       type="button"
       onClick={() => onSelect(plan)}
       disabled={loading}
-      className={`w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
+      className={`w-full py-3 rounded-lg font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
         plan.best
-          ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/20'
-          : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+          ? 'bg-primary text-primary-foreground hover:brightness-110 shadow-lg shadow-primary/20'
+          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border'
       }`}
     >
       {loading ? (isJa ? '送信中...' : 'Loading...') : isLoggedIn ? (isJa ? '選択する' : 'Select') : (signInLabel ?? (isJa ? 'ログインして購入' : 'Sign in to purchase'))}
@@ -207,14 +207,14 @@ export default function PricingView() {
   return (
     <div className="animate-fade-up space-y-8">
       {/* ── キャンペーン案内 ── */}
-      <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-4 py-3 text-center space-y-2">
-        <p className="text-sm font-bold text-cyan-300">
+      <div className="rounded-xl bg-primary/10 border border-primary/30 px-4 py-3 text-center space-y-2">
+        <p className="text-sm font-bold text-primary">
           {t('campaign.banner')}
         </p>
-        <p className="text-xs text-cyan-200/80">
+        <p className="text-xs text-primary/90">
           {t('campaign.pricing_lead')}
         </p>
-        <p className="text-xs text-amber-200/90 pt-1 border-t border-white/10 mt-2">
+        <p className="text-xs text-warning pt-1 border-t border-border mt-2">
           {t('campaign.youtube.title')} →{' '}
           <a
             href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(isJa ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
@@ -227,18 +227,16 @@ export default function PricingView() {
 
       {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30">
-          <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
-            {isJa ? '無料' : 'Free'}
-          </span>
-        </div>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-primary">
+          {isJa ? '無料' : 'Free'}
+        </p>
+        <h2 className="text-balance text-xl sm:text-2xl font-bold text-foreground">
           {t('pricing.title')}
         </h2>
-        <p className="text-sm sm:text-base text-cyan-200/90 font-medium max-w-lg mx-auto">
+        <p className="text-sm sm:text-base text-primary font-medium max-w-lg mx-auto">
           {t('pricing.free_preview_cta')}
         </p>
-        <p className="text-xs text-zinc-500 max-w-lg mx-auto">
+        <p className="text-xs text-muted-foreground max-w-lg mx-auto">
           {isJa
             ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
             : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
@@ -247,7 +245,7 @@ export default function PricingView() {
 
       {/* ── Tab Switcher ── */}
       <div className="flex justify-center">
-        <div className="inline-flex rounded-xl bg-white/5 border border-white/10 p-1">
+        <div className="inline-flex rounded-xl bg-secondary border border-border p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -255,8 +253,8 @@ export default function PricingView() {
               onClick={() => setTab(t.id)}
               className={`px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 tab === t.id
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {isJa ? t.label : t.labelEn}
@@ -266,12 +264,12 @@ export default function PricingView() {
       </div>
 
       {(error || (loading && !!session)) && (
-        <div className={`rounded-xl border text-sm p-3 text-center ${error ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-200'}`}>
+        <div className={`rounded-xl border text-sm p-3 text-center ${error ? 'bg-destructive/10 border-destructive/30 text-destructive' : 'bg-primary/10 border-primary/30 text-primary'}`}>
           {error || t('pricing.checkout_redirecting')}
         </div>
       )}
       {!session && !loading && (
-        <p className="text-xs text-zinc-500 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           {t('pricing.sign_in_hint')}
         </p>
       )}
@@ -324,7 +322,7 @@ export default function PricingView() {
       )}
 
       {/* ── Note ── */}
-      <p className="text-center text-[10px] text-zinc-600">
+      <p className="text-center text-xs text-muted-foreground/80">
         {isJa
           ? '※ 価格はすべて税込表示です。プレビューは全プラン無制限・無料です。'
           : '※ All prices include tax. Preview is unlimited and free on all plans.'}

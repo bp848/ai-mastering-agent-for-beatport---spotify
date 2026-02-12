@@ -492,23 +492,23 @@ const AppContent: React.FC = () => {
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col text-zinc-300 px-3 py-3 sm:px-5 sm:py-4 lg:px-10 lg:py-5 pb-[env(safe-area-inset-bottom)] selection:bg-cyan-500/30 overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col bg-background text-foreground px-3 py-3 sm:px-5 sm:py-4 lg:px-10 lg:py-5 pb-[env(safe-area-inset-bottom)] selection:bg-primary/30 overflow-hidden font-sans antialiased">
       <div className="max-w-screen-2xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden">
         {showPostLoginBanner && (
-          <div className="mb-2 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up shrink-0">
-            <p className="text-sm text-cyan-200">{t('flow.post_login_banner')}</p>
+          <div className="mb-2 p-3 rounded-xl bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up shrink-0">
+            <p className="text-sm text-primary-foreground/90">{t('flow.post_login_banner')}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => { setSection('mastering'); setShowPostLoginBanner(false); }}
-                className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 transition-colors"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:brightness-110 transition-colors"
               >
                 {t('flow.post_login_cta')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPostLoginBanner(false)}
-                className="px-3 py-2 text-xs text-zinc-400 hover:text-white"
+                className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
                 aria-label={language === 'ja' ? '閉じる' : 'Dismiss'}
               >
                 ×
@@ -516,14 +516,14 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         )}
-        <header className="flex items-center justify-between gap-2 mb-2 sm:mb-3 flex-wrap sm:flex-nowrap shrink-0">
+        <header className="flex items-center justify-between gap-2 mb-2 sm:mb-3 flex-wrap sm:flex-nowrap shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl rounded-b-lg">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
               <BrandIcon />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold text-white tracking-tight">{t('header.title')}</h1>
-              <span className="text-xs text-zinc-500">{language === 'ja' ? '音源をアップロードしてAI解析' : 'Upload to analyze'}</span>
+              <h1 className="text-sm font-semibold text-foreground tracking-tight">{t('header.title')}</h1>
+              <span className="text-xs text-muted-foreground">{language === 'ja' ? '音源をアップロードしてAI解析' : 'Upload to analyze'}</span>
             </div>
             <div className="shrink-0 ml-2">
               <LanguageSwitcher />
@@ -543,8 +543,8 @@ const AppContent: React.FC = () => {
         </header>
 
         {(section === 'mastering' || section === 'pricing') && (
-          <div className="shrink-0 mb-2 py-1.5 px-3 rounded-md bg-white/[0.04] border border-white/[0.06] text-center">
-            <span className="text-xs text-zinc-500">{t('campaign.banner')}</span>
+          <div className="shrink-0 mb-2 py-1.5 px-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
+            <span className="text-xs font-medium text-primary">{t('campaign.banner')}</span>
           </div>
         )}
 
@@ -617,9 +617,9 @@ const AppContent: React.FC = () => {
               <React.Fragment key={s}>
                 <div className="flex items-center gap-1.5">
                   <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
-                  <span className={`text-xs ${step === s ? 'text-cyan-400 font-medium' : step > s ? 'text-white' : 'text-zinc-600'}`}>{stepLabels[s - 1]}</span>
+                  <span className={`text-xs ${step === s ? 'text-primary font-medium' : step > s ? 'text-foreground' : 'text-muted-foreground'}`}>{stepLabels[s - 1]}</span>
                 </div>
-                {s < 4 && <div className="w-4 sm:w-8 h-px bg-white/10" />}
+                {s < 4 && <div className="w-4 sm:w-8 h-px bg-border" />}
               </React.Fragment>
             ))}
           </div>
@@ -630,15 +630,8 @@ const AppContent: React.FC = () => {
               {!audioFile && !isProcessing ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
                   <HeroEngine language={language} compact />
-                  <div
-                    className="rounded-2xl p-4 sm:p-6 flex flex-col"
-                    style={{
-                      border: '1px solid rgba(34,211,238,0.2)',
-                      background: 'linear-gradient(180deg, rgba(34,211,238,0.06) 0%, rgba(5,5,8,0.6) 100%)',
-                      boxShadow: '0 0 30px rgba(34,211,238,0.06)',
-                    }}
-                  >
-                    <p className="text-xs font-bold text-cyan-400/90 uppercase tracking-wider mb-3">
+                  <div className="rounded-2xl p-4 sm:p-6 flex flex-col border-2 border-primary/40 bg-primary/5 shadow-[0_0_30px_hsl(180_100%_50%/0.08)]">
+                    <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">
                       {language === 'ja' ? 'ここから始める' : 'Start here'}
                     </p>
                     <FileUpload
@@ -649,12 +642,12 @@ const AppContent: React.FC = () => {
                       compact={false}
                     />
                     {error && (
-                      <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm space-y-2">
+                      <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-2">
                         <p>{error}</p>
                         <button
                           type="button"
                           onClick={() => { setError(''); resetToUpload(); }}
-                          className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20"
+                          className="px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80"
                         >
                           {t('ux.error_retry')}
                         </button>
@@ -663,7 +656,7 @@ const AppContent: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-6">
+                <div className="rounded-2xl border border-border bg-card/50 p-4 sm:p-6">
                   <FileUpload
                     onFileChange={handleFileChange}
                     fileName={audioFile?.name}
@@ -672,12 +665,12 @@ const AppContent: React.FC = () => {
                     compact={!!(audioFile || isProcessing)}
                   />
                   {error && (
-                    <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm space-y-2">
+                    <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-2">
                       <p>{error}</p>
                       <button
                         type="button"
                         onClick={() => { setError(''); resetToUpload(); }}
-                        className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20"
+                        className="px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80"
                       >
                         {t('ux.error_retry')}
                       </button>
@@ -713,37 +706,37 @@ const AppContent: React.FC = () => {
 
           {/* ── Phase: Mastering Complete → View Results ── */}
           {!isProcessing && analysisData && masteringParams && (
-            <div className="glass rounded-2xl p-6 sm:p-8 animate-fade-up text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
+            <div className="rounded-2xl border border-border bg-card/80 backdrop-blur p-6 sm:p-8 animate-fade-up text-center space-y-4 shadow-lg">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-bold text-primary uppercase tracking-wider">
                   {language === 'ja' ? 'マスタリング完了' : 'Mastering Complete'}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">
                 {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
               </h2>
               {masterMetrics && (
-                <p className="text-sm text-zinc-400 font-mono">
+                <p className="text-sm text-muted-foreground font-mono">
                   {language === 'ja' ? 'マスター実測' : 'Master'} LUFS {masterMetrics.lufs.toFixed(1)}
                   {language === 'ja' ? ' · 目標' : ' · Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
                 </p>
               )}
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 {t('flow.complete_teaser')}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowResultsModal(true)}
-                  className="px-8 py-3.5 min-h-[52px] rounded-xl bg-cyan-500 text-black font-bold text-base hover:bg-cyan-400 active:scale-[0.98] touch-manipulation shadow-lg shadow-cyan-500/25"
+                  className="animate-pulse-glow px-8 py-3.5 min-h-[52px] rounded-xl bg-primary text-primary-foreground font-bold text-base hover:brightness-110 active:scale-[0.98] touch-manipulation shadow-lg shadow-primary/25"
                 >
                   {language === 'ja' ? '結果を見る（聴く・購入）' : 'View result (listen & purchase)'}
                 </button>
                 <button
                   type="button"
                   onClick={resetToUpload}
-                  className="text-sm text-zinc-400 hover:text-white underline underline-offset-2"
+                  className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
                 >
                   {t('ux.choose_other_file')}
                 </button>
@@ -754,19 +747,19 @@ const AppContent: React.FC = () => {
         )}
         </div>
 
-        <footer className="shrink-0 mt-2 sm:mt-3 py-3 sm:py-4 border-t border-white/5 flex justify-between items-center text-xs text-zinc-500 flex-wrap gap-2">
+        <footer className="shrink-0 mt-2 sm:mt-3 py-3 sm:py-4 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground flex-wrap gap-2">
           <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
           <div className="flex items-center gap-3 flex-wrap">
-            <a className="hover:text-cyan-400 transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
+            <a className="hover:text-foreground transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
               {language === 'ja' ? '運営者情報' : 'Operator'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-foreground transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? '利用規約' : 'Terms'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-foreground transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? 'プライバシー' : 'Privacy'}
             </a>
-            <a className="hover:text-cyan-400 transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
+            <a className="hover:text-foreground transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
               {language === 'ja' ? '返金ポリシー' : 'Refunds'}
             </a>
           </div>

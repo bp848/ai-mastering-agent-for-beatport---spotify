@@ -666,19 +666,8 @@ export const optimizeMasteringParams = async (
     for (let i = 0; i < length; i++) chunk[i] = raw[startSample + i];
   }
 
-  // [1] Self-Correction Loop — 本番と同一チェーンでレンダリングし、目標 LUFS との誤差を 0.1 dB 単位で補正する。
-  const source = offlineCtx.createBufferSource();
-  source.buffer = chunkBuffer;
-  buildMasteringChain(
-    offlineCtx,
-    source,
-    optimizedParams,
-    originalBuffer.numberOfChannels,
-    offlineCtx.destination,
-  );
-
-  source.start(0);
-  const renderedBuffer = await offlineCtx.startRendering();
+  // [1] Self-Correction Loop — 本番と同一オーバーサンプリング経路でレンダリングし、分析時と最終書き出しの音質差をなくす。
+  const renderedBuffer = await renderMasteredBuffer(chunkBuffer, optimizedParams);
 
   // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
   const data = renderedBuffer.getChannelData(0);
@@ -755,28 +744,116 @@ export const optimizeMasteringParams = async (
 };
 
 // ------------------------------------------------------------------
+// オーバーサンプリング: オフライン処理は x32 デフォルト（WaveShaper 4x と合わせて実質 x32 相当）
+// ------------------------------------------------------------------
+export const MASTERING_OVERSAMPLE_FACTOR = 32;
+
+function getSupportedOversampleFactor(baseSampleRate: number): number {
+  const factors = [32, 16, 8, 4, 2, 1];
+  for (const f of factors) {
+    if (f === 1) return 1;
+    const rate = baseSampleRate * f;
+    if (rate > 768000) continue; // 多くのブラウザ上限
+    try {
+      new OfflineAudioContext(1, 128, rate);
+      return f;
+    } catch {
+      continue;
+    }
+  }
+  return 1;
+}
+
+function upsampleAudioBuffer(buffer: AudioBuffer, factor: number): AudioBuffer {
+  const numCh = buffer.numberOfChannels;
+  const newLength = buffer.length * factor;
+  const newRate = buffer.sampleRate * factor;
+  const ctx = new OfflineAudioContext(numCh, newLength, newRate);
+  const out = ctx.createBuffer(numCh, newLength, newRate);
+  for (let ch = 0; ch < numCh; ch++) {
+    const src = buffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    for (let i = 0; i < newLength; i++) {
+      const t = i / factor;
+      const idx = Math.floor(t);
+      const frac = t - idx;
+      const a = src[Math.min(idx, src.length - 1)];
+      const b = src[Math.min(idx + 1, src.length - 1)];
+      dst[i] = a + (b - a) * frac;
+    }
+  }
+  return out;
+}
+
+function downsampleAudioBuffer(buffer: AudioBuffer, factor: number): AudioBuffer {
+  const numCh = buffer.numberOfChannels;
+  const srcLen = buffer.length;
+  const dstLen = Math.floor(srcLen / factor);
+  const targetRate = buffer.sampleRate / factor;
+  const ctx = new OfflineAudioContext(numCh, dstLen, targetRate);
+  const out = ctx.createBuffer(numCh, dstLen, targetRate);
+  for (let ch = 0; ch < numCh; ch++) {
+    const src = buffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    for (let i = 0; i < dstLen; i++) {
+      const start = i * factor;
+      const end = Math.min(start + factor, srcLen);
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += src[j];
+      dst[i] = sum / (end - start);
+    }
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------
 // マスター波形表示用: 本番チェーンと同一処理でレンダリングした AudioBuffer を返す（固定ゲイン近似なし）
+// オーバーサンプリング: 最大32倍まで対応（ブラウザ対応に応じて 32/16/8/4/2/1 のいずれか）
 // ------------------------------------------------------------------
 export const renderMasteredBuffer = async (
   originalBuffer: AudioBuffer,
   params: MasteringParams,
 ): Promise<AudioBuffer> => {
+  const factor = getSupportedOversampleFactor(originalBuffer.sampleRate);
+  const effectiveFactor = Math.min(factor, MASTERING_OVERSAMPLE_FACTOR);
+
+  if (effectiveFactor <= 1) {
+    const offlineCtx = new OfflineAudioContext(
+      originalBuffer.numberOfChannels,
+      originalBuffer.length,
+      originalBuffer.sampleRate,
+    );
+    const source = offlineCtx.createBufferSource();
+    source.buffer = originalBuffer;
+    buildMasteringChain(
+      offlineCtx,
+      source,
+      params,
+      originalBuffer.numberOfChannels,
+      offlineCtx.destination,
+    );
+    source.start(0);
+    return offlineCtx.startRendering();
+  }
+
+  const upsampled = upsampleAudioBuffer(originalBuffer, effectiveFactor);
   const offlineCtx = new OfflineAudioContext(
-    originalBuffer.numberOfChannels,
-    originalBuffer.length,
-    originalBuffer.sampleRate,
+    upsampled.numberOfChannels,
+    upsampled.length,
+    upsampled.sampleRate,
   );
   const source = offlineCtx.createBufferSource();
-  source.buffer = originalBuffer;
+  source.buffer = upsampled;
   buildMasteringChain(
     offlineCtx,
     source,
     params,
-    originalBuffer.numberOfChannels,
+    upsampled.numberOfChannels,
     offlineCtx.destination,
   );
   source.start(0);
-  return offlineCtx.startRendering();
+  const renderedHighRate = await offlineCtx.startRendering();
+  return downsampleAudioBuffer(renderedHighRate, effectiveFactor);
 };
 
 // ------------------------------------------------------------------
