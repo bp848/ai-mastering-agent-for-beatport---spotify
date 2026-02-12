@@ -122,9 +122,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
       tabIndex={isDisabled ? -1 : 0}
       aria-label={t('upload.aria.label')}
       className={`
-        relative min-h-[180px] sm:min-h-[200px] flex flex-col items-center justify-center rounded-2xl
-        border-2 border-dashed transition-all duration-300 cursor-pointer
-        ${isDragOver ? 'border-cyan-500/60 bg-cyan-500/10 scale-[1.02]' : 'border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.02]'}
+        relative min-h-[220px] sm:min-h-[260px] flex flex-col items-center justify-center rounded-3xl
+        border-2 border-dashed transition-all duration-300 cursor-pointer overflow-hidden
+        ${isDragOver ? 'border-cyan-400 bg-gradient-to-br from-cyan-500/20 to-purple-500/10 scale-[1.02] shadow-2xl shadow-cyan-500/30' : 'border-white/20 hover:border-cyan-400/50 hover:bg-gradient-to-br hover:from-white/[0.03] hover:to-transparent'}
         ${isDisabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}
       `}
     >
@@ -137,39 +137,42 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange, fileName, isAnaly
         disabled={isDisabled}
       />
 
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none" />
       {!isReady ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+        <div className="relative z-10 flex flex-col items-center gap-5">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-cyan-500/30 to-purple-500/30 flex items-center justify-center text-cyan-300 shadow-lg">
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-white">{t('upload.pyodide.loading')}</p>
-            <p className="text-xs text-zinc-500 mt-1">{t('upload.pyodide.detail')}</p>
-            <p className="text-[11px] text-zinc-500 mt-2">{t('upload.pyodide.wait')}</p>
+            <p className="text-base font-bold text-white">{t('upload.pyodide.loading')}</p>
+            <p className="text-sm text-zinc-400 mt-2 max-w-md leading-relaxed">{t('upload.pyodide.detail')}</p>
+            <p className="text-xs text-zinc-500 mt-3">{t('upload.pyodide.wait')}</p>
           </div>
         </div>
       ) : isAnalyzing ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+        <div className="relative z-10 flex flex-col items-center gap-5">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-cyan-500/30 to-purple-500/30 flex items-center justify-center text-cyan-300 shadow-lg animate-pulse-glow">
             <Spinner />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-white">{t('upload.analyzing')}</p>
-            <p className="text-xs text-zinc-500 mt-1">{t('upload.analyzing.detail')}</p>
+            <p className="text-base font-bold text-white">{t('upload.analyzing')}</p>
+            <p className="text-sm text-zinc-400 mt-2">{t('upload.analyzing.detail')}</p>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 text-center px-6">
-          <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+        <div className="relative z-10 flex flex-col items-center gap-4 text-center px-6">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center text-cyan-400 shadow-xl border border-cyan-500/30">
             <UploadIcon />
           </div>
           {fileName ? (
-            <p className="text-sm font-medium text-cyan-400 truncate max-w-full">{fileName}</p>
+            <p className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 truncate max-w-full">{fileName}</p>
           ) : (
             <>
-              <p className="text-base font-semibold text-white">{t('upload.cta.title')}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{t('upload.cta.detail')}</p>
-              <p className="text-[11px] text-zinc-400 mt-2">{t('upload.cta.hint')}</p>
+              <p className="text-xl font-extrabold text-white">{t('upload.cta.title')}</p>
+              <p className="text-sm text-zinc-400 mt-1 max-w-md leading-relaxed">{t('upload.cta.detail')}</p>
+              <div className="mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30">
+                <p className="text-xs font-semibold text-cyan-300">{t('upload.cta.hint')}</p>
+              </div>
             </>
           )}
         </div>

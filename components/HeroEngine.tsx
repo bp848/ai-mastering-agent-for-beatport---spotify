@@ -18,14 +18,14 @@ interface SpecCardProps {
 }
 
 const SpecCard: React.FC<SpecCardProps> = ({ number, title, titleEn, body }) => (
-  <div className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 sm:p-6 hover:border-cyan-500/30 transition-colors">
+  <div className="group relative rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-white/[0.01] p-6 sm:p-7 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] transition-all duration-300">
     {/* Number badge */}
-    <span className="absolute -top-3 left-4 inline-flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold ring-1 ring-cyan-500/30">
+    <span className="absolute -top-3 left-5 inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/30">
       {number}
     </span>
-    <h3 className="text-sm font-bold text-white leading-snug mb-0.5">{title}</h3>
-    <p className="text-[10px] font-medium text-cyan-500/70 tracking-wider uppercase mb-3">{titleEn}</p>
-    <p className="text-xs leading-relaxed text-zinc-400">{body}</p>
+    <h3 className="text-base font-extrabold text-white leading-tight mb-1">{title}</h3>
+    <p className="text-xs font-semibold text-cyan-400/80 tracking-wide uppercase mb-4">{titleEn}</p>
+    <p className="text-sm leading-relaxed text-zinc-300">{body}</p>
   </div>
 );
 
@@ -42,36 +42,43 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   if (compact) {
     return (
       <section className="animate-fade-up">
-        <div className="glass rounded-2xl p-5 sm:p-6 space-y-4">
-          <div className="inline-flex flex-col gap-0.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-            <span className="text-xs font-bold text-amber-400">
-              {ja ? '今だけ１曲無料キャンペーン中' : 'Limited time: 1 track free'}
-            </span>
-            <span className="text-[10px] text-amber-400/80">
-              {ja ? 'おひとり様１回限り' : 'One per person, one time only'}
-            </span>
-          </div>
-          <p className="text-sm sm:text-base font-bold text-cyan-200/95">
-            {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
-          </p>
-          <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-            <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
-            <br />
-            <span className="text-sm font-semibold text-zinc-300">
-              {ja ? 'AIの感性と、物理学の絶対領域。' : 'AI Sensibility \u00D7 Physics.'}
-            </span>
-          </h2>
-          <p className="text-xs sm:text-sm leading-relaxed text-zinc-400">
-            {ja
-              ? 'AIが楽曲のDNAを解析し、ハイブリッド・ループが特徴を最大限に引き出します。'
-              : 'AI analyzes your track\u2019s DNA; our hybrid-loop unlocks its full potential.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(ja ? ['音量', '音質', '音圧', '音像'] : ['Volume', 'Tone', 'Loudness', 'Image']).map((pillar) => (
-              <span key={pillar} className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-bold text-cyan-300">
-                {pillar}
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent backdrop-blur-xl p-6 sm:p-8 space-y-5 shadow-xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5" />
+          <div className="relative z-10 space-y-5">
+            <div className="inline-flex flex-col gap-1 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 shadow-lg shadow-amber-500/20">
+              <span className="text-sm font-extrabold text-amber-300">
+                {ja ? '今だけ１曲無料キャンペーン中' : 'Limited time: 1 track free'}
               </span>
-            ))}
+              <span className="text-xs text-amber-300/80 font-semibold">
+                {ja ? 'おひとり様１回限り' : 'One per person, one time only'}
+              </span>
+            </div>
+            <p className="text-base sm:text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+              {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
+            </p>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">&quot;Hybrid-Analog Engine&quot;</span>
+              <br />
+              <span className="text-base sm:text-lg font-bold text-zinc-200 block mt-2">
+                {ja ? 'AIの感性と、物理学の絶対領域。' : 'AI Sensibility × Physics.'}
+              </span>
+            </h2>
+            <p className="text-sm sm:text-base leading-relaxed text-zinc-300">
+              {ja
+                ? 'AIが楽曲のDNAを解析し、ハイブリッド・ループが特徴を最大限に引き出します。'
+                : 'AI analyzes your track\'s DNA; our hybrid-loop unlocks its full potential.'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(ja ? ['音量', '音質', '音圧', '音像'] : ['Volume', 'Tone', 'Loudness', 'Image']).map((pillar, idx) => (
+                <span 
+                  key={pillar} 
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 text-sm font-extrabold text-white shadow-md hover:shadow-cyan-500/30 transition-all"
+                  style={{ animationDelay: `${idx * 100}ms` }}
+                >
+                  {pillar}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -81,63 +88,68 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
   return (
     <section className="animate-fade-up space-y-8">
       {/* ── Hero Header ──────────────────────────────────── */}
-      <div className="glass rounded-2xl p-6 sm:p-10 text-center space-y-5">
-        {/* 1. Tagline */}
-        <p className="text-sm sm:text-base font-bold text-cyan-200/95">
-          {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
-        </p>
-
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[10px] font-semibold text-cyan-400 uppercase tracking-widest">
-            {ja ? 'エンジン技術解説' : 'Engine Architecture'}
-          </span>
-        </div>
-
-        {/* Title */}
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
-          <span className="text-cyan-400">&quot;Hybrid-Analog Engine&quot;</span>
-          <br />
-          <span className="text-base sm:text-lg font-semibold text-zinc-300">
-            {ja
-              ? 'AIの感性と、物理学の絶対領域。'
-              : 'AI Sensibility \u00D7 The Absolute Domain of Physics.'}
-          </span>
-        </h2>
-
-        {/* Lead */}
-        <div className="max-w-4xl mx-auto space-y-3">
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
-            {ja
-              ? '既存のAIマスタリングは、プリセットを当てはめて「平均的な音」を作るだけでした。それでは世界観が小さくまとまってしまいます。'
-              : 'Existing AI mastering just applies presets to produce "average sound." That only shrinks your creative vision.'}
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent backdrop-blur-xl p-8 sm:p-12 text-center space-y-6 shadow-2xl">
+        {/* Decorative glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-purple-500/10 opacity-50" />
+        <div className="relative z-10 space-y-6">
+          {/* 1. Tagline */}
+          <p className="text-base sm:text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+            {ja ? '世界最高峰の音に引き出します。無料プランあり。' : 'We bring out world-class sound. Free plan available.'}
           </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-300 font-medium">
-            {ja
-              ? '我々のエンジンは違います。目指したのは、特定のチャートへの迎合ではなく、世界最高峰のスタジオ品質に負けない「音量」「音質」「音圧」、そして明確な「音像」です。'
-              : 'Our engine is different. We don\u2019t chase charts \u2014 we pursue world-class studio quality: Volume, Tone, Loudness, and a definitive Sonic Image.'}
-          </p>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-zinc-400">
-            {ja
-              ? 'AIが楽曲のDNAを解析し、独自開発のハイブリッド・ループシステムが、楽曲の持つそれぞれの特徴を最大限に引き出します。'
-              : 'AI analyzes your track\u2019s DNA, and our proprietary hybrid-loop system unlocks the full potential of every characteristic your music holds.'}
-          </p>
-        </div>
 
-        {/* 4つの価値軸: 音量・音質・音圧・音像 */}
-        <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
-          {(ja
-            ? ['音量', '音質', '音圧', '音像']
-            : ['Volume', 'Tone', 'Loudness', 'Image']
-          ).map((pillar) => (
-            <span
-              key={pillar}
-              className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs sm:text-sm font-bold text-cyan-300 tracking-wider"
-            >
-              {pillar}
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50" />
+            <span className="text-xs font-bold text-cyan-300 uppercase tracking-widest">
+              {ja ? 'エンジン技術解説' : 'Engine Architecture'}
             </span>
-          ))}
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-cyan-300 to-purple-400">&quot;Hybrid-Analog Engine&quot;</span>
+            <br />
+            <span className="text-lg sm:text-xl md:text-2xl font-bold text-zinc-200 mt-2 block">
+              {ja
+                ? 'AIの感性と、物理学の絶対領域。'
+                : 'AI Sensibility × The Absolute Domain of Physics.'}
+            </span>
+          </h2>
+
+          {/* Lead */}
+          <div className="max-w-4xl mx-auto space-y-4">
+            <p className="text-base sm:text-lg leading-relaxed text-zinc-300">
+              {ja
+                ? '既存のAIマスタリングは、プリセットを当てはめて「平均的な音」を作るだけでした。それでは世界観が小さくまとまってしまいます。'
+                : 'Existing AI mastering just applies presets to produce "average sound." That only shrinks your creative vision.'}
+            </p>
+            <p className="text-base sm:text-lg leading-relaxed text-white font-bold">
+              {ja
+                ? '我々のエンジンは違います。目指したのは、特定のチャートへの迎合ではなく、世界最高峰のスタジオ品質に負けない「音量」「音質」「音圧」、そして明確な「音像」です。'
+                : 'Our engine is different. We don\'t chase charts — we pursue world-class studio quality: Volume, Tone, Loudness, and a definitive Sonic Image.'}
+            </p>
+            <p className="text-base sm:text-lg leading-relaxed text-zinc-300">
+              {ja
+                ? 'AIが楽曲のDNAを解析し、独自開発のハイブリッド・ループシステムが、楽曲の持つそれぞれの特徴を最大限に引き出します。'
+                : 'AI analyzes your track\'s DNA, and our proprietary hybrid-loop system unlocks the full potential of every characteristic your music holds.'}
+            </p>
+          </div>
+
+          {/* 4つの価値軸: 音量・音質・音圧・音像 */}
+          <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
+            {(ja
+              ? ['音量', '音質', '音圧', '音像']
+              : ['Volume', 'Tone', 'Loudness', 'Image']
+            ).map((pillar, idx) => (
+              <span
+                key={pillar}
+                className="px-4 py-2 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 text-sm sm:text-base font-extrabold text-white tracking-wide shadow-lg hover:shadow-cyan-500/30 transition-all duration-300"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                {pillar}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
