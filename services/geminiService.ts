@@ -35,7 +35,6 @@ export function applySafetyGuard(
   const peakHot = analysis.truePeak > -1; // dBTP が -1 より上はピーク過多
   const lowCrest = analysis.crestFactor < 9 && analysis.crestFactor > 0;
   const highDistortion = analysis.distortionPercent > 2;
-  if (!peakHot && !lowCrest && !highDistortion) return params;
 
   const out = { ...params };
   if (peakHot || lowCrest || highDistortion) {
@@ -43,7 +42,26 @@ export function applySafetyGuard(
     out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
     out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
   }
-  return out;
+
+  const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
+  const bass = analysis.frequencyData.find(f => f.name === '60-250')?.level ?? -60;
+  const microRisk =
+    (analysis.truePeak > -1.3 ? 1 : 0) +
+    (analysis.crestFactor < 10.5 ? 1 : 0) +
+    (analysis.distortionPercent > 1.1 ? 1 : 0) +
+    (analysis.phaseCorrelation < 0.2 ? 1 : 0) +
+    (subBass > -15 && bass > -12.5 ? 1 : 0);
+
+  if (microRisk >= 2) {
+    const gainTrim = Math.min(0.6, 0.12 * microRisk);
+    out.gain_adjustment_db = Math.round((out.gain_adjustment_db - gainTrim) * 100) / 100;
+    out.limiter_ceiling_db = Math.max(-6, Math.min(-1.0, out.limiter_ceiling_db - 0.1));
+    out.tube_drive_amount = Math.max(0, Number((out.tube_drive_amount * (1 - microRisk * 0.04)).toFixed(3)));
+    out.exciter_amount = Math.max(0, Number((out.exciter_amount * (1 - microRisk * 0.05)).toFixed(3)));
+    out.low_contour_amount = Math.max(0, Number((out.low_contour_amount - 0.03 * microRisk).toFixed(3)));
+  }
+
+  return clampMasteringParams(out);
 }
 
 const VALID_EQ_TYPES: EQAdjustment['type'][] = ['peak', 'lowshelf', 'highshelf', 'lowpass', 'highpass'];

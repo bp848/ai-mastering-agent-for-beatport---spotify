@@ -21,7 +21,7 @@ describe('applyFeedbackAdjustment', () => {
     expect(adjusted.tube_drive_amount).toBe(1);
     expect(adjusted.exciter_amount).toBeCloseTo(0.05, 6);
     expect(adjusted.low_contour_amount).toBeCloseTo(0.4, 6);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.limiter_ceiling_db).toBe(-1);
     expect(adjusted.eq_adjustments).toEqual([
       { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
       { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
@@ -48,7 +48,7 @@ describe('applyFeedbackAdjustment', () => {
     const adjusted = applyFeedbackAdjustment(baseParams(), 'not_loud');
 
     expect(adjusted.target_lufs).toBe(-7);
-    expect(adjusted.limiter_ceiling_db).toBe(-0.3);
+    expect(adjusted.limiter_ceiling_db).toBe(-1);
   });
 
   it('adds focused low-end boost for weak kick', () => {
