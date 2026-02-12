@@ -205,7 +205,8 @@ export default function PricingView() {
   ];
 
   return (
-    <div className="animate-fade-up space-y-8">
+    <section className="border-t border-border/50 py-16 md:py-20 animate-fade-up">
+      <div className="mx-auto max-w-5xl px-4 space-y-8">
       {/* ── キャンペーン案内 ── */}
       <div className="rounded-xl bg-primary/10 border border-primary/30 px-4 py-3 text-center space-y-2">
         <p className="text-sm font-bold text-primary">
@@ -327,6 +328,7 @@ export default function PricingView() {
           ? '※ 価格はすべて税込表示です。プレビューは全プラン無制限・無料です。'
           : '※ All prices include tax. Preview is unlimited and free on all plans.'}
       </p>
-    </div>
+      </div>
+    </section>
   );
 }

@@ -3,16 +3,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
 import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
-import FileUpload from './components/FileUpload';
-import AnalysisDisplay from './components/AnalysisDisplay';
-import MasteringAgent from './components/MasteringAgent';
-import PlatformNav from './components/PlatformNav';
 import PricingView from './components/PricingView';
-import LibraryView from './components/LibraryView';
-import ChecklistView from './components/ChecklistView';
-import EmailView from './components/EmailView';
-import SNSView from './components/SNSView';
-import { BrandIcon, Spinner } from './components/Icons';
 import { LanguageProvider, useTranslation } from './contexts/LanguageContext';
 import { PlatformProvider, usePlatform } from './contexts/PlatformContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -20,13 +11,10 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import DownloadGateModal from './components/DownloadGateModal';
 import PaywallModal from './components/PaywallModal';
 import ResultsModal from './components/ResultsModal';
-import HeroEngine from './components/HeroEngine';
-import AnalysisTerminal from './components/AnalysisTerminal';
-import StatusLoader from './components/StatusLoader';
-import DiagnosisReport from './components/DiagnosisReport';
-import PlatformSelector from './components/PlatformSelector';
 import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
+import LP from './components/lp/LP';
+import { createCheckoutSession } from './services/stripeCheckout';
 import { recordDownload } from './services/downloadHistory';
 import { supabase } from './services/supabase';
 import { trackEvent } from './services/analytics';
@@ -362,7 +350,8 @@ const AppContent: React.FC = () => {
 
   const handleFileChange = useCallback((file: File | null) => {
     if (file) analyzeOnly(file, masteringTarget);
-  }, [analyzeOnly, masteringTarget]);
+    else resetToUpload();
+  }, [analyzeOnly, masteringTarget, resetToUpload]);
 
   const handleDownload = useCallback(async () => {
     if (!masteringParams || !audioBuffer || !audioFile) return;
@@ -462,12 +451,8 @@ const AppContent: React.FC = () => {
     setShowSaveToLibrary(false);
     setSaveToLibraryForm({ title: '', artist: '', album: '', genre: 'Techno', isrc: '', releaseDate: '' });
     setShowResultsModal(false);
-    setSection('library');
+    setSection('mypage');
   }, [audioFile, masteringTarget, addTrack, saveToLibraryForm]);
-
-  // ── 4ステップ: アップロード → 分析 → 実行 → 聴く・購入 ──
-  const step = !audioFile ? 1 : isAnalyzing ? 2 : (!masteringParams && analysisData) ? 3 : masteringParams ? 4 : 2;
-  const stepLabels = [t('steps.upload'), t('steps.analyze'), t('steps.run'), t('steps.listen')];
 
   const resetToUpload = useCallback(() => {
     setAudioFile(null);
@@ -491,16 +476,31 @@ const AppContent: React.FC = () => {
     [isProcessing, section, t]
   );
 
+  const onPerTrackSelect = useCallback(async () => {
+    if (!session?.access_token) {
+      signInWithGoogle();
+      return;
+    }
+    try {
+      const { url } = await createCheckoutSession(session.access_token, 1000, 'Per Track', 1);
+      if (url) window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Checkout failed');
+    }
+  }, [session?.access_token, signInWithGoogle]);
+
+  const onMonthlySelect = useCallback(() => setSection('pricing'), []);
+
   return (
     <div className="h-full min-h-0 flex flex-col bg-background text-foreground px-3 py-3 sm:px-5 sm:py-4 lg:px-10 lg:py-5 pb-[env(safe-area-inset-bottom)] selection:bg-primary/30 overflow-hidden font-sans antialiased">
       <div className="max-w-screen-2xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden">
-        {showPostLoginBanner && (
+        {showPostLoginBanner && section !== 'mypage' && section !== 'pricing' && (
           <div className="mb-2 p-3 rounded-xl bg-primary/10 border border-primary/30 flex flex-wrap items-center justify-between gap-3 animate-fade-up shrink-0">
             <p className="text-sm text-primary-foreground/90">{t('flow.post_login_banner')}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => { setSection('mastering'); setShowPostLoginBanner(false); }}
+                onClick={() => { window.location.hash = ''; setShowPostLoginBanner(false); }}
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:brightness-110 transition-colors"
               >
                 {t('flow.post_login_cta')}
@@ -516,49 +516,47 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         )}
-        <header className="flex items-center justify-between gap-2 mb-2 sm:mb-3 flex-wrap sm:flex-nowrap shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl rounded-b-lg">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
-              <BrandIcon />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-semibold text-foreground tracking-tight">{t('header.title')}</h1>
-              <span className="text-xs text-muted-foreground">{language === 'ja' ? '音源をアップロードしてAI解析' : 'Upload to analyze'}</span>
-            </div>
-            <div className="shrink-0 ml-2">
+
+        {section === 'mypage' && (
+          <>
+            <header className="shrink-0 flex items-center gap-2 mb-2 py-2 border-b border-border/50">
+              <button
+                type="button"
+                onClick={() => { window.location.hash = ''; setSection('mastering'); }}
+                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                ← {language === 'ja' ? 'トップへ' : 'Back'}
+              </button>
+              <div className="flex-1" />
               <LanguageSwitcher />
+            </header>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <MyPageView onNavigateToMastering={() => { window.location.hash = ''; setSection('mastering'); }} />
             </div>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <PlatformNav
-              current={section}
-              onSelect={handleSectionChange}
-              session={session}
-              onLoginClick={() => {
-                if (session?.user) handleSectionChange('mypage');
-                else signInWithGoogle();
-              }}
-            />
-          </div>
-        </header>
-
-        {(section === 'mastering' || section === 'pricing') && (
-          <div className="shrink-0 mb-2 py-1.5 px-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
-            <span className="text-xs font-medium text-primary">{t('campaign.banner')}</span>
-          </div>
+          </>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-touch">
-        {section !== 'mastering' && (
-          <main className="animate-fade-up">
-            {section === 'pricing' && <PricingView />}
-            {section === 'mypage' && <MyPageView onNavigateToMastering={() => setSection('mastering')} />}
-            {section === 'library' && <LibraryView />}
-            {section === 'checklist' && <ChecklistView />}
-            {section === 'email' && <EmailView />}
-            {section === 'sns' && <SNSView />}
-          </main>
+        {section === 'pricing' && (
+          <>
+            <header className="shrink-0 flex items-center gap-2 mb-2 py-2 border-b border-border/50">
+              <button
+                type="button"
+                onClick={() => { window.location.hash = ''; setSection('mastering'); }}
+                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                ← {language === 'ja' ? 'トップへ' : 'Back'}
+              </button>
+              <div className="flex-1" />
+              <LanguageSwitcher />
+            </header>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <PricingView />
+            </div>
+          </>
         )}
+
+        {(section === 'mastering' || section === 'library' || section === 'checklist' || section === 'email' || section === 'sns' || section === 'admin') && (
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-touch">
 
         <DownloadGateModal
           open={showDownloadGate}
@@ -569,7 +567,7 @@ const AppContent: React.FC = () => {
         <PaywallModal
           open={showPaywall}
           onClose={() => setShowPaywall(false)}
-          onGoToPricing={() => setSection('pricing')}
+          onGoToPricing={() => { window.location.hash = 'pricing'; setSection('pricing'); }}
         />
 
         {analysisData && masteringParams && (
@@ -603,168 +601,30 @@ const AppContent: React.FC = () => {
           />
         )}
 
-        {section === 'mastering' && (
-        <main className="space-y-3 sm:space-y-4">
-          <div
-            className="flex items-center justify-center gap-2 sm:gap-4 py-2"
-            role="progressbar"
-            aria-valuenow={step}
-            aria-valuemin={1}
-            aria-valuemax={4}
-            aria-label={language === 'ja' ? `ステップ ${step} / 4` : `Step ${step} of 4`}
-          >
-            {[1, 2, 3, 4].map((s) => (
-              <React.Fragment key={s}>
-                <div className="flex items-center gap-1.5">
-                  <div className={`step-dot ${step > s ? 'done' : step === s ? 'active' : 'pending'}`} />
-                  <span className={`text-xs ${step === s ? 'text-primary font-medium' : step > s ? 'text-foreground' : 'text-muted-foreground'}`}>{stepLabels[s - 1]}</span>
-                </div>
-                {s < 4 && <div className="w-4 sm:w-8 h-px bg-border" />}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* トップ: 未アップロード時は2カラム（左・省略説明 / 右・アップロード） ── */}
-          {(!analysisData || masteringParams) && (
-            <>
-              {!audioFile && !isProcessing ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
-                  <HeroEngine language={language} compact />
-                  <div className="rounded-2xl p-4 sm:p-6 flex flex-col border-2 border-primary/40 bg-primary/5 shadow-[0_0_30px_hsl(180_100%_50%/0.08)]">
-                    <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">
-                      {language === 'ja' ? 'ここから始める' : 'Start here'}
-                    </p>
-                    <FileUpload
-                      onFileChange={handleFileChange}
-                      fileName={audioFile?.name}
-                      isAnalyzing={isProcessing}
-                      pyodideStatus={pyodideStatus}
-                      compact={false}
-                    />
-                    {error && (
-                      <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-2">
-                        <p>{error}</p>
-                        <button
-                          type="button"
-                          onClick={() => { setError(''); resetToUpload(); }}
-                          className="px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80"
-                        >
-                          {t('ux.error_retry')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-border bg-card/50 p-4 sm:p-6">
-                  <FileUpload
-                    onFileChange={handleFileChange}
-                    fileName={audioFile?.name}
-                    isAnalyzing={isProcessing}
-                    pyodideStatus={pyodideStatus}
-                    compact={!!(audioFile || isProcessing)}
-                  />
-                  {error && (
-                    <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-2">
-                      <p>{error}</p>
-                      <button
-                        type="button"
-                        onClick={() => { setError(''); resetToUpload(); }}
-                        className="px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80"
-                      >
-                        {t('ux.error_retry')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
-          {isAnalyzing && <StatusLoader mode="analysis" />}
-          {isMastering && <StatusLoader mode="mastering" />}
-          {isProcessing && actionLogs.length > 0 && (
-            <AnalysisTerminal
-              logs={actionLogs}
-              title={isMastering ? 'MASTERING_ENGINE' : 'ANALYSIS_ENGINE'}
-            />
-          )}
-
-          {/* ── Phase: Diagnosis (分析完了 → マスタリング未実行) ── */}
-          {!isAnalyzing && !isMastering && analysisData && !masteringParams && (
-            <DiagnosisReport
-              data={analysisData}
-              target={masteringTarget}
-              onTargetChange={setMasteringTarget}
-              onExecute={executeMastering}
-              onChooseOtherFile={resetToUpload}
-              isMastering={isMastering}
+            <LP
               language={language}
+              onFileChange={handleFileChange}
+              fileName={audioFile?.name}
+              isAnalyzing={isAnalyzing}
+              isMastering={isMastering}
+              pyodideStatus={pyodideStatus}
+              error={error}
+              onErrorRetry={() => { setError(''); resetToUpload(); }}
+              audioFile={audioFile}
+              analysisData={analysisData}
+              masteringParams={masteringParams}
+              masteringTarget={masteringTarget}
+              onTargetChange={setMasteringTarget}
+              onExecuteMastering={executeMastering}
+              onOpenResults={() => setShowResultsModal(true)}
+              onResetUpload={resetToUpload}
+              session={session}
+              onMypageClick={() => { window.location.hash = 'mypage'; setSection('mypage'); }}
+              onPerTrackSelect={onPerTrackSelect}
+              onMonthlySelect={onMonthlySelect}
             />
-          )}
-
-          {/* ── Phase: Mastering Complete → View Results ── */}
-          {!isProcessing && analysisData && masteringParams && (
-            <div className="rounded-2xl border border-border bg-card/80 backdrop-blur p-6 sm:p-8 animate-fade-up text-center space-y-4 shadow-lg">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30">
-                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs font-bold text-primary uppercase tracking-wider">
-                  {language === 'ja' ? 'マスタリング完了' : 'Mastering Complete'}
-                </span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-bold text-foreground">
-                {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
-              </h2>
-              {masterMetrics && (
-                <p className="text-sm text-muted-foreground font-mono">
-                  {language === 'ja' ? 'マスター実測' : 'Master'} LUFS {masterMetrics.lufs.toFixed(1)}
-                  {language === 'ja' ? ' · 目標' : ' · Target'} {masteringTarget === 'beatport' ? '-8.0' : '-14.0'}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                {t('flow.complete_teaser')}
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowResultsModal(true)}
-                  className="animate-pulse-glow px-8 py-3.5 min-h-[52px] rounded-xl bg-primary text-primary-foreground font-bold text-base hover:brightness-110 active:scale-[0.98] touch-manipulation shadow-lg shadow-primary/25"
-                >
-                  {language === 'ja' ? '結果を見る（聴く・購入）' : 'View result (listen & purchase)'}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetToUpload}
-                  className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
-                >
-                  {t('ux.choose_other_file')}
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-        )}
-        </div>
-
-        <footer className="shrink-0 mt-2 sm:mt-3 py-3 sm:py-4 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground flex-wrap gap-2">
-          <p>{t('footer.copyright', { replacements: { year: new Date().getFullYear() } })}</p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <a className="hover:text-foreground transition-colors" href={language === 'ja' ? '/operator.html' : '/operator-en.html'} target="_blank" rel="noreferrer">
-              {language === 'ja' ? '運営者情報' : 'Operator'}
-            </a>
-            <a className="hover:text-foreground transition-colors" href="/terms.html" target="_blank" rel="noreferrer">
-              {language === 'ja' ? '利用規約' : 'Terms'}
-            </a>
-            <a className="hover:text-foreground transition-colors" href="/privacy.html" target="_blank" rel="noreferrer">
-              {language === 'ja' ? 'プライバシー' : 'Privacy'}
-            </a>
-            <a className="hover:text-foreground transition-colors" href="/refund.html" target="_blank" rel="noreferrer">
-              {language === 'ja' ? '返金ポリシー' : 'Refunds'}
-            </a>
           </div>
-          <p className="font-mono tabular-nums">v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}</p>
-        </footer>
+        )}
       </div>
     </div>
   );

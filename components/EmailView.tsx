@@ -28,80 +28,85 @@ export default function EmailView() {
   }, [emailContacts]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">メールマーケティング</h2>
-        <button
-          type="button"
-          onClick={exportCsv}
-          disabled={emailContacts.length === 0}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-        >
-          <DownloadIcon />
-          CSVエクスポート
-        </button>
-      </div>
-      <p className="text-sm text-gray-500">リリース告知用のメールリストを管理し、CSVでエクスポートできます。</p>
-
-      <div className="bg-[#141414] rounded-2xl border border-white/10 p-6 space-y-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px] space-y-1">
-            <label className="text-[10px] text-gray-500 uppercase">メールアドレス</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="example@email.com"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600"
-            />
-          </div>
-          <div className="w-40 space-y-1">
-            <label className="text-[10px] text-gray-500 uppercase">名前（任意）</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="名前"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600"
-            />
+    <section className="border-t border-border/50 py-16 md:py-20">
+      <div className="mx-auto max-w-4xl px-4 space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-primary">Email</p>
+            <h2 className="text-2xl font-bold text-foreground">メールマーケティング</h2>
           </div>
           <button
             type="button"
-            onClick={handleAdd}
-            className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold uppercase hover:bg-emerald-600 transition-colors"
+            onClick={exportCsv}
+            disabled={emailContacts.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 text-primary text-xs font-bold uppercase hover:bg-primary/30 transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            追加
+            <DownloadIcon />
+            CSVエクスポート
           </button>
         </div>
-      </div>
+        <p className="text-sm text-muted-foreground">リリース告知用のメールリストを管理し、CSVでエクスポートできます。</p>
 
-      <div className="bg-[#141414] rounded-2xl border border-white/5 overflow-hidden">
-        <div className="p-4 border-b border-white/5 flex items-center gap-2 text-gray-500">
-          <MailIcon />
-          <span className="text-[10px] font-bold uppercase">登録一覧（{emailContacts.length}件）</span>
+        <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="flex-1 min-w-[200px] space-y-1">
+              <label className="text-xs text-muted-foreground uppercase">メールアドレス</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                placeholder="example@email.com"
+                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground"
+              />
+            </div>
+            <div className="w-40 space-y-1">
+              <label className="text-xs text-muted-foreground uppercase">名前（任意）</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                placeholder="名前"
+                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold uppercase hover:brightness-110 transition-colors"
+            >
+              追加
+            </button>
+          </div>
         </div>
-        <ul className="divide-y divide-white/5">
-          {emailContacts.length === 0 && (
-            <li className="p-8 text-center text-gray-500 text-sm">まだアドレスがありません。</li>
-          )}
-          {emailContacts.map((c) => (
-            <li key={c.id} className="flex items-center gap-4 p-4 hover:bg-white/[0.02]">
-              <span className="flex-1 font-mono text-sm text-white">{c.email}</span>
-              <span className="text-sm text-gray-500">{c.name || '—'}</span>
-              <button
-                type="button"
-                onClick={() => removeEmail(c.id)}
-                className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                title="削除"
-              >
-                <TrashIcon />
-              </button>
-            </li>
-          ))}
-        </ul>
+
+        <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center gap-2 text-muted-foreground">
+            <MailIcon />
+            <span className="text-xs font-bold uppercase">登録一覧（{emailContacts.length}件）</span>
+          </div>
+          <ul className="divide-y divide-border/50">
+            {emailContacts.length === 0 && (
+              <li className="p-8 text-center text-muted-foreground text-sm">まだアドレスがありません。</li>
+            )}
+            {emailContacts.map((c) => (
+              <li key={c.id} className="flex items-center gap-4 p-4 hover:bg-card/80">
+                <span className="flex-1 font-mono text-sm text-foreground">{c.email}</span>
+                <span className="text-sm text-muted-foreground">{c.name || '—'}</span>
+                <button
+                  type="button"
+                  onClick={() => removeEmail(c.id)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="削除"
+                >
+                  <TrashIcon />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

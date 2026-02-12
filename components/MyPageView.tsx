@@ -54,81 +54,85 @@ export default function MyPageView() {
   /* ── Auth Loading ── */
   if (authLoading) {
     return (
-      <div className="py-20 text-center animate-fade-up">
-        <div className="w-10 h-10 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin mx-auto mb-4" />
-        <p className="text-sm text-zinc-500">{ja ? '認証確認中...' : 'Verifying authentication...'}</p>
-      </div>
+      <section className="border-t border-border/50 py-16 md:py-20">
+        <div className="max-w-md mx-auto px-4 py-20 text-center animate-fade-up">
+          <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">{ja ? '認証確認中...' : 'Verifying authentication...'}</p>
+        </div>
+      </section>
     );
   }
 
   /* ── Not signed in ── */
   if (!user) {
     return (
-      <div className="max-w-md mx-auto py-16 text-center animate-fade-up space-y-6">
-        <div className="w-20 h-20 rounded-full glass-elevated flex items-center justify-center mx-auto text-zinc-500">
-          <UserIcon />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-lg font-bold text-white">
+      <section className="border-t border-border/50 py-16 md:py-20">
+        <div className="max-w-md mx-auto px-4 text-center animate-fade-up space-y-6">
+          <div className="w-20 h-20 rounded-full border border-border bg-card flex items-center justify-center mx-auto text-muted-foreground">
+            <UserIcon />
+          </div>
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">{ja ? 'My Page' : 'My Page'}</p>
+          <h2 className="text-2xl font-bold text-foreground">
             {ja ? 'マイページ' : 'My Page'}
           </h2>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             {ja
               ? 'ログインすると、マスタリング履歴の閲覧やダウンロードが可能になります。'
               : 'Sign in to view your mastering history and access downloads.'}
           </p>
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            className="rounded-xl bg-primary px-8 py-3.5 text-primary-foreground font-bold text-sm hover:brightness-110 transition-colors active:scale-[0.98] touch-manipulation shadow-lg"
+          >
+            {ja ? 'Google でログイン' : 'Sign in with Google'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={signInWithGoogle}
-          className="px-8 py-3.5 rounded-xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-colors active:scale-[0.98] touch-manipulation shadow-lg"
-        >
-          {ja ? 'Google でログイン' : 'Sign in with Google'}
-        </button>
-      </div>
+      </section>
     );
   }
 
   /* ── Signed in: Dashboard ── */
   return (
-    <div className="animate-fade-up space-y-6">
-      {/* ── Profile Card ── */}
-      <div className="glass-elevated rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 ring-2 ring-cyan-500/20">
-            <UserIcon />
+    <section className="border-t border-border/50 py-16 md:py-20 animate-fade-up">
+      <div className="mx-auto max-w-3xl px-4 space-y-6">
+        {/* ── Profile Card ── */}
+        <div className="rounded-xl border border-border/50 bg-card p-6 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+              <UserIcon />
+            </div>
+            <div>
+              <p className="font-bold text-foreground text-sm">
+                {user.user_metadata?.full_name ?? user.email ?? 'User'}
+              </p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-white text-sm">
-              {user.user_metadata?.full_name ?? user.email ?? 'User'}
-            </p>
-            <p className="text-xs text-zinc-500">{user.email}</p>
-          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 transition-all"
+          >
+            {ja ? 'ログアウト' : 'Sign out'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={signOut}
-          className="text-xs font-medium text-zinc-500 hover:text-white px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
-        >
-          {ja ? 'ログアウト' : 'Sign out'}
-        </button>
-      </div>
 
-      {/* ── History Section ── */}
-      <div className="glass rounded-2xl p-6 space-y-4">
-        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-          {ja ? 'マスタリング履歴' : 'Mastering History'}
-        </h3>
+        {/* ── History Section ── */}
+        <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">
+            {ja ? 'マスタリング履歴' : 'Mastering History'}
+          </p>
 
-        {/* Error state */}
-        {error && (
-          <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
-            <p className="text-sm text-amber-400">
+          {/* Error state */}
+          {error && (
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
+              <p className="text-sm text-destructive">
               {ja
                 ? '履歴の読み込みに失敗しました。しばらくしてから「再読み込み」を押してください。'
                 : 'Failed to load history. Please try "Retry" again in a moment.'}
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               {ja
                 ? '繰り返し発生する場合は、お手数ですが ishijima@b-p.co.jp までご連絡ください。'
                 : 'If this keeps happening, please contact ishijima@b-p.co.jp.'}
@@ -136,7 +140,7 @@ export default function MyPageView() {
             <button
               type="button"
               onClick={loadHistory}
-              className="text-xs font-bold text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 transition-all"
+              className="text-xs font-bold text-destructive hover:brightness-110 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 transition-all"
             >
               {ja ? '再読み込み' : 'Retry'}
             </button>
@@ -146,22 +150,22 @@ export default function MyPageView() {
         {/* Loading */}
         {loading && !error && (
           <div className="py-8 text-center">
-            <div className="w-6 h-6 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin mx-auto mb-3" />
-            <p className="text-xs text-zinc-500">{ja ? '読み込み中...' : 'Loading...'}</p>
+            <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-3" />
+            <p className="text-xs text-muted-foreground">{ja ? '読み込み中...' : 'Loading...'}</p>
           </div>
         )}
 
         {/* Empty state */}
         {!loading && !error && history.length === 0 && (
           <div className="py-12 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-600 text-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-secondary border border-border flex items-center justify-center mx-auto text-muted-foreground text-2xl">
               ♪
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-zinc-400">
+              <p className="text-sm font-medium text-muted-foreground">
                 {ja ? 'まだ履歴がありません' : 'No history yet'}
               </p>
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 {ja
                   ? 'マスタリング完了後、結果画面の「購入してWAVを取得」からダウンロードすると、ここに表示されます。'
                   : 'After mastering, download from "Purchase → Download" on the result screen; it will appear here.'}
@@ -183,17 +187,17 @@ export default function MyPageView() {
               return (
                 <li
                   key={row.id}
-                  className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors flex-wrap sm:flex-nowrap"
+                  className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-primary/30 transition-colors flex-wrap sm:flex-nowrap"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-sm text-white truncate">{row.file_name}</p>
-                    <p className="text-[10px] text-zinc-500 uppercase mt-0.5">
+                    <p className="font-mono text-sm text-foreground truncate">{row.file_name}</p>
+                    <p className="text-xs text-muted-foreground uppercase mt-0.5">
                       {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {row.amount_cents != null && (
-                      <span className="text-xs font-mono text-zinc-400 tabular-nums">
+                      <span className="text-xs font-mono text-muted-foreground tabular-nums">
                         ¥{(row.amount_cents / 100).toLocaleString()}
                       </span>
                     )}
@@ -223,12 +227,12 @@ export default function MyPageView() {
                             setDownloadingId(null);
                           }
                         }}
-                        className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-bold bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50 transition-colors"
+                        className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-50 transition-colors"
                       >
                         {isDownloading ? (ja ? '取得中...' : 'Loading...') : (ja ? 'ダウンロード' : 'Download')}
                       </button>
                     ) : (
-                      <span className="text-[10px] text-zinc-500">
+                      <span className="text-xs text-muted-foreground">
                         {ja ? '再DL期限切れ' : 'Expired'}
                       </span>
                     )}
@@ -239,6 +243,7 @@ export default function MyPageView() {
           </ul>
         )}
       </div>
-    </div>
+      </div>
+    </section>
   );
 }
