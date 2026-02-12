@@ -46,7 +46,6 @@ function getSectionFromHash(): PlatformSection {
 }
 
 const AppContent: React.FC = () => {
-  console.log('[v0] AppContent rendering');
   const [section, setSection] = useState<PlatformSection>(() => getSectionFromHash());
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -634,7 +633,7 @@ const AppContent: React.FC = () => {
             </>
           )}
 
-          {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタリング=構築・注入） ── */}
+          {/* ── Phase: Processing（ストーリー表示: 分析=精密検査 / マスタ���ング=構築・注入） ── */}
           {isAnalyzing && <StatusLoader mode="analysis" />}
           {isMastering && <StatusLoader mode="mastering" />}
           {isProcessing && actionLogs.length > 0 && (

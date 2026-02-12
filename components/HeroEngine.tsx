@@ -27,7 +27,6 @@ interface HeroEngineProps {
 }
 
 const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) => {
-  console.log('[v0] HeroEngine rendering', { language, compact });
   const { t } = useTranslation();
   const ja = language === 'ja';
 
@@ -156,7 +155,7 @@ const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) =>
           titleEn="Pultec Style Low-End"
           body={
             ja
-              ? 'EQでブーストするだけでは、濁りが生じて世界観が狭くなります。名機 Pultec EQ のカーブ特性を再現し、不要なサブベース（30 Hz 以下）をカットしながら、その直上の帯域をレゾナンスで音楽的に強調。キックとベースの分離感を保ちながら、フロアの空気を震わせる「音圧」と、どこまでも深く沈み込むような「深度」を両立します。'
+              ? 'EQでブーストするだけでは、濁りが生じて世界観が狭くなります。名機 Pultec EQ のカーブ特性を再現し、不要なサブベース（30 Hz 以下）をカットしながら、その直上の帯域をレゾナンスで音楽的に強調。キックとベースの分離感を保ちながら、フロアの���気を震わせる「音圧」と、どこまでも深く沈み込むような「深度」を両立します。'
               : 'Simply boosting low-end with EQ creates muddiness and shrinks the soundstage. We replicate the legendary Pultec EQ curve: cutting unnecessary sub-bass below 30 Hz while resonantly emphasizing the band just above it. Maintaining kick-bass separation while delivering floor-shaking loudness and bottomless depth.'
           }
         />
