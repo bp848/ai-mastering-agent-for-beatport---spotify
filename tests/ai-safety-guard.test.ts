@@ -37,7 +37,7 @@ describe('applySafetyGuard', () => {
     const out = applySafetyGuard(params, analysis);
     expect(out.tube_drive_amount).toBe(1);
     expect(out.exciter_amount).toBe(0.1);
-    expect(out.limiter_ceiling_db).toBe(-0.5);
+    expect(out.limiter_ceiling_db).toBe(-1);
   });
 
   it('reduces tube and exciter when peak is hot', () => {
@@ -46,7 +46,7 @@ describe('applySafetyGuard', () => {
     const out = applySafetyGuard(params, analysis);
     expect(out.tube_drive_amount).toBeLessThan(2);
     expect(out.exciter_amount).toBeLessThan(0.12);
-    expect(out.limiter_ceiling_db).toBe(-0.3); // 危険時は上限 -0.3 にクランプ
+    expect(out.limiter_ceiling_db).toBe(-1); // 危険時は上限 -1.0 にクランプ
   });
 
   it('reduces when crest factor is low', () => {
@@ -62,4 +62,35 @@ describe('applySafetyGuard', () => {
     const out = applySafetyGuard(params, analysis);
     expect(out.exciter_amount).toBeLessThan(0.1);
   });
+
+
+  it('applies sub-dB micro-trim for near-risk material to avoid late-section strain', () => {
+    const params = baseParams({
+      gain_adjustment_db: 2.5,
+      limiter_ceiling_db: -1.0,
+      tube_drive_amount: 1.2,
+      exciter_amount: 0.08,
+      low_contour_amount: 0.5,
+    });
+    const analysis = baseAnalysis({
+      truePeak: -1.2,
+      crestFactor: 10.2,
+      distortionPercent: 1.3,
+      phaseCorrelation: 0.15,
+      frequencyData: [
+        { name: '20-60', level: -14.2 },
+        { name: '60-250', level: -12.1 },
+      ],
+    });
+
+    const out = applySafetyGuard(params, analysis);
+
+    expect(out.gain_adjustment_db).toBeLessThan(2.5);
+    expect(out.gain_adjustment_db).toBeGreaterThan(1.8);
+    expect(out.limiter_ceiling_db).toBeLessThanOrEqual(-1);
+    expect(out.tube_drive_amount).toBeLessThan(1.2);
+    expect(out.exciter_amount).toBeLessThan(0.08);
+    expect(out.low_contour_amount).toBeLessThan(0.5);
+  });
+
 });

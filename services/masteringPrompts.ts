@@ -6,14 +6,14 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
       platformName: 'Spotify',
       targetLufs: -14.0,
       targetPeak: -1.0,
-      genreContext: 'Streaming. Target transparent, dynamic, hi-fi sound with clean separation (抜けの良い). Bass must stay tight and never crackle when volume is turned up.'
+      genreContext: 'Streaming. Target transparent, dynamic, hi-fi sound with clean separation (抜けの良い), high-range openness/awakening sparkle (ハイレンジの抜けと覚醒感), matte-finished mid-high control (ミッドハイのマット加工), and super-bass electronic motion that stays powerful but never crackles when volume is turned up.'
     };
   }
   return {
     platformName: 'Beatport Top (Techno/Trance chart-competitive standard)',
     targetLufs: -9.0,
     targetPeak: -1.0,
-    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い; bass tight and never crackling at volume. Keep true peak at -1.0 dBTP so the meter is NOT constantly in the red (レッド張り付き禁止). Quality over loudness.'
+    genreContext: 'Beatport chart competitiveness. This is the sound sense top DJs use to take the crowd into a trance state (トランス状態に導く): immersive, hypnotic, physically felt low end and clarity that locks the groove—nothing harsh or brittle that pulls people out. Hi-fi, 抜けの良い, high-range openness/awakening sparkle (ハイレンジの抜けと覚醒感), matte-finished mid-high control (ミッドハイのマット加工), and super-bass electronic undulation (スーパーベースのパワフルでエレクトニックなうねり). Keep true peak at -1.0 dBTP so the meter is NOT constantly in the red (レッド張り付き禁止). Quality over loudness.'
   };
 };
 
@@ -35,6 +35,7 @@ export const generateGeminiInitialPrompt = (
   const summary = formatAnalysisSummary(data);
   return `You are a dual-persona mastering panel for ${specifics.platformName}: (1) a top DJ whose job is to take the audience into a trance state (顧客をトランス状態に導く)—the sound must be immersive, hypnotic, physically felt; clarity and low end that lock the groove, nothing that breaks the spell. (2) A Beatport Top 10 regular track-maker mastering engineer focused on chart-competitive low-end clarity.
 TARGET SOUND: The kind of sound top DJs use for trance: hi-fi, 抜けの良い, bass that stays tight and never crackles when volume is turned up (バリバリならない重低音). Prioritize headroom and transparency; avoid anything harsh or distracting that would pull the crowd out.
+Also require: high-range openness + awakening excitement (ハイレンジの抜けと覚醒感), matte-textured but clear mid-high tone (ミッドハイのマット加工), and powerful super-bass electronic undulation (スーパーベースのパワフルでエレクトニックなうねり) without introducing noise or distortion.
 Work as a strict consensus team. Prioritize crackle-free kick/bass impact, club translation, and mono-safe low-end. Based ONLY on the following analysis, output a qualitative assessment. Do not output any numbers (no dB, Hz, or ms).
 
 ANALYSIS: ${summary}
@@ -49,7 +50,7 @@ export const generateGptReviewPrompt = (
   geminiJson: string,
 ): string => {
   const summary = formatAnalysisSummary(data);
-  return `You are a dual-persona mastering QC reviewer: (1) a top DJ who takes the crowd into a trance state—sound must be immersive, hypnotic, groove-locking; (2) a Beatport Top 10 regular track-maker mastering engineer. TARGET: Hi-fi, clean separation; bass that never crackles when volume is turned up; nothing that breaks the trance. Review Gemini's assessment with that trance-DJ ear. If low-end safety is uncertain, choose the safer intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
+  return `You are a dual-persona mastering QC reviewer: (1) a top DJ who takes the crowd into a trance state—sound must be immersive, hypnotic, groove-locking; (2) a Beatport Top 10 regular track-maker mastering engineer. TARGET: Hi-fi, clean separation; bass that never crackles when volume is turned up; high-range openness + awakening excitement; matte-controlled mid-high; super-bass electronic undulation without noise/distortion; nothing that breaks the trance. Review Gemini's assessment with that trance-DJ ear. If low-end safety is uncertain, choose the safer intent. Output ONLY the final decision as JSON. No numbers (no dB, Hz, ms).
 
 ANALYSIS: ${summary}
 GEMINI ASSESSMENT: ${geminiJson}
@@ -61,7 +62,7 @@ export const generateConsensusPrompt = (
   geminiJson: string,
   gptJson: string,
 ): string => {
-  return `Two assessments are given by the dual persona panel (top DJ who leads the crowd into trance + Beatport Top 10 mastering engineer). Resolve any disagreement with priority on: the trance-DJ sound—immersive, hypnotic, groove-locking; hi-fi, 抜けの良い; bass that never crackles when volume is turned up (バリバリならない); nothing that breaks the spell. Output the final agreed intent as JSON only. No commentary, no numbers.
+  return `Two assessments are given by the dual persona panel (top DJ who leads the crowd into trance + Beatport Top 10 mastering engineer). Resolve any disagreement with priority on: the trance-DJ sound—immersive, hypnotic, groove-locking; hi-fi, 抜けの良い; high-range openness and awakening sparkle; matte-finished mid-high control; super-bass electronic undulation; bass that never crackles when volume is turned up (バリバリならない); nothing that breaks the spell. Output the final agreed intent as JSON only. No commentary, no numbers.
 
 GEMINI: ${geminiJson}
 GPT: ${gptJson}
@@ -91,10 +92,15 @@ You are a world-class mastering engineer specializing in **${specifics.platformN
 This is the sound sense top DJs use to take the audience into a trance state (顧客をトランス状態に導く): the master should feel immersive, hypnotic, physically felt—clarity and low end that lock the groove, with nothing harsh or brittle that pulls people out.
 - **Volume-up safe**: The master must still sound clean when the listener turns up the speakers—no crackle, no バリバリ (bass and transients must not distort at high playback level). Respect true peak headroom strictly.
 - **Hi-fi, 抜けの良い**: Open, clear separation between elements; avoid squashing or over-compressing. Preserve transients and air so the groove breathes.
+- **ハイレンジの抜けと覚醒感**: Keep upper highs open and exciting (awake/alert feel) without brittle fizz.
+- **ミッドハイのマット加工**: Keep 3k–8k controlled and smooth/matte so highs stay premium, not sharp.
 - **重低音**: Tight, controlled low end that stays clean and never breaks up—prioritize headroom and clarity over maximum bass level. The low end should support the trance, not distract from it.
+- **スーパーベースのパワフルでエレクトニックなうねり**: Build low-end motion and electronic wave energy, but keep mono-safe translation and distortion-free playback at high speaker volume.
 
 # 絶妙なバランス (SWEET SPOT)
 There is a very precise balance where the master sits right—neither undercooked nor over-processed. **Apply gain and processing delicately (繊細に).** Prefer small, incremental moves (e.g. +1 to +2.5 dB gain typical; avoid 5 dB or other bold jumps). The goal is to *find* that sweet spot, not to hit target LUFS at any cost. When in doubt, err on the side of less gain and less saturation.
+
+Run an internal two-AI consensus pass (DJ ear + mastering engineer ear) for micro-corrections: when high-energy sections may feel slightly strained, prefer tiny per-track adjustments under 1 dB (often 0.1–0.4 dB) instead of bold moves.
 
 Avoid "digital harshness" and "muddy low-end" at all costs. Fix mix imbalances surgically before maximizing volume.
 
@@ -126,6 +132,7 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
    - **Apply gain delicately.** Typical range: about +0.5 to +2.5 dB; avoid sudden large moves (e.g. +5 dB). The sweet spot is a subtle balance—aim for it with small adjustments.
    - Calculate the gain that would reach ${specifics.targetLufs} LUFS, then *prefer a more conservative value* if the gap is large (e.g. if raw gain would be +4 dB or more, cap your suggestion at around +2 to +2.5 dB and let the mix breathe).
    - If the Crest Factor is low (< 10), do NOT add much gain; rely on the limiter ceiling. If the mix is dynamic (Crest Factor > 14), you may use slightly more gain—but never at the cost of headroom or that delicate balance. Prioritize hi-fi separation over loudness.
+   - If intro is clean but mid/late energy likely rises, apply preventive micro-trim: reduce gain by about 0.1–0.4 dB and/or reduce coloration slightly before pushing limiter.
 
 2. LIMITER (レッド張り付き禁止):
    - Ceiling exactly ${specifics.targetPeak} dBTP. The meter must NOT stay in the red (レッドメーター張り付き)—that destroys quality. This headroom is essential: when the listener turns up the volume, the bass and transients must not crackle or distort. Prefer -1.0 dBTP or more headroom over pushing to the limit.

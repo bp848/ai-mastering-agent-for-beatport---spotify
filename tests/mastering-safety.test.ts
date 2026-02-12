@@ -14,17 +14,17 @@ const baseParams = (overrides: Partial<MasteringParams> = {}): MasteringParams =
 });
 
 describe('clampMasteringParams', () => {
-  it('caps gain_adjustment_db at +6 dB and limiter_ceiling_db at -0.3 dB to prevent clipping', () => {
+  it('caps gain_adjustment_db at +3 dB and limiter_ceiling_db at -1.0 dB to prevent clipping', () => {
     const raw = baseParams({
       gain_adjustment_db: 12,
       limiter_ceiling_db: 0,
     });
     const safe = clampMasteringParams(raw);
-    expect(safe.gain_adjustment_db).toBe(6);
-    expect(safe.limiter_ceiling_db).toBe(-0.3);
+    expect(safe.gain_adjustment_db).toBe(3);
+    expect(safe.limiter_ceiling_db).toBe(-1);
   });
 
-  it('clamps gain to -12 dB floor and keeps other safety bounds', () => {
+  it('clamps gain to -5 dB floor and keeps other safety bounds', () => {
     const raw = baseParams({
       gain_adjustment_db: -20,
       limiter_ceiling_db: -2,
@@ -33,10 +33,10 @@ describe('clampMasteringParams', () => {
       width_amount: 2,
     });
     const safe = clampMasteringParams(raw);
-    expect(safe.gain_adjustment_db).toBe(-12);
+    expect(safe.gain_adjustment_db).toBe(-5);
     expect(safe.limiter_ceiling_db).toBe(-2);
-    expect(safe.tube_drive_amount).toBe(3);
-    expect(safe.exciter_amount).toBe(0.15);
+    expect(safe.tube_drive_amount).toBe(2);
+    expect(safe.exciter_amount).toBe(0.12);
     expect(safe.width_amount).toBe(1.4);
   });
 });
