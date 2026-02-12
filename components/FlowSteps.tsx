@@ -5,6 +5,7 @@ interface FlowStepsProps {
 }
 
 const FlowSteps: React.FC<FlowStepsProps> = ({ language }) => {
+  console.log('[v0] FlowSteps rendering', { language });
   const isJa = language === 'ja';
   
   const steps = [

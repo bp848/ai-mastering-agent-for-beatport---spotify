@@ -27,6 +27,7 @@ interface HeroEngineProps {
 }
 
 const HeroEngine: React.FC<HeroEngineProps> = ({ language, compact = false }) => {
+  console.log('[v0] HeroEngine rendering', { language, compact });
   const { t } = useTranslation();
   const ja = language === 'ja';
 

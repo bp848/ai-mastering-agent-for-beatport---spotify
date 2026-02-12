@@ -46,6 +46,7 @@ function getSectionFromHash(): PlatformSection {
 }
 
 const AppContent: React.FC = () => {
+  console.log('[v0] AppContent rendering');
   const [section, setSection] = useState<PlatformSection>(() => getSectionFromHash());
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
