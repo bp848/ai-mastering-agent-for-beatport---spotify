@@ -243,15 +243,14 @@ export default function ResultsModal({
             ) : null}
           </div>
 
-          <div className="shrink-0 w-[200px] sm:w-[240px] flex justify-end">
+          <div className="shrink-0 w-[200px] sm:w-[260px] flex justify-end">
             {slide === totalSlides - 1 ? (
               <button
                 type="button"
                 onClick={onDownloadMastered}
                 disabled={isProcessingAudio}
                 aria-label={purchaseAria}
-                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-bold text-[14px] sm:text-[15px] text-black bg-cyan-500 hover:bg-cyan-400 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all font-mono text-center"
-                style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}
+                className="flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] rounded-2xl font-extrabold text-[15px] sm:text-[16px] text-white bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 active:scale-[0.96] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 text-center shadow-xl shadow-cyan-500/40"
               >
                 {isProcessingAudio ? (
                   <>
