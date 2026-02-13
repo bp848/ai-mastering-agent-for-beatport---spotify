@@ -22,9 +22,9 @@ export type PlatformSpecifics = ReturnType<typeof getPlatformSpecifics>;
 /** 議論レイヤー用に分析データを要約テキストにする */
 export const formatAnalysisSummary = (data: AudioAnalysisData): string => {
   const bands = (data.frequencyData ?? [])
-    .map(f => `${f.name}: ${f.level}`)
+    .map(f => `${f.name}: ${f.level.toFixed(1)}`)
     .join(', ');
-  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
+  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, TransientDensity ${data.transientDensity?.toFixed(1) ?? '?'}, BassMonoComp ${data.bassMonoCompatibility?.toFixed(0) ?? '?'}, DistortionRisk ${data.distortionRiskScore ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
 };
 
 /** 初回判断: デュアルペルソナ（トップDJ + Beatport Top10 エンジニア）で定性評価を出力 */
@@ -116,7 +116,12 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
 # CURRENT ANALYSIS
 - Integrated LUFS: ${data.lufs.toFixed(2)}
 - True Peak: ${data.truePeak.toFixed(2)} dBTP
-- Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10 indicate a compressed mix; Values > 14 indicate a dynamic mix)
+- Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10: compressed; > 14: dynamic)
+- Transient Density: ${data.transientDensity?.toFixed(1) ?? '0.0'}% (High values mean sharp transients)
+- Phase Correlation: ${data.phaseCorrelation.toFixed(2)} (-1 to +1; < 0.2 means possible mono-phasing issues)
+- Bass Mono Compatibility: ${data.bassMonoCompatibility?.toFixed(0) ?? '100'}%
+- Distortion Risk Score: ${data.distortionRiskScore ?? 0} (0-6 scale; > 3 means high risk of breakup at volume)
+- Sub-to-Bass Balance: ${data.subToBassBalanceDb?.toFixed(1) ?? '0.0'} dB (Positive means sub is louder than kick region)
 
 # FULL SPECTRUM ANALYSIS (Relative Balance)
 - Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB (target: ~${targetProfile.subBass})

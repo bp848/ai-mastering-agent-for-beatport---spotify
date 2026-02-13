@@ -81,31 +81,28 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     lufs = meter.integrated_loudness(audio_data)
     
     # REAL True Peak with 4x Oversampling (Linear Interpolation)
-    # This is the actual ITU-R BS.1770 True Peak measurement, not a fake constant addition
-    if channels > 1:
-        # Process each channel separately for accurate True Peak
-        true_peak_val = 0.0
-        for ch_idx in range(channels):
-            channel_data = audio_data[:, ch_idx]
-            # Create 4x oversampled version using linear interpolation
-            original_len = len(channel_data)
-            x_original = np.arange(original_len)
-            x_resampled = np.arange(0, original_len - 1, 0.25)  # 0.25 step = 4x oversampling
-            # Linear interpolation to 4x sample rate
-            channel_4x = np.interp(x_resampled, x_original, channel_data)
-            # Find peak in oversampled data
-            ch_peak = np.max(np.abs(channel_4x))
+    # Processed in chunks to avoid MemoryError on large files
+    chunk_size_samples = int(sample_rate * 30) # 30 seconds
+    true_peak_val = 0.0
+    
+    for ch_idx in range(channels):
+        channel_data = left_channel if channels == 1 else audio_data[:, ch_idx]
+        for start_idx in range(0, len(channel_data), chunk_size_samples):
+            end_idx = min(start_idx + chunk_size_samples, len(channel_data))
+            chunk = channel_data[start_idx:end_idx]
+            
+            if len(chunk) < 2: continue
+            
+            # 4x oversampling for this chunk
+            x_original = np.arange(len(chunk))
+            x_resampled = np.arange(0, len(chunk) - 1, 0.25)
+            chunk_4x = np.interp(x_resampled, x_original, chunk)
+            
+            ch_peak = np.max(np.abs(chunk_4x))
             if ch_peak > true_peak_val:
                 true_peak_val = ch_peak
-    else:
-        # Mono: single channel processing
-        original_len = len(audio_data)
-        x_original = np.arange(original_len)
-        x_resampled = np.arange(0, original_len - 1, 0.25)  # 0.25 step = 4x oversampling
-        audio_4x = np.interp(x_resampled, x_original, audio_data)
-        true_peak_val = np.max(np.abs(audio_4x))
     
-    true_peak_db = 20 * np.log10(true_peak_val) if true_peak_val > 0 else -144.0
+    true_peak_db = 20 * np.log10(true_peak_val) if true_peak_val > 1e-12 else -144.0
 
     # --- RMS, Dynamic Range, Crest Factor ---
     rms_val = np.sqrt(np.mean(np.square(audio_data)))
