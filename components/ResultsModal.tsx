@@ -155,13 +155,13 @@ export default function ResultsModal({
                   <div className="space-y-1">
                     <p className="text-zinc-500 uppercase text-[9px]">{language === 'ja' ? 'ゲイン・ライディング' : 'Gain Riding'}</p>
                     <p className="text-zinc-200 font-mono">
-                      {masteringParams.dynamic_automation?.input_gain_offset_quiet_db.toFixed(1)} dB Offset
+                      {masteringParams.dynamic_automation?.input_gain_offset_quiet_db?.toFixed(1) ?? '0.0'} dB Offset
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-zinc-500 uppercase text-[9px]">{language === 'ja' ? 'ステレオ拡幅' : 'Width Expansion'}</p>
                     <p className="text-zinc-200 font-mono">
-                      +{masteringParams.dynamic_automation?.width_boost_drop_percent.toFixed(0)}% at Drop
+                      +{masteringParams.dynamic_automation?.width_boost_drop_percent?.toFixed(0) ?? '0'}% at Drop
                     </p>
                   </div>
                   <div className="space-y-1">
