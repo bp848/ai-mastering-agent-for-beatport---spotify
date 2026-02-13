@@ -25,6 +25,7 @@ export default function MyPageView() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [remainingDownloads, setRemainingDownloads] = useState<number | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!user?.id) return;
@@ -46,10 +47,42 @@ export default function MyPageView() {
     }
   }, [user?.id, session?.access_token]);
 
+
+  const loadRemainingDownloads = useCallback(async () => {
+    if (!session?.access_token) {
+      setRemainingDownloads(null);
+      return;
+    }
+    try {
+      const base = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch(`${base}/api/check-download-entitlement`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && typeof data?.remaining === 'number') {
+        setRemainingDownloads(data.remaining);
+        return;
+      }
+      if (res.ok && data?.admin === true) {
+        setRemainingDownloads(null);
+        return;
+      }
+      setRemainingDownloads(0);
+    } catch (_) {
+      setRemainingDownloads(null);
+    }
+  }, [session?.access_token]);
+
   useEffect(() => {
     if (user?.id) loadHistory();
     else { setHistory([]); setLoading(false); }
   }, [user?.id, loadHistory]);
+
+  useEffect(() => {
+    if (user?.id) loadRemainingDownloads();
+    else setRemainingDownloads(null);
+  }, [user?.id, loadRemainingDownloads]);
 
   /* ── Auth Loading ── */
   if (authLoading) {
@@ -120,9 +153,16 @@ export default function MyPageView() {
 
         {/* ── History Section ── */}
         <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-primary">
-            {ja ? 'マスタリング履歴' : 'Mastering History'}
-          </p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs font-medium uppercase tracking-widest text-primary">
+              {ja ? 'マスタリング履歴' : 'Mastering History'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {remainingDownloads == null
+                ? (ja ? 'ダウンロード残数: 無制限 / 取得中' : 'Download credits: Unlimited / Loading')
+                : (ja ? `ダウンロード残数: ${remainingDownloads}回` : `Download credits: ${remainingDownloads}`)}
+            </p>
+          </div>
 
           {/* Error state */}
           {error && (

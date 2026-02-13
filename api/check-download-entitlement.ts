@@ -17,6 +17,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res.status(500).json({ allowed: false, code: 'server_config' });
+  }
+
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) {
@@ -36,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('email', user.email ?? '')
     .maybeSingle();
   if (adminRow) {
-    return res.status(200).json({ allowed: true, remaining: null });
+    return res.status(200).json({ allowed: true, remaining: null, admin: true });
   }
 
   // 一般ユーザー: service role で download_tokens 件数を確認
