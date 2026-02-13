@@ -346,6 +346,25 @@ export function resolveNeuroDriveSettings(params: MasteringParams): { airShelfGa
   };
 }
 
+export function resolveAdaptiveMasteringSettings(params: MasteringParams): {
+  tubeHpfHz: number;
+  exciterHpfHz: number;
+  transientAttackS: number;
+  transientReleaseS: number;
+  limiterAttackS: number;
+  limiterReleaseS: number;
+} {
+  const safeNumber = (value: unknown, fallback: number): number => Number.isFinite(value) ? Number(value) : fallback;
+  return {
+    tubeHpfHz: Math.round(Math.max(20, Math.min(140, safeNumber(params.tube_hpf_hz, 30)))),
+    exciterHpfHz: Math.round(Math.max(4000, Math.min(12000, safeNumber(params.exciter_hpf_hz, 6000)))),
+    transientAttackS: Math.max(0.005, Math.min(0.05, safeNumber(params.transient_attack_s, 0.02))),
+    transientReleaseS: Math.max(0.08, Math.min(0.6, safeNumber(params.transient_release_s, 0.25))),
+    limiterAttackS: Math.max(0.0005, Math.min(0.005, safeNumber(params.limiter_attack_s, 0.002))),
+    limiterReleaseS: Math.max(0.05, Math.min(0.3, safeNumber(params.limiter_release_s, 0.15))),
+  };
+}
+
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
 // ==========================================
@@ -369,6 +388,7 @@ export const buildMasteringChain = (
   outputNode: AudioNode,
 ): void => {
   let lastNode: AudioNode = source;
+  const adaptiveSettings = resolveAdaptiveMasteringSettings(params);
 
   const dcBlocker = ctx.createBiquadFilter();
   dcBlocker.type = 'highpass';
@@ -378,6 +398,13 @@ export const buildMasteringChain = (
   lastNode = dcBlocker;
 
   // [2] Tube & Tape Saturation — 偶数倍音・物質感。量は AI パラメータのみ。
+  const tubeHpf = ctx.createBiquadFilter();
+  tubeHpf.type = 'highpass';
+  tubeHpf.frequency.value = adaptiveSettings.tubeHpfHz;
+  tubeHpf.Q.value = 0.707;
+  lastNode.connect(tubeHpf);
+  lastNode = tubeHpf;
+
   if (numChannels === 2) {
     const splitter = ctx.createChannelSplitter(2);
     const merger = ctx.createChannelMerger(2);
@@ -461,7 +488,7 @@ export const buildMasteringChain = (
   if (params.exciter_amount > 0) {
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass';
-    hp.frequency.value = 6000;
+    hp.frequency.value = adaptiveSettings.exciterHpfHz;
     hp.Q.value = 0.5;
 
     const shaper = ctx.createWaveShaper();
@@ -539,8 +566,8 @@ export const buildMasteringChain = (
   hyperComp.threshold.value = -26;
   hyperComp.knee.value = 10;
   hyperComp.ratio.value = 3;
-  hyperComp.attack.value = 0.02;
-  hyperComp.release.value = 0.25;
+  hyperComp.attack.value = adaptiveSettings.transientAttackS;
+  hyperComp.release.value = adaptiveSettings.transientReleaseS;
   lastNode.connect(hyperComp);
 
   const energyFilter = ctx.createBiquadFilter();
@@ -586,8 +613,8 @@ export const buildMasteringChain = (
   limiter.threshold.value = limiterCeilingDb;
   limiter.knee.value = 2.5; // ニーを入れて張り付きを緩和（0 だと常時 GR）
   limiter.ratio.value = 12;
-  limiter.attack.value = 0.002;
-  limiter.release.value = 0.15;
+  limiter.attack.value = adaptiveSettings.limiterAttackS;
+  limiter.release.value = adaptiveSettings.limiterReleaseS;
   lastNode.connect(limiter);
   lastNode = limiter;
 
