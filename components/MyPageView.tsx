@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchDownloadHistory, fetchDownloadHistoryViaApi } from '../services/downloadHistory';
 import { useTranslation } from '../contexts/LanguageContext';
 import { UserIcon } from './Icons';
+import { triggerBlobDownload } from '../utils/download';
 import type { MasteringTarget } from '../types';
 
 /* ══════════════════════════════════════════════════════════════════
@@ -251,17 +252,13 @@ export default function MyPageView() {
                           try {
                             const base = typeof window !== 'undefined' ? window.location.origin : '';
                             const res = await fetch(
-                              `${base}/api/re-download?history_id=${encodeURIComponent(row.id)}`,
+                              `${base}/api/re-download?history_id=${encodeURIComponent(row.id)}&stream=1`,
                               { headers: { Authorization: `Bearer ${session.access_token}` } }
                             );
-                            const data = await res.json().catch(() => ({}));
-                            if (res.ok && data.url) {
-                              const a = document.createElement('a');
-                              a.href = data.url;
-                              a.download = data.suggested_name ?? `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
-                              a.rel = 'noopener noreferrer';
-                              a.target = '_blank';
-                              a.click();
+                            if (res.ok) {
+                              const blob = await res.blob();
+                              const name = `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
+                              triggerBlobDownload(blob, name);
                             }
                           } finally {
                             setDownloadingId(null);

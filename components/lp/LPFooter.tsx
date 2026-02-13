@@ -1,5 +1,9 @@
 import React from 'react';
 
+const scrollToChangelog = () => {
+  document.getElementById('changelog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 export default function LPFooter() {
   return (
     <footer className="border-t border-border/50 py-8">
@@ -22,7 +26,7 @@ export default function LPFooter() {
           <a href="/terms.html" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">利用規約</a>
           <a href="/privacy.html" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">プライバシー</a>
           <a href="/refund.html" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">返金ポリシー</a>
-          <span className="text-muted-foreground/60">v1.0.0</span>
+          <button type="button" onClick={scrollToChangelog} className="tabular-nums transition-colors hover:text-foreground cursor-pointer bg-transparent border-none p-0 font-inherit text-inherit" title="改善履歴を見る">v1.0.0</button>
         </div>
       </div>
     </footer>

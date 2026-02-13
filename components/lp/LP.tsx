@@ -67,11 +67,24 @@ export default function LP({
   const hasFile = !!audioFile;
   const isProcessing = isAnalyzing || isMastering;
 
+  const scrollToYourTrack = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = document.getElementById('your-track');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
   useEffect(() => {
     if (hasFile && analysisData && !masteringParams) {
-      document.getElementById('your-track')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToYourTrack();
     }
-  }, [hasFile, analysisData, masteringParams]);
+  }, [hasFile, analysisData, masteringParams, scrollToYourTrack]);
+
+  useEffect(() => {
+    if (hasFile && analysisData && masteringParams) {
+      scrollToYourTrack();
+    }
+  }, [hasFile, analysisData, masteringParams, scrollToYourTrack]);
 
   return (
     <>
@@ -93,7 +106,7 @@ export default function LP({
         <GenreNoticeSection />
 
         {hasFile && (
-          <section id="your-track" className="border-t border-border/50 py-16 md:py-20">
+          <section id="your-track" className="scroll-mt-20 border-t border-border/50 py-16 md:py-20">
             <div className="mx-auto max-w-4xl px-4">
               {isProcessing && (
                 <>

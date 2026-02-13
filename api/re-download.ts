@@ -57,6 +57,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(410).json({ error: 'redownload_expired', message: 'Re-download period has ended.' });
   }
 
+  const baseName = (row.file_name ?? 'master').replace(/\.[^/.]+$/, '');
+  const suggestedName = `${baseName}_${row.mastering_target}_mastered.wav`;
+
+  const stream = req.query.stream === '1' || req.query.stream === 'true';
+  if (stream) {
+    const { data: blob, error: dlError } = await supabaseAdmin.storage
+      .from('mastered')
+      .download(row.storage_path);
+
+    if (dlError || !blob) {
+      console.error('re-download storage download failed:', dlError);
+      return res.status(500).json({ error: 'storage_error' });
+    }
+
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(suggestedName)}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.status(200).send(buffer);
+  }
+
   const { data: signed, error: signError } = await supabaseAdmin.storage
     .from('mastered')
     .createSignedUrl(row.storage_path, 60, { download: true });
@@ -65,9 +86,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('re-download signed url failed:', signError);
     return res.status(500).json({ error: 'storage_error' });
   }
-
-  const baseName = (row.file_name ?? 'master').replace(/\.[^/.]+$/, '');
-  const suggestedName = `${baseName}_${row.mastering_target}_mastered.wav`;
 
   return res.status(200).json({
     url: signed.signedUrl,

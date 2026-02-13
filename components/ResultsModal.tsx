@@ -58,10 +58,18 @@ export default function ResultsModal({
   const totalSlides = 2;
   const [openRawDiagnosis, setOpenRawDiagnosis] = React.useState(false);
   const [openRawAI, setOpenRawAI] = React.useState(false);
+  const contentScrollRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (open) setSlide(1);
+    if (open) {
+      setSlide(1);
+      contentScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    }
   }, [open]);
+
+  React.useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [slide]);
 
   if (!open) return null;
 
@@ -95,7 +103,7 @@ export default function ResultsModal({
         </div>
 
         {/* スライド内容 */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 scroll-touch">
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 scroll-touch">
           {slide === 0 && (
             <div className="animate-fade-up space-y-6">
               <h3 className="text-base font-bold text-cyan-400 mb-4">

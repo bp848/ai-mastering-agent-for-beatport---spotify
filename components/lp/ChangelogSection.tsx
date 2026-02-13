@@ -8,7 +8,7 @@ const entries = [
 
 export default function ChangelogSection() {
   return (
-    <section id="changelog" className="border-t border-border/50 py-16 md:py-20">
+    <section id="changelog" className="scroll-mt-24 border-t border-border/50 py-16 md:py-20">
       <div className="mx-auto max-w-4xl px-4">
         <div className="mb-10 flex items-center justify-center gap-2">
           <History className="h-5 w-5 text-primary" />
