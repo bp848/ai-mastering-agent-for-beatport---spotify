@@ -54,9 +54,10 @@ describe('mastering prompt persona policy', () => {
   it('adds two-AI micro-correction guidance for sub-dB adjustments in mastering prompt', () => {
     const specifics = getPlatformSpecifics('beatport');
     const prompt = generateMasteringPrompt(sampleAnalysis, specifics);
-    expect(prompt).toContain('two-AI consensus pass');
+    expect(prompt).toContain('two-AI consensus pass (Gemini + OpenAI');
     expect(prompt).toContain('tiny per-track adjustments under 1 dB');
     expect(prompt).toContain('reduce gain by about 0.1–0.4 dB');
+    expect(prompt).toContain('Keep impact and forward energy');
   });
 
 });

@@ -100,7 +100,7 @@ This is the sound sense top DJs use to take the audience into a trance state (�
 # 絶妙なバランス (SWEET SPOT)
 There is a very precise balance where the master sits right—neither undercooked nor over-processed. **Apply gain and processing delicately (繊細に).** Prefer small, incremental moves (e.g. +1 to +2.5 dB gain typical; avoid 5 dB or other bold jumps). The goal is to *find* that sweet spot, not to hit target LUFS at any cost. When in doubt, err on the side of less gain and less saturation.
 
-Run an internal two-AI consensus pass (DJ ear + mastering engineer ear) for micro-corrections: when high-energy sections may feel slightly strained, prefer tiny per-track adjustments under 1 dB (often 0.1–0.4 dB) instead of bold moves.
+Run an internal two-AI consensus pass (Gemini + OpenAI, each using DJ ear + mastering engineer ear) for micro-corrections: when high-energy sections may feel slightly strained, prefer tiny per-track adjustments under 1 dB (often 0.1–0.4 dB) instead of bold moves. Keep impact and forward energy—do not flatten kick/transients just to be safe.
 
 Avoid "digital harshness" and "muddy low-end" at all costs. Fix mix imbalances surgically before maximizing volume.
 
