@@ -330,6 +330,22 @@ const makeBrickwallCurve = (): Float32Array => {
 const dbToLinear = (db: number): number => Math.pow(10, db / 20);
 export const MASTERING_OVERSAMPLE_FACTOR = 32;
 
+export function resolveNeuroDriveSettings(params: MasteringParams): { airShelfGainDb: number; wetMix: number } {
+  const exciterAmount = Number.isFinite(params.exciter_amount) ? Math.max(0, params.exciter_amount) : 0;
+  const tubeDriveAmount = Number.isFinite(params.tube_drive_amount) ? Math.max(0, params.tube_drive_amount) : 0;
+  const loudnessPush = Number.isFinite(params.gain_adjustment_db) ? Math.max(0, params.gain_adjustment_db) : 0;
+  const lowContourAmount = Number.isFinite(params.low_contour_amount) ? Math.max(0, params.low_contour_amount) : 0;
+
+  const highLoudnessGuard = Math.max(0, loudnessPush - 2.5);
+  const airShelfGainDb = Math.max(1.25, Math.min(2.8, 1.4 + exciterAmount * 3.8 + tubeDriveAmount * 0.1 - highLoudnessGuard * 0.08));
+  const wetMix = Math.max(0.08, Math.min(0.17, 0.09 + exciterAmount * 0.28 + Math.max(0, lowContourAmount - 0.3) * 0.05 + Math.min(loudnessPush, 2.5) * 0.01));
+
+  return {
+    airShelfGainDb,
+    wetMix,
+  };
+}
+
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
 // ==========================================
@@ -533,14 +549,16 @@ export const buildMasteringChain = (
   energyFilter.Q.value = 0.5;
   hyperComp.connect(energyFilter);
 
+  const neuroSettings = resolveNeuroDriveSettings(params);
+
   const airShelf = ctx.createBiquadFilter();
   airShelf.type = 'highshelf';
   airShelf.frequency.value = 10000;
-  airShelf.gain.value = 3.5; // 10kHz+ Air ブースト（トップが聴こえるように。1.0 だと変化がほぼない）
+  airShelf.gain.value = neuroSettings.airShelfGainDb;
   energyFilter.connect(airShelf);
 
   const neuroWetGain = ctx.createGain();
-  neuroWetGain.gain.value = 0.18; // 開放感が聴こえる程度に（潰さない範囲）
+  neuroWetGain.gain.value = neuroSettings.wetMix;
   airShelf.connect(neuroWetGain);
 
   const neuroMerge = ctx.createGain();
