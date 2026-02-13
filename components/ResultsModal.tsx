@@ -146,6 +146,33 @@ export default function ResultsModal({
                   </pre>
                 )}
               </section>
+              {/* [PLATFORM SPECIFIC] Automation & Blueprint Transparency */}
+              <section className="rounded-xl bg-cyan-950/10 border border-cyan-500/20 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">{language === 'ja' ? 'フルスキャン・藍写真 (Blueprint)' : 'Full-Scan Processing Blueprint'}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase text-[9px]">{language === 'ja' ? 'ゲイン・ライディング' : 'Gain Riding'}</p>
+                    <p className="text-zinc-200 font-mono">
+                      {masteringParams.dynamic_automation?.input_gain_offset_quiet_db.toFixed(1)} dB Offset
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase text-[9px]">{language === 'ja' ? 'ステレオ拡幅' : 'Width Expansion'}</p>
+                    <p className="text-zinc-200 font-mono">
+                      +{masteringParams.dynamic_automation?.width_boost_drop_percent.toFixed(0)}% at Drop
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-zinc-500 uppercase text-[9px]">{language === 'ja' ? 'トランジェント' : 'Transient'}</p>
+                    <p className="text-zinc-200 font-mono">
+                      {masteringParams.transient_attack_s ? (masteringParams.transient_attack_s * 1000).toFixed(0) : '20'}ms Attack
+                    </p>
+                  </div>
+                </div>
+              </section>
+
               {actionLogs.length > 0 && (
                 <Console logs={actionLogs} compact={false} />
               )}
@@ -231,6 +258,7 @@ export default function ResultsModal({
                 onDownloadMastered={onDownloadMastered}
                 isProcessingAudio={isProcessingAudio}
                 audioBuffer={audioBuffer}
+                analysisData={analysisData}
                 hideDownloadButton
                 onFeedbackApply={onFeedbackApply}
                 onRecalcWithAI={onRecalcWithAI}

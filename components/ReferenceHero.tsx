@@ -91,7 +91,7 @@ export default function ReferenceHero({
             {t('brand.hardware.spirit')}
           </h2>
           <h1 className="text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            {ja ? 'あなたの曲に、' : 'Master your track with'}
+            {ja ? 'あなたの曲に、' : 'Master your signal with'}
             <br />
             <span className="text-primary italic">{ja ? '日本の音響の執念' : 'Japanese Precision.'}</span>
           </h1>

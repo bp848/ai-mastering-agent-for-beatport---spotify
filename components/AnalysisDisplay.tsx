@@ -124,6 +124,53 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
         </div>
       </section>
 
+      {/* [PREMIUM] Macro-Dynamics Automation Report (Transparency) */}
+      {(data.loudestSectionStart !== undefined || data.dynamicImpact !== undefined) && (
+        <section className="space-y-3 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 shadow-[0_0_20px_rgba(34,211,238,0.05)]">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-[0.15em]">
+              {isJa ? 'Macro-Dynamics オートメーション・リポート' : 'Macro-Dynamics Automation Report'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-zinc-500 uppercase">{isJa ? '検出された高エネルギー区間 (Drop)' : 'Detected High-Energy Section (Drop)'}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-bold font-mono text-zinc-200">
+                    {Math.floor(data.loudestSectionStart || 0)}s ~ {Math.floor(data.loudestSectionEnd || 0)}s
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono">({((data.loudestSectionEnd || 0) - (data.loudestSectionStart || 0)).toFixed(1)}s scan)</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-zinc-500 uppercase">{isJa ? 'セクション品質感 (Dynamic Impact)' : 'Dynamic Impact Multiplier'}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-bold font-mono text-cyan-400">x{data.dynamicImpact?.toFixed(2)}</span>
+                  <span className="text-[10px] text-zinc-500">{isJa ? '全体の平均に対するドロップの音圧比' : 'Drop energy vs Average'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-black/40 border border-white/5 p-3 space-y-2">
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">{isJa ? '適用された動的処理' : 'Applied Dynamic Processing'}</p>
+              <ul className="space-y-1.5 text-[11px]">
+                <li className="flex justify-between items-center text-zinc-300">
+                  <span>{isJa ? 'Dynamic Gain Riding' : 'Dynamic Gain Riding'}</span>
+                  <span className="font-mono text-cyan-400">Active</span>
+                </li>
+                <li className="flex justify-between items-center text-zinc-300">
+                  <span>{isJa ? 'Stereo Width Automation' : 'Stereo Width Automation'}</span>
+                  <span className="font-mono text-cyan-400">Active</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* プロ向け詳細メトリクス（端折らず） */}
       {(data.phaseCorrelation !== undefined || data.distortionPercent !== undefined || data.noiseFloorDb !== undefined) && (
         <section className="space-y-2 w-full">
@@ -134,14 +181,13 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
             {data.phaseCorrelation !== undefined && (
               <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
                 <p className="text-[10px] text-zinc-500 mb-1">{isJa ? '位相相関' : 'Phase Correlation'}</p>
-                <p className={`text-base font-bold font-mono ${
-                  data.phaseCorrelation > 0.5 ? 'text-green-400' :
-                  data.phaseCorrelation > 0 ? 'text-amber-400' : 'text-red-400'
-                }`}>
+                <p className={`text-base font-bold font-mono ${data.phaseCorrelation > 0.5 ? 'text-green-400' :
+                    data.phaseCorrelation > 0 ? 'text-amber-400' : 'text-red-400'
+                  }`}>
                   {data.phaseCorrelation.toFixed(3)}
                 </p>
                 <p className="text-[9px] text-zinc-600 mt-1">
-                  {isJa 
+                  {isJa
                     ? data.phaseCorrelation > 0.5 ? '安全 (+1.0〜+0.5)' : data.phaseCorrelation > 0 ? '注意' : '危険 (モノ不適合)'
                     : data.phaseCorrelation > 0.5 ? 'Safe (+1.0~+0.5)' : data.phaseCorrelation > 0 ? 'Caution' : 'Danger (mono incompatible)'
                   }
@@ -151,14 +197,13 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
             {data.distortionPercent !== undefined && (
               <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
                 <p className="text-[10px] text-zinc-500 mb-1">{isJa ? '歪み（THD近似）' : 'Distortion (THD est.)'}</p>
-                <p className={`text-base font-bold font-mono ${
-                  data.distortionPercent < 0.1 ? 'text-green-400' :
-                  data.distortionPercent < 0.5 ? 'text-amber-400' : 'text-red-400'
-                }`}>
+                <p className={`text-base font-bold font-mono ${data.distortionPercent < 0.1 ? 'text-green-400' :
+                    data.distortionPercent < 0.5 ? 'text-amber-400' : 'text-red-400'
+                  }`}>
                   {data.distortionPercent.toFixed(2)}%
                 </p>
                 <p className="text-[9px] text-zinc-600 mt-1">
-                  {isJa 
+                  {isJa
                     ? data.distortionPercent < 0.1 ? 'クリーン' : data.distortionPercent < 0.5 ? '軽微なクリッピング' : 'クリッピング検出'
                     : data.distortionPercent < 0.1 ? 'Clean' : data.distortionPercent < 0.5 ? 'Minor clipping' : 'Clipping detected'
                   }
@@ -168,14 +213,13 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ data, masteringTarget
             {data.noiseFloorDb !== undefined && (
               <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
                 <p className="text-[10px] text-zinc-500 mb-1">{isJa ? 'ノイズフロア' : 'Noise Floor'}</p>
-                <p className={`text-base font-bold font-mono ${
-                  data.noiseFloorDb < -80 ? 'text-green-400' :
-                  data.noiseFloorDb < -70 ? 'text-amber-400' : 'text-red-400'
-                }`}>
+                <p className={`text-base font-bold font-mono ${data.noiseFloorDb < -80 ? 'text-green-400' :
+                    data.noiseFloorDb < -70 ? 'text-amber-400' : 'text-red-400'
+                  }`}>
                   {data.noiseFloorDb.toFixed(1)} dB
                 </p>
                 <p className="text-[9px] text-zinc-600 mt-1">
-                  {isJa 
+                  {isJa
                     ? data.noiseFloorDb < -80 ? 'プロ基準 (-90dB以下)' : data.noiseFloorDb < -70 ? '許容範囲' : 'ノイズ検出'
                     : data.noiseFloorDb < -80 ? 'Pro standard (<-90dB)' : data.noiseFloorDb < -70 ? 'Acceptable' : 'Noise detected'
                   }

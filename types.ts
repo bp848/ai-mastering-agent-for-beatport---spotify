@@ -13,6 +13,7 @@ export interface AudioAnalysisData {
   peakRMS: number;
   bassVolume: number;
   phaseCorrelation: number;    // -1 to +1 (位相相関)
+  phaseCorrelationLow?: number; // Added for deep sub-phase scan
   distortionPercent: number;   // THD近似（クリッピング率）
   noiseFloorDb: number;        // ノイズフロア（-dB）
   lowEndCrestDb?: number;

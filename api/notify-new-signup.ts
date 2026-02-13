@@ -49,12 +49,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ notified: false, already: true });
   }
 
-  const { error: insertError } = await supabaseAdmin.from('notified_signups').insert({
-    user_id: user.id,
-  });
-  if (insertError) {
-    console.error('notify-new-signup insert failed:', insertError);
-    return res.status(500).json({ error: 'db_error' });
+  try {
+    const { error: insertError } = await supabaseAdmin.from('notified_signups').insert({
+      user_id: user.id,
+    });
+    if (insertError) {
+      console.error('notify-new-signup insert failed:', insertError);
+      // Non-fatal, proceed to email check but log it
+    }
+  } catch (err) {
+    console.error('notify-new-signup DB exception:', err);
+    // Continue attempting email even if DB fails
   }
 
   if (!notifyEmail || !resendApiKey) {

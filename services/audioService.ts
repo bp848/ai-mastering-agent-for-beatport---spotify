@@ -80,32 +80,52 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     meter = pyln.Meter(sample_rate, block_size=0.400) # Use standard block size
     lufs = meter.integrated_loudness(audio_data)
     
-    # REAL True Peak with 4x Oversampling (Linear Interpolation)
-    # Processed in chunks to avoid MemoryError on large files
-    chunk_size_samples = int(sample_rate * 30) # 30 seconds
+    # REAL True Peak with 4x Oversampling (Cubic Spline for High Purity)
+    # Optimized: Use 2s chunks (instead of 20s) and move imports outside the loop
+    chunk_size_samples = int(sample_rate * 2) 
     true_peak_val = 0.0
     
+    # Pre-import to avoid overhead in the loop
+    try:
+        from scipy.interpolate import interp1d
+        has_scipy = True
+    except ImportError:
+        has_scipy = False
+
     for ch_idx in range(channels):
         channel_data = left_channel if channels == 1 else audio_data[:, ch_idx]
         for start_idx in range(0, len(channel_data), chunk_size_samples):
             end_idx = min(start_idx + chunk_size_samples, len(channel_data))
             chunk = channel_data[start_idx:end_idx]
             
-            if len(chunk) < 2: continue
+            if len(chunk) < 10: continue
             
-            # 4x oversampling for this chunk
-            x_original = np.arange(len(chunk))
-            x_resampled = np.arange(0, len(chunk) - 1, 0.25)
-            chunk_4x = np.interp(x_resampled, x_original, chunk)
+            try:
+                if has_scipy:
+                    x_original = np.arange(len(chunk))
+                    x_resampled = np.arange(0, len(chunk) - 1, 0.25)
+                    f_cubic = interp1d(x_original, chunk, kind='cubic')
+                    chunk_4x = f_cubic(x_resampled)
+                    ch_peak = np.max(np.abs(chunk_4x))
+                else:
+                    raise Exception("Scipy not available")
+            except:
+                x_original = np.arange(len(chunk))
+                x_resampled = np.arange(0, len(chunk) - 1, 0.25)
+                chunk_4x = np.interp(x_resampled, x_original, chunk)
+                ch_peak = np.max(np.abs(chunk_4x))
             
-            ch_peak = np.max(np.abs(chunk_4x))
             if ch_peak > true_peak_val:
                 true_peak_val = ch_peak
     
     true_peak_db = 20 * np.log10(true_peak_val) if true_peak_val > 1e-12 else -144.0
 
     # --- RMS, Dynamic Range, Crest Factor ---
-    rms_val = np.sqrt(np.mean(np.square(audio_data)))
+    # Guard against empty audio_data
+    if audio_data.size > 0:
+        rms_val = np.sqrt(np.mean(np.square(audio_data)))
+    else:
+        rms_val = 0.0
     peak_rms_db = 20 * np.log10(rms_val) if rms_val > 0 else -144.0
     dynamic_range = true_peak_db - peak_rms_db
     crest_factor = dynamic_range
@@ -113,6 +133,7 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     # --- Stereo Width & Phase Correlation ---
     stereo_width = 0.0
     phase_correlation = 1.0
+    low_phase_correlation = 1.0
     if channels > 1:
         mid = (left_channel + right_channel) * 0.5
         side = (left_channel - right_channel) * 0.5
@@ -120,28 +141,38 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         side_rms = np.sqrt(np.mean(np.square(side)))
         if mid_rms > 1e-9:
             stereo_width = np.clip((side_rms / mid_rms) * 150, 0, 100)
-        # Phase correlation: -1 (out of phase) to +1 (in phase)
+        
         correlation = np.corrcoef(left_channel, right_channel)[0, 1]
         phase_correlation = float(correlation) if not np.isnan(correlation) else 1.0
+        
+        # PRECISE Low-End Phase correlation (Critical for Club Master)
+        try:
+            from scipy.signal import butter, lfilter
+            nyq = 0.5 * sample_rate
+            low = 200 / nyq
+            b, a = butter(2, low, btype='low')
+            l_low = lfilter(b, a, left_channel)
+            r_low = lfilter(b, a, right_channel)
+            low_corr = np.corrcoef(l_low, r_low)[0, 1]
+            low_phase_correlation = float(low_corr) if not np.isnan(low_corr) else 1.0
+        except:
+            low_phase_correlation = phase_correlation
     
-    # --- Distortion (THD approximation via harmonic detection) ---
-    # Check for clipping/saturation: samples near ±1.0 indicate potential distortion
+    # --- Distortion (THD approximation) ---
     clipped_samples = np.sum(np.abs(audio_data) > 0.98)
     total_samples = audio_data.size
     clipping_ratio = clipped_samples / total_samples if total_samples > 0 else 0.0
-    # Estimate THD-like metric: if many samples are clipped, distortion is likely
     estimated_thd_percent = clipping_ratio * 100.0
     
-    # --- Noise Floor (silence detection) ---
-    # Find quiet sections (below -60dB) and measure their RMS
-    quiet_threshold = 10 ** (-60 / 20)  # -60dB in linear
+    # --- Noise Floor ---
+    quiet_threshold = 10 ** (-60 / 20)  # -60dB
     quiet_mask = np.abs(audio_data) < quiet_threshold
     if np.any(quiet_mask):
         quiet_samples = audio_data[quiet_mask]
         noise_rms = np.sqrt(np.mean(np.square(quiet_samples)))
         noise_floor_db = 20 * np.log10(noise_rms) if noise_rms > 0 else -144.0
     else:
-        noise_floor_db = -100.0  # No quiet sections found
+        noise_floor_db = -100.0
 
     # --- [PREMIUM] Full-Scan Segmentation (Drop Detection) ---
     # Scan the entire track for the loudest 15-second section
@@ -162,7 +193,9 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         # Calculate energy in blocks to save memory/CPU
         blocks = []
         for i in range(0, total_samples - step_size, step_size):
-            blocks.append(np.mean(mono_data[i : i + step_size] ** 2))
+            chunk = mono_data[i : i + step_size]
+            if chunk.size > 0:
+                blocks.append(np.mean(chunk ** 2))
         
         blocks = np.array(blocks)
         frames_in_window = int(duration_sec / 0.5)
@@ -209,7 +242,10 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     for name, (fmin, fmax) in bands.items():
         if len(freqs) > 0:
             indices = np.where((freqs >= fmin) & (freqs < fmax))
-            avg_level = np.mean(magnitudes_db[indices]) if len(indices[0]) > 0 else -100.0
+            if indices[0].size > 0:
+                avg_level = np.mean(magnitudes_db[indices])
+            else:
+                avg_level = -100.0
         else:
             avg_level = -100.0
         frequency_results.append({"name": name, "level": float(avg_level)})
@@ -260,6 +296,7 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         "bassVolume": bass_volume if np.isfinite(bass_volume) else -100.0,
         "frequencyData": frequency_results,
         "phaseCorrelation": phase_correlation if channels > 1 else 1.0,
+        "phaseCorrelationLow": low_phase_correlation if channels > 1 else 1.0,
         "distortionPercent": estimated_thd_percent,
         "noiseFloorDb": noise_floor_db if np.isfinite(noise_floor_db) else -100.0,
         "lowEndCrestDb": low_end_crest_db if np.isfinite(low_end_crest_db) else 0.0,

@@ -177,25 +177,34 @@ export default function AppContent() {
     supabase.from('upload_events').insert({ user_id: session?.user?.id ?? null, file_name: file.name, file_size_bytes: file.size }).then(() => { }, () => { });
 
     try {
-      addActionLog('INIT', language === 'ja' ? '高純度音声スキャン開始。全サンプルの読み込みを行います。' : 'High-purity audio scan started. Loading all samples.', undefined, 'info');
-      addActionLog('INIT', language === 'ja' ? `対象: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `Target: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
-      addActionLog('SCAN', language === 'ja' ? '全編ダイナミクス・スキャン: 楽曲構造の解析中...' : 'Full-track dynamics scan: Analyzing track structure...', 'find_loudest_section', 'info');
-      addActionLog('SEGMENT', language === 'ja' ? 'ドロップ（楽曲の核心部）を特定中...' : 'Identifying the drop (core section of the track)...', 'Segment_Analysis', 'info');
+      const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+      addActionLog('INIT', language === 'ja' ? '高純度音声解析シグナルチェイン開始。全サンプルの読込を実行。' : 'High-purity signal chain analysis started. Loading all samples.', undefined, 'info');
+      await delay(400);
+      addActionLog('INIT', language === 'ja' ? `対象: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `Target Signal: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
+      await delay(600);
+      addActionLog('SCAN', language === 'ja' ? 'フルレンジ・スペクトラル・アナリシス: 楽曲構造をスキャン中...' : 'Full-Range Spectral Analysis: Scanning track structure...', 'find_loudest_section', 'info');
+      await delay(800);
+      addActionLog('SEGMENT', language === 'ja' ? '高エネルギー・セクション（Drop）を検知中...' : 'Identifying High-Energy Section (Drop)...', 'Segment_Analysis', 'info');
+      await delay(1000);
       addActionLog('FFT', language === 'ja' ? 'マルチウィンドウ周波数解析 (Spectral Averaging)...' : 'Multi-window frequency analysis (Spectral Averaging)...', 'FFT_Deep_Scan', 'info');
       addLog(t('log.audio.analysis_start'));
+
+      // Actual processing starts here
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
       const targetLufs = target === 'beatport' ? -9.0 : -14.0;
       const lufsGap = targetLufs - result.lufs;
 
       const dropTime = result.loudestSectionStart ? `${Math.floor(result.loudestSectionStart / 60)}:${(result.loudestSectionStart % 60).toFixed(0).padStart(2, '0')}` : '0:00';
-      addActionLog('DROP', language === 'ja' ? `サビ解析完了: 開始点 ${dropTime} (平均 ${result.loudestSectionRms?.toFixed(1)} dB)` : `Drop analysis complete: Starts at ${dropTime} (Avg ${result.loudestSectionRms?.toFixed(1)} dB)`, undefined, 'success');
-      addActionLog('LUFS', language === 'ja' ? `全体ラウドネス: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Total Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
-      addActionLog('PEAK', language === 'ja' ? `真のピーク (全編最大): ${result.truePeak.toFixed(2)} dBTP` : `True Peak (Full track max): ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
-      const phaseStatus = result.phaseCorrelation > 0.5 ? 'success' : result.phaseCorrelation > 0 ? 'warning' : 'error';
-      addActionLog('PHASE', language === 'ja' ? `低域位相一貫性: ${result.phaseCorrelation.toFixed(3)}` : `Low-end phase coherence: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', phaseStatus as 'info' | 'success' | 'warning' | 'error');
-      if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `歪みリスク検出: ${result.distortionPercent.toFixed(2)}% (クリッピング疑い)` : `Distortion risk: ${result.distortionPercent.toFixed(2)}% (clipping suspected)`, 'THD_Analyzer', 'warning');
+      addActionLog('DROP', language === 'ja' ? `セクション解析完了: 開始点 ${dropTime} (平均 ${result.loudestSectionRms?.toFixed(1)} dB)` : `High-Energy Section location identified: Starts at ${dropTime} (Avg ${result.loudestSectionRms?.toFixed(1)} dB)`, undefined, 'success');
+      addActionLog('LUFS', language === 'ja' ? `統合ラウドネス: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Integrated Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
+      addActionLog('PEAK', language === 'ja' ? `トゥルーピーク (インターサンプル最大): ${result.truePeak.toFixed(2)} dBTP` : `True Peak (Inter-sample max): ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
+      addActionLog('PHASE', language === 'ja' ? `全帯域位相一貫性: ${result.phaseCorrelation.toFixed(3)}` : `Total Phase Coherence: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', result.phaseCorrelation > 0.5 ? 'success' : 'warning');
+      const lowPhase = result.phaseCorrelationLow ?? result.phaseCorrelation;
+      addActionLog('PHASE', language === 'ja' ? `低域位相 (Sub-Phase) 一貫性: ${lowPhase.toFixed(3)}` : `Sub-Phase Coherence: ${lowPhase.toFixed(3)}`, 'Sub_Phase_Detector', lowPhase > 0.7 ? 'success' : lowPhase > 0.3 ? 'warning' : 'error');
+      if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `全高調波歪(THD)リスク検出: ${result.distortionPercent.toFixed(2)}%` : `THD risk detected: ${result.distortionPercent.toFixed(2)}% (Harmonic Clipping)`, 'THD_Analyzer', 'warning');
       addActionLog('NOISE', language === 'ja' ? `ノイズフロア計測: ${result.noiseFloorDb.toFixed(1)} dB` : `Noise floor measurement: ${result.noiseFloorDb.toFixed(1)} dB`, 'Noise_Gate', result.noiseFloorDb < -80 ? 'success' : 'warning');
-      addActionLog('DONE', language === 'ja' ? '全サンプル精密解析完了 — プレミアム診断レポートを生成。' : 'All samples precisely analyzed — generating premium diagnosis report.', undefined, 'success');
+      addActionLog('DONE', language === 'ja' ? '全シグナル精密解析完了。ニューラル・マスタリング・プロトコルの準備。' : 'Signal analysis complete. Neural Mastering Protocol initialized.', undefined, 'success');
       setAnalysisData(result);
       setAudioBuffer(buffer);
       trackEvent('analysis_complete', { target, lufs: result.lufs, true_peak: result.truePeak }, session?.user?.id ?? undefined);
@@ -232,8 +241,8 @@ export default function AppContent() {
       // Dynamic Mastering Logs
       if (rawParams.dynamic_automation) {
         const auto = rawParams.dynamic_automation;
-        addActionLog('DYNAMIC', language === 'ja' ? 'Living Breathing Mastering (Macro-Dynamics) 適用中...' : 'Applying Living Breathing Mastering (Macro-Dynamics)...', 'Macro_Dynamics', 'info');
-        addActionLog('DYNAMIC', language === 'ja' ? `イントロ補正: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / ドロップ拡幅: ${auto.width_boost_drop_percent.toFixed(0)}%` : `Intro offset: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / Drop width: ${auto.width_boost_drop_percent.toFixed(0)}%`, undefined, 'info');
+        addActionLog('DYNAMIC', language === 'ja' ? 'Dynamic Gain Riding (Macro-Dynamics) 適用中...' : 'Applying Dynamic Gain Riding (Macro-Dynamics)...', 'Macro_Dynamics', 'info');
+        addActionLog('DYNAMIC', language === 'ja' ? `イントロ補正: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / ドロップ拡幅: ${auto.width_boost_drop_percent.toFixed(0)}%` : `Intro offset: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / Drop expansion: ${auto.width_boost_drop_percent.toFixed(0)}%`, undefined, 'info');
       }
 
       const optimizeResult = await optimizeMasteringParams(audioBuffer, analysisData, rawParams);

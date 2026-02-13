@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { MasteringParams } from '../types';
+import type { AudioAnalysisData, MasteringParams } from '../types';
 import { buildMasteringChain, optimizeMasteringParams } from '../services/audioService';
 import { applyFeedbackAdjustment, type FeedbackType } from '../services/feedbackService';
 import { clampMasteringParams } from '../services/geminiService';
@@ -302,6 +302,7 @@ interface MasteringAgentProps {
   onDownloadMastered: () => void;
   isProcessingAudio: boolean;
   audioBuffer: AudioBuffer | null;
+  analysisData: AudioAnalysisData | null;
   hideDownloadButton?: boolean;
   /** Human-in-the-Loop: フィードバックに基づきパラメータを補正して再レンダリング */
   onFeedbackApply?: (newParams: MasteringParams) => void;
@@ -330,7 +331,8 @@ function formatDuration(seconds: number): string {
 const AudioPreview: React.FC<{
   audioBuffer: AudioBuffer;
   params: MasteringParams;
-}> = ({ audioBuffer, params }) => {
+  analysisData: AudioAnalysisData;
+}> = ({ audioBuffer, params, analysisData }) => {
   const { language } = useTranslation();
   const ja = language === 'ja';
   const [isPlaying, setIsPlaying] = useState(false);
@@ -345,7 +347,7 @@ const AudioPreview: React.FC<{
   const [playbackPositionSec, setPlaybackPositionSec] = useState<number | null>(null);
 
   const setupAudioGraph = useCallback(() => {
-    if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close().catch(() => {});
+    if (audioContextRef.current?.state !== 'closed') audioContextRef.current?.close().catch(() => { });
     const context = new (window.AudioContext || (window as any).webkitAudioContext)();
     audioContextRef.current = context;
 
@@ -386,7 +388,7 @@ const AudioPreview: React.FC<{
     silentGain.connect(context.destination);
 
     // ── Mastering DSP chain ──
-    buildMasteringChain(context, source, params, audioBuffer.numberOfChannels, masteredGain);
+    buildMasteringChain(context, source, params, analysisData, audioBuffer.numberOfChannels, masteredGain);
 
     sourceRef.current = source;
     nodesRef.current = { bypassGain, masteredGain };
@@ -396,11 +398,11 @@ const AudioPreview: React.FC<{
     if (!isPlaying) {
       setupAudioGraph();
     }
-  }, [audioBuffer, params, isPlaying, setupAudioGraph]);
+  }, [audioBuffer, params, analysisData, isPlaying, setupAudioGraph]);
 
   useEffect(() => {
     return () => {
-      try { sourceRef.current?.stop(); } catch (_) {}
+      try { sourceRef.current?.stop(); } catch (_) { }
       audioContextRef.current?.close?.();
     };
   }, []);
@@ -416,7 +418,7 @@ const AudioPreview: React.FC<{
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
-      try { sourceRef.current?.stop(); } catch (_) {}
+      try { sourceRef.current?.stop(); } catch (_) { }
       setIsPlaying(false);
       return;
     }
@@ -511,12 +513,12 @@ const AudioPreview: React.FC<{
         <p className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">
           {ja ? '波形（Original + Master 重ね）・再生位置' : 'Waveform (Original + Master overlay) · Playhead'}
         </p>
-      <WaveformOverlay
-        originalBuffer={audioBuffer}
-        gainDb={params.gain_adjustment_db}
-        isHoldingOriginal={isHoldingOriginal}
-        playbackPositionSec={playbackPositionSec}
-      />
+        <WaveformOverlay
+          originalBuffer={audioBuffer}
+          gainDb={params.gain_adjustment_db}
+          isHoldingOriginal={isHoldingOriginal}
+          playbackPositionSec={playbackPositionSec}
+        />
       </div>
 
       {/* ── Meters Row ── */}
@@ -573,6 +575,7 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
   onDownloadMastered,
   isProcessingAudio,
   audioBuffer,
+  analysisData,
   hideDownloadButton = false,
   onFeedbackApply,
   onRecalcWithAI,
@@ -592,9 +595,9 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
       const adjusted = applyFeedbackAdjustment(params, feedback);
       const clamped = clampMasteringParams(adjusted);
       // フィードバック後は「固定値でゲインを足す/引く」ではなく、自己補正ループで計測→最適化する
-      if (audioBuffer) {
+      if (audioBuffer && analysisData) {
         try {
-          const optimized = await optimizeMasteringParams(audioBuffer, clamped);
+          const optimized = await optimizeMasteringParams(audioBuffer, analysisData, clamped);
           onFeedbackApply(optimized.params);
           return;
         } catch (e) {
@@ -624,7 +627,7 @@ const MasteringAgent: React.FC<MasteringAgentProps> = ({
 
   return (
     <div className="space-y-6">
-      {audioBuffer && <AudioPreview audioBuffer={audioBuffer} params={params} />}
+      {audioBuffer && analysisData && <AudioPreview audioBuffer={audioBuffer} params={params} analysisData={analysisData} />}
 
       {/* リトライする：問題例 ＋ 無料再実行 or 購入 */}
       {(onRecalcWithAI || onDownloadMastered) && (

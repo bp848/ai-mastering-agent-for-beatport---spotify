@@ -12,16 +12,13 @@ function getDisplayLanguage(code: LanguageCode): 'ja' | 'en' {
 }
 
 function getInitialLanguage(): LanguageCode {
-  if (typeof navigator === 'undefined') return 'en';
-  const raw = navigator.language || (navigator as { userLanguage?: string }).userLanguage || '';
-  const base = raw.split('-')[0].toLowerCase();
-  if (isSupportedLanguage(base)) return base;
+  // Pivot to English-first strategy
   return 'en';
 }
 
 const ja = {
-  "header.title": "Dance Music Mastering AI",
-  "header.tagline": "30 Years of Mastery | Engineered in Tokyo",
+  "header.title": "Audio Mastering AI",
+  "header.tagline": "The Spirit of Japanese Audio Precision",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "音源アップロード",
   "section.step2.title": "Beatport/Spotify 配信基準分析",
@@ -35,8 +32,8 @@ const ja = {
   "error.openai.invalid_params": "OpenAI が有効なマスタリングパラメータを返しませんでした。",
   "error.gemini.no_key": "Gemini API キーが設定されていません。",
   "upload.pyodide.detail": "ブラウザ内で高精度なEBU R 128分析環境を構築しています。",
-  "upload.analyzing": "音響スキャン実行中...",
-  "upload.analyzing.detail": "LUFS・トゥルービーク・クレストファクター・波形・周波数分布を解析しています。",
+  "upload.analyzing": "Processing Signal Chain...",
+  "upload.analyzing.detail": "Performing Full-Range Spectral Analysis: LUFS, True Peak, Crest Factor, and Frequency Distribution.",
   "upload.cta.title": "マスタリングする音源を選択",
   "upload.cta.detail": "WAV / MP3 / AIFF (24bit/44.1kHz以上推奨)",
   "upload.cta.hint": "ドラッグ＆ドロップ または クリックで選択",
@@ -153,19 +150,19 @@ const ja = {
   "campaign.youtube.cta": "応募・お問い合わせ",
   "brand.hardware.spirit": "The Spirit of Japanese Audio.",
   "brand.hardware.lineage": "From the Booth to the Cloud.",
-  "brand.hardware.trust": "あなたはCDJを信頼している。Technicsを、Rolandを信頼している。では、マスタリングだけ出所不明のアルゴリズムに任せますか？",
-  "brand.hardware.mission": "私たちは、あの機材たちが伝説となった理由である「日本の精密さ・音への執念」をAIマスタリングに持ち込みました。",
-  "brand.dynamic.title": "Living Breathing Mastering",
-  "brand.dynamic.desc": "他社のAIは、曲を「静止画」として処理します。私たちは「動画」として処理します。ドロップの衝撃を最大化するために、AIがフェーダーを動的に操作します。",
+  "brand.hardware.trust": "You trust your CDJs. You trust your Technics. You trust your Roland synths. Why trust your mastering to a random algorithm?",
+  "brand.hardware.mission": "We bring the same Japanese precision and technical obsession that made those legendary machines to AI mastering.",
+  "brand.dynamic.title": "Dynamic Gain Riding",
+  "brand.dynamic.desc": "While others treat tracks as static images, we process them as a living experience. Our AI dynamically rides the faders to maximize the impact of your drops.",
 };
 
 const en = {
-  "header.title": "Dance Music Mastering AI",
-  "header.tagline": "30 Years of Mastery | Engineered in Tokyo",
+  "header.title": "Audio Mastering AI",
+  "header.tagline": "The Spirit of Japanese Audio Precision",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
-  "section.step1.title": "Upload Track",
-  "section.step2.title": "Distribution Standards Analysis",
-  "section.step3.title": "AI Mastering Proposal",
+  "section.step1.title": "Upload Signal",
+  "section.step2.title": "Full-Range Spectral Analysis",
+  "section.step3.title": "Neural Mastering Protocol",
   "upload.pyodide.loading": "Loading Engine...",
   "upload.pyodide.installing": "Installing Libraries...",
   "upload.pyodide.ready": "System Ready",
@@ -175,8 +172,8 @@ const en = {
   "error.openai.invalid_params": "OpenAI did not return valid mastering parameters.",
   "error.gemini.no_key": "Gemini API key is not set.",
   "upload.pyodide.detail": "Building high-precision analysis environment in browser.",
-  "upload.analyzing": "Analyzing Audio...",
-  "upload.analyzing.detail": "Measuring LUFS, true peak, crest factor, waveform & frequency spectrum.",
+  "upload.analyzing": "Processing Signal Chain...",
+  "upload.analyzing.detail": "Performing Full-Range Spectral Analysis: LUFS, True Peak, Crest Factor, and Frequency Distribution.",
   "upload.cta.title": "Upload Audio",
   "upload.cta.detail": "WAV / MP3 / AIFF (24bit recommended)",
   "upload.cta.hint": "Drag & drop or click to choose",
@@ -188,9 +185,9 @@ const en = {
   "ux.choose_other_file": "Choose another file",
   "ux.select_file_button": "Select file",
   "ux.error_retry": "Choose another file to retry",
-  "steps.upload": "Upload",
-  "steps.analyze": "Analyze",
-  "steps.run": "Run",
+  "steps.upload": "SIGNAL",
+  "steps.analyze": "SCAN",
+  "steps.run": "PROCESS",
   "steps.listen": "Listen & Get",
   "analysis.waveform.title": "Waveform Analysis",
   "analysis.spectrum.title": "Frequency Spectrum",
@@ -219,8 +216,8 @@ const en = {
   "platform.spotify": "Spotify (Streaming)",
   "agent.idle.title": "Agent Idle",
   "agent.idle.detail": "Upload a track to get distribution-ready suggestions.",
-  "agent.loading.title": "Optimizing for Techno/Trance...",
-  "agent.loading.detail": "Calculating path to reach -8.0 LUFS / -0.3 dBTP.",
+  "agent.loading.title": "Optimizing for Global Standards...",
+  "agent.loading.detail": "Executing 30 Years of Engineering Heritage to reach -8.0 LUFS / -0.3 dBTP.",
   "agent.params.title": "AI Proposed Parameters",
   "agent.params.gain": "Gain Adjustment for LUFS",
   "agent.params.limiter": "Peak Limiting Configuration",
