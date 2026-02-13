@@ -135,10 +135,10 @@ export default function LP({
                     </span>
                   </div>
                   <h2 className="text-lg font-bold text-foreground md:text-xl">
-                    {language === 'ja' ? '仕上がりを聴いてからダウンロード' : 'Listen, then download'}
+                    {language === 'ja' ? '仕上がりを聴いてから購入・保存' : 'Listen, then Purchase & Save'}
                   </h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {language === 'ja' ? '結果を見て購入・ダウンロード' : 'View result and purchase or download'}
+                    {language === 'ja' ? '結果を見て購入すると、マイページに保存されます' : 'Purchase and it will be saved to your My Page'}
                   </p>
                   <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button

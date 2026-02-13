@@ -2,15 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchDownloadHistory, fetchDownloadHistoryViaApi } from '../services/downloadHistory';
 import { useTranslation } from '../contexts/LanguageContext';
-import { UserIcon } from './Icons';
+import { UserIcon, MailIcon } from './Icons';
 import { triggerBlobDownload } from '../utils/download';
 import type { MasteringTarget } from '../types';
 
-/* ══════════════════════════════════════════════════════════════════
-   MyPageView — Dashboard style with proper error/empty states
-   ══════════════════════════════════════════════════════════════════ */
+interface MyPageViewProps {
+  onNavigateToMastering?: () => void;
+}
 
-export default function MyPageView() {
+export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
   const { user, session, loading: authLoading, signInWithGoogle, signOut } = useAuth();
   const { language } = useTranslation();
   const ja = language === 'ja';
@@ -42,6 +42,11 @@ export default function MyPageView() {
       setError(msg);
       if (typeof console !== 'undefined' && console.error) {
         console.error('MyPageView: fetch download history failed', e);
+      }
+      if (msg.includes('server_config')) {
+        // Prevent repeated calls if server config is broken
+        setLoading(false);
+        return;
       }
     } finally {
       setLoading(false);
@@ -143,13 +148,22 @@ export default function MyPageView() {
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={signOut}
-            className="text-xs font-medium text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 transition-all"
-          >
-            {ja ? 'ログアウト' : 'Sign out'}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={onNavigateToMastering}
+              className="text-xs font-bold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 shadow-sm transition-all"
+            >
+              {ja ? '次の曲をマスタリング' : 'Next Song Mastering'}
+            </button>
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 transition-all"
+            >
+              {ja ? 'ログアウト' : 'Sign out'}
+            </button>
+          </div>
         </div>
 
         {/* ── History Section ── */}
@@ -169,117 +183,140 @@ export default function MyPageView() {
           {error && (
             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
               <p className="text-sm text-destructive">
-              {ja
-                ? '履歴の読み込みに失敗しました。しばらくしてから「再読み込み」を押してください。'
-                : 'Failed to load history. Please try "Retry" again in a moment.'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {ja
-                ? '繰り返し発生する場合は、お手数ですが ishijima@b-p.co.jp までご連絡ください。'
-                : 'If this keeps happening, please contact ishijima@b-p.co.jp.'}
-            </p>
-            <button
-              type="button"
-              onClick={loadHistory}
-              className="text-xs font-bold text-destructive hover:brightness-110 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 transition-all"
-            >
-              {ja ? '再読み込み' : 'Retry'}
-            </button>
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && !error && (
-          <div className="py-8 text-center">
-            <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-3" />
-            <p className="text-xs text-muted-foreground">{ja ? '読み込み中...' : 'Loading...'}</p>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!loading && !error && history.length === 0 && (
-          <div className="py-12 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-secondary border border-border flex items-center justify-center mx-auto text-muted-foreground text-2xl">
-              ♪
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                {ja ? 'まだ履歴がありません' : 'No history yet'}
-              </p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 {ja
-                  ? 'マスタリング完了後、結果画面の「購入してWAVを取得」からダウンロードすると、ここに表示されます。'
-                  : 'After mastering, download from "Purchase → Download" on the result screen; it will appear here.'}
+                  ? '履歴の読み込みに失敗しました。しばらくしてから「再読み込み」を押してください。'
+                  : 'Failed to load history. Please try "Retry" again in a moment.'}
               </p>
+              <p className="text-xs text-muted-foreground">
+                {ja
+                  ? '繰り返し発生する場合は、お手数ですが ishijima@b-p.co.jp までご連絡ください。'
+                  : 'If this keeps happening, please contact ishijima@b-p.co.jp.'}
+              </p>
+              <button
+                type="button"
+                onClick={loadHistory}
+                className="text-xs font-bold text-destructive hover:brightness-110 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 transition-all"
+              >
+                {ja ? '再読み込み' : 'Retry'}
+              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* History list */}
-        {!loading && !error && history.length > 0 && (
-          <ul className="space-y-2">
-            {history.map((row) => {
-              const canRedownload =
-                row.storage_path &&
-                row.expires_at &&
-                new Date(row.expires_at) > new Date();
-              const isDownloading = downloadingId === row.id;
+          {/* Loading */}
+          {loading && !error && (
+            <div className="py-8 text-center">
+              <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-3" />
+              <p className="text-xs text-muted-foreground">{ja ? '読み込み中...' : 'Loading...'}</p>
+            </div>
+          )}
 
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-primary/30 transition-colors flex-wrap sm:flex-nowrap"
+          {/* Empty state */}
+          {!loading && !error && history.length === 0 && (
+            <div className="py-12 text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-secondary border border-border flex items-center justify-center mx-auto text-muted-foreground text-2xl">
+                ♪
+              </div>
+              <div className="space-y-4 text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {ja ? 'まだ履歴がありません' : 'No history yet'}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  {ja
+                    ? 'マスタリング完了後、結果画面の「購入してWAVを取得」から保存すると、ここに表示されます（7日間保存）。'
+                    : 'After mastering, save from "Purchase & Save" on the result screen; it will appear here (Stored for 7 days).'}
+                </p>
+                <button
+                  type="button"
+                  onClick={onNavigateToMastering}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-primary-foreground font-bold text-sm shadow-lg hover:brightness-110 transition-all"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-sm text-foreground truncate">{row.file_name}</p>
-                    <p className="text-xs text-muted-foreground uppercase mt-0.5">
-                      {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {row.amount_cents != null && (
-                      <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                        ¥{(row.amount_cents / 100).toLocaleString()}
-                      </span>
-                    )}
-                    {canRedownload ? (
-                      <button
-                        type="button"
-                        disabled={isDownloading}
-                        onClick={async () => {
-                          if (!session?.access_token) return;
-                          setDownloadingId(row.id);
-                          try {
-                            const base = typeof window !== 'undefined' ? window.location.origin : '';
-                            const res = await fetch(
-                              `${base}/api/re-download?history_id=${encodeURIComponent(row.id)}&stream=1`,
-                              { headers: { Authorization: `Bearer ${session.access_token}` } }
-                            );
-                            if (res.ok) {
-                              const blob = await res.blob();
+                  {ja ? 'さっそくマスタリングを始める' : 'Start Mastering Now'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* History list */}
+          {!loading && !error && history.length > 0 && (
+            <ul className="space-y-2">
+              {history.map((row) => {
+                const canRedownload =
+                  row.storage_path &&
+                  row.expires_at &&
+                  new Date(row.expires_at) > new Date();
+                const isDownloading = downloadingId === row.id;
+
+                return (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-primary/30 transition-colors flex-wrap sm:flex-nowrap"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-sm text-foreground truncate">{row.file_name}</p>
+                      <p className="text-xs text-muted-foreground uppercase mt-0.5">
+                        {row.mastering_target} · {new Date(row.created_at).toLocaleString(ja ? 'ja-JP' : 'en-US')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      {row.amount_cents != null && (
+                        <span className="hidden sm:inline text-xs font-mono text-muted-foreground tabular-nums mr-2">
+                          ¥{(row.amount_cents / 100).toLocaleString()}
+                        </span>
+                      )}
+                      {canRedownload ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
                               const name = `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
-                              triggerBlobDownload(blob, name);
-                            }
-                          } finally {
-                            setDownloadingId(null);
-                          }
-                        }}
-                        className="min-h-[44px] px-4 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-50 transition-colors"
-                      >
-                        {isDownloading ? (ja ? '取得中...' : 'Loading...') : (ja ? 'ダウンロード' : 'Download')}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {ja ? '再DL期限切れ' : 'Expired'}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+                              const body = ja
+                                ? `AIマスタリングした楽曲「${name}」を送付します。\n\n※このメールは直接ファイルを送る代わりに、マスタリング履歴からURLを取得するための参照用です。`
+                                : `I am sending the AI-mastered track: ${name}.\n\n*This is for reference to identify the track in your history.`;
+                              window.location.href = `mailto:?subject=${encodeURIComponent(`${ja ? 'マスタリング完了: ' : 'Mastering Result: '}${name}`)}&body=${encodeURIComponent(body)}`;
+                            }}
+                            className="p-2.5 rounded-lg bg-secondary border border-border text-muted-foreground hover:text-foreground transition-all"
+                            title={ja ? '情報をメール' : 'Email Info'}
+                          >
+                            <MailIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isDownloading}
+                            onClick={async () => {
+                              if (!session?.access_token) return;
+                              setDownloadingId(row.id);
+                              try {
+                                const base = typeof window !== 'undefined' ? window.location.origin : '';
+                                const res = await fetch(
+                                  `${base}/api/re-download?history_id=${encodeURIComponent(row.id)}&stream=1`,
+                                  { headers: { Authorization: `Bearer ${session.access_token}` } }
+                                );
+                                if (res.ok) {
+                                  const blob = await res.blob();
+                                  const name = `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
+                                  triggerBlobDownload(blob, name);
+                                }
+                              } finally {
+                                setDownloadingId(null);
+                              }
+                            }}
+                            className="min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-50 transition-colors"
+                          >
+                            {isDownloading ? (ja ? '取得中...' : 'Loading...') : (ja ? 'ダウンロード' : 'Download')}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">
+                          {ja ? '7日経過で自動削除済' : 'Expired (7 days)'}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );

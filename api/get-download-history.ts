@@ -6,11 +6,22 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABA
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  console.error('SERVER CONFIG ERROR: Missing Supabase environment variables');
+}
+
 /** マイページ用: ログインユーザーのダウンロード履歴を返す。サーバー側で認証し service role で取得するため確実。 */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    return res.status(500).json({
+      error: 'server_config',
+      message: 'Supabase URL or Key is not configured on the server. Please check environment variables.'
+    });
   }
 
   const authHeader = req.headers.authorization;
@@ -23,11 +34,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
   if (authError || !user?.id) {
     return res.status(401).json({ error: 'auth_failed', code: 'unauthorized' });
-  }
-
-  if (!supabaseServiceKey) {
-    console.error('get-download-history: SUPABASE_SERVICE_ROLE_KEY not set');
-    return res.status(500).json({ error: 'server_config', code: 'server_error' });
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

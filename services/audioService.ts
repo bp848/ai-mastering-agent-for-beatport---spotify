@@ -404,15 +404,20 @@ const asCurve = (arr: Float32Array): NonNullable<WaveShaperNode['curve']> => arr
 const makeTubeCurve = (amount: number): Float32Array => {
   const n = 65536;
   const curve = new Float32Array(n);
-  const drive = Math.max(0, amount * 2);
-  const bias = 0.1;
+  // Asymmetric Multi-Stage Saturation (Analog Grid Bias Simulation)
+  // Higher amount adds "Heat" and "Weight" without the digital "fuzz".
+  const drive = Math.max(0, amount);
+  const bias = 0.08; // Subtle offset for even-order harmonics (warmth)
   for (let i = 0; i < n; i++) {
     const x = (i * 2) / n - 1;
     if (drive <= 0) {
       curve[i] = x;
     } else {
-      const k = 1 + drive;
-      curve[i] = Math.tanh(k * (x + bias * x)) / Math.tanh(k);
+      const k = 1 + drive * 1.5;
+      // High-precision transfer function mimicking vacuum tube saturation
+      const saturated = (Math.exp(k * (x + bias)) - Math.exp(-k * (x + bias))) /
+        (Math.exp(k) + Math.exp(-k));
+      curve[i] = saturated;
     }
   }
   return curve;
@@ -477,8 +482,10 @@ export function resolveNeuroDriveSettings(params: MasteringParams): { airShelfGa
   const lowContourAmount = Number.isFinite(params.low_contour_amount) ? Math.max(0, params.low_contour_amount) : 0;
 
   const highLoudnessGuard = Math.max(0, loudnessPush - 2.5);
-  const airShelfGainDb = 1.4 + exciterAmount * 3.8 + tubeDriveAmount * 0.1;
-  const wetMix = 0.09 + exciterAmount * 0.28 + (lowContourAmount - 0.3) * 0.05 + loudnessPush * 0.01;
+  // Professional "Air" Gain: Refined weighting
+  const airShelfGainDb = 1.0 + exciterAmount * 4.0 + tubeDriveAmount * 0.2;
+  // Professional Mix: Slightly more conservative mix for transparency
+  const wetMix = 0.07 + exciterAmount * 0.25 + (lowContourAmount - 0.2) * 0.04 + loudnessPush * 0.008;
 
   return {
     airShelfGainDb,
@@ -577,12 +584,14 @@ export const buildMasteringChain = (
     rightInv.connect(sideRaw);
 
     const midShaper = ctx.createWaveShaper();
-    midShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount * 0.5, 2)));
+    // REMOVED 0.5 scaling and 2.0 clamp. AI has full control over the "Core" energy.
+    midShaper.curve = asCurve(makeTubeCurve(params.tube_drive_amount));
     midShaper.oversample = '4x';
     midRaw.connect(midShaper);
 
     const sideShaper = ctx.createWaveShaper();
-    sideShaper.curve = asCurve(makeTubeCurve(params.tube_drive_amount));
+    // Side drive for stereo "Glue"
+    sideShaper.curve = asCurve(makeTubeCurve(params.tube_drive_amount * 1.2));
     sideShaper.oversample = '4x';
     sideRaw.connect(sideShaper);
 
@@ -739,12 +748,12 @@ export const buildMasteringChain = (
   hyperComp.release.value = adaptiveSettings.transientReleaseS;
   lastNode.connect(hyperComp);
 
-  // Neuro-Drive lowshelf: Control excessive sub-bass without destroying the low end
-  // 80Hz lowshelf -6dB preserves musicality (300Hz highpass was killing bass energy)
+  // Neuro-Drive energy filter: Tilt-based approach instead of harsh cut. 
+  // Keeps the "Body" of the sound while adding "Density".
   const energyFilter = ctx.createBiquadFilter();
   energyFilter.type = 'lowshelf';
-  energyFilter.frequency.value = 80;
-  energyFilter.gain.value = -6;
+  energyFilter.frequency.value = 160;
+  energyFilter.gain.value = -3.5;
   hyperComp.connect(energyFilter);
 
   const neuroSettings = resolveNeuroDriveSettings(params);
@@ -869,9 +878,9 @@ export const optimizeMasteringParams = async (
   // Use AI's limiter ceiling preference directly (no hard override)
   const TARGET_TRUE_PEAK_DB = aiParams.limiter_ceiling_db ?? -1.0;
 
-  // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
+  // 分析用に曲の「サビ」と思われる部分（Drop/Chorus）を 10 秒間切り出し
   const chunkDuration = 10;
-  const startSample = Math.floor(originalBuffer.length / 2);
+  const startSample = Math.floor((analysisData.loudestSectionStart ?? 0) * originalBuffer.sampleRate);
   const endSample = Math.min(
     startSample + originalBuffer.sampleRate * chunkDuration,
     originalBuffer.length,

@@ -53,11 +53,17 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
      - Add "Air" (High Shelf > 10kHz) only if the track lacks sheen. Max +2dB.
    - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
 
-4. SIGNATURE SOUND (DSP COLORATION):
-   - **tube_drive_amount**: Tube saturation harmonics and density.
-   - **exciter_amount**: High-frequency shimmer.
-   - **low_contour_amount**: Pultec-style low-end tightening.
-   - **width_amount**: Stereo width multiplier.
+4. SIGNATURE SOUND (VETERAN ENGINEERING LOGIC):
+   - **tube_drive_amount**: Focus on 0.5–2.5 for "Vocal/Jazz" (Subtle depth) and 3.0–5.0 for "Techno/Rock" (Harmonic density).
+   - **exciter_amount**: Use sparingly. High values (>0.15) can cause ear fatigue.
+   - **low_contour_amount**: Essential for Club tracks. Boosts "Chest Thump" while keeping the bottom clear.
+   - **width_amount**: If Phase Correlation is < 0.6, do NOT exceed 1.1. If Correlation is > 0.9, you can push to 1.3 for modern immersion.
+
+5. PHASING & STEREO:
+   - Prioritize MONO COMPATIBILITY. Do not expand width if it creates "hollow" sounds.
+
+6. DYNAMICS (PUNCH):
+   - **transient_attack_s**: 0.01s for aggressive control, 0.05s for "Pumping" energy.
 
 # OUTPUT
 Valid JSON only. No commentary.

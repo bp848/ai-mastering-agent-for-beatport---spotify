@@ -1,14 +1,14 @@
 
 {
-  "auth.download_gate.title": "ダウンロードにはログインが必要です",
-  "auth.download_gate.description": "Googleアカウントでログイン（または登録）すると、ダウンロードと購入履歴を利用できます。",
+  "auth.download_gate.title": "保存・ダウンロードにはログインが必要です",
+  "auth.download_gate.description": "Googleアカウントでログインすると、マスタリング結果の保存と履歴の閲覧が可能です。",
   "auth.sign_in_google": "Googleでログイン",
   "auth.cancel": "キャンセル",
   "auth.sign_out": "ログアウト",
   "auth.loading": "読み込み中...",
   "mypage.sign_in_required": "マイページ",
-  "mypage.sign_in_required_description": "ログインするとダウンロード・購入履歴を確認できます。",
-  "mypage.download_history": "ダウンロード・購入履歴",
+  "mypage.sign_in_required_description": "ログインするとマスタリング履歴の確認やダウンロードが可能です。",
+  "mypage.download_history": "マスタリング履歴（7日間保存）",
   "mypage.no_history": "まだ履歴がありません。",
   "header.title": "AI マスタリング・エージェント",
   "footer.copyright": "© {year} AI Mastering Solutions. 全著作権所有。",
@@ -66,8 +66,8 @@
   "agent.preview.title": "リアルタイムプレビュー",
   "agent.preview.original": "オリジナル",
   "agent.preview.mastered": "マスター後",
-  "agent.button.download": "マスタリング適用済みWAVをダウンロード",
-  "agent.button.processing": "オーディオを処理中...",
+  "agent.button.download": "マスタリングを適用してマイページへ保存",
+  "agent.button.processing": "オーディオを処理・保存中...",
   "agent.value.db": "{value} dB",
   "agent.value.dbtp": "{value} dBTP",
   "console.title": "AI 行動ログ",
@@ -101,6 +101,6 @@
   "log.gemini.success": "AIエージェントからマスタリングパラメータを取得しました。",
   "log.gemini.fail": "パラメータの取得に失敗しました: {message}",
   "log.mastering.start": "マスタリング適用とファイル書き出しを開始...",
-  "log.mastering.success": "マスタリング済みファイルの生成完了。ダウンロードを開始します。",
-  "log.mastering.fail": "マスタリング適用/書き出しエラー: {message}"
+  "log.mastering.success": "マスタリング済みファイルの生成完了。マイページに保存しました。",
+  "log.mastering.fail": "マスタリング適用/保存エラー: {message}"
 }

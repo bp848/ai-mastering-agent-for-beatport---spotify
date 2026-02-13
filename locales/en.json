@@ -1,14 +1,14 @@
 
 {
-  "auth.download_gate.title": "Sign in to download",
-  "auth.download_gate.description": "Sign in with Google (or create an account) to download and view your purchase history.",
+  "auth.download_gate.title": "Sign in to save track",
+  "auth.download_gate.description": "Sign in with Google to save your mastering results and view your history.",
   "auth.sign_in_google": "Sign in with Google",
   "auth.cancel": "Cancel",
   "auth.sign_out": "Sign out",
   "auth.loading": "Loading...",
   "mypage.sign_in_required": "My page",
-  "mypage.sign_in_required_description": "Sign in to see your download and purchase history.",
-  "mypage.download_history": "Download & purchase history",
+  "mypage.sign_in_required_description": "Sign in to access your mastering history and downloads.",
+  "mypage.download_history": "Mastering History (Stored for 7 days)",
   "mypage.no_history": "No history yet.",
   "header.title": "AI Mastering Agent",
   "footer.copyright": "© {year} AI Mastering Solutions. All rights reserved.",
@@ -66,8 +66,8 @@
   "agent.preview.title": "Real-time Preview",
   "agent.preview.original": "Original",
   "agent.preview.mastered": "Mastered",
-  "agent.button.download": "Download Mastered WAV",
-  "agent.button.processing": "Processing audio...",
+  "agent.button.download": "Apply Mastering & Save to My Page",
+  "agent.button.processing": "Processing & saving audio...",
   "agent.value.db": "{value} dB",
   "agent.value.dbtp": "{value} dBTP",
   "console.title": "AI Action Log",
@@ -101,6 +101,6 @@
   "log.gemini.success": "Received mastering parameters from AI agent.",
   "log.gemini.fail": "Failed to get parameters: {message}",
   "log.mastering.start": "Starting mastering process and file export...",
-  "log.mastering.success": "Mastered file generation complete. Starting download.",
-  "log.mastering.fail": "Mastering/export error: {message}"
+  "log.mastering.success": "Mastered file generation complete. Saved to My Page.",
+  "log.mastering.fail": "Mastering/save error: {message}"
 }

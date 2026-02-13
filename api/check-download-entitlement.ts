@@ -17,8 +17,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return res.status(500).json({ allowed: false, code: 'server_config' });
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    return res.status(500).json({
+      allowed: false,
+      code: 'server_config',
+      message: 'Supabase URL or Key is not configured on the server.'
+    });
   }
 
   const authHeader = req.headers.authorization;
@@ -61,5 +65,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (remaining > 0) {
     return res.status(200).json({ allowed: true, remaining });
   }
-  return res.status(403).json({ allowed: false, remaining: 0, code: 'no_entitlement' });
+  return res.status(200).json({ allowed: false, remaining: 0, code: 'no_entitlement' });
 }

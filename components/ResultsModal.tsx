@@ -95,9 +95,9 @@ export default function ResultsModal({
               type="button"
               onClick={() => setSlide(i)}
               className={`min-h-[44px] min-w-[44px] flex items-center justify-center px-4 py-2 rounded-full text-[11px] font-medium transition-all ${slide === i ? 'bg-cyan-500 text-black' : 'bg-white/10 text-zinc-400 hover:bg-white/20'}`}
-              aria-label={i === 0 ? (language === 'ja' ? '分析結果' : 'Analysis') : (language === 'ja' ? 'プレビュー・ダウンロード' : 'Preview & Download')}
+              aria-label={i === 0 ? (language === 'ja' ? '分析結果' : 'Analysis') : (language === 'ja' ? 'プレビュー・購入' : 'Preview & Purchase')}
             >
-              {i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? '聴く・DL' : 'Listen & DL')}
+              {i === 0 ? (language === 'ja' ? '分析' : 'Analysis') : (language === 'ja' ? '聴く・購入' : 'Listen & Buy')}
             </button>
           ))}
         </div>
@@ -181,10 +181,10 @@ export default function ResultsModal({
           {slide === 1 && (
             <div className="animate-fade-up space-y-5">
               <h3 className="text-base font-bold text-cyan-400 mb-1">
-                {language === 'ja' ? '2. プレビュー → ダウンロード' : '2. Preview → Download'}
+                {language === 'ja' ? '2. プレビュー → マイページへ保存' : '2. Preview → Save to My Page'}
               </h3>
               <p className="text-[13px] text-zinc-400 mb-2">
-                {t('flow.preview_then_download')}
+                {language === 'ja' ? '仕上がりを確認し、問題なければ購入ボタンを押してください。購入後、マイページからダウンロード可能になります。' : 'Check the result. If okay, click purchase. You can download from My Page after purchase.'}
               </p>
 
               {/* 聞き比べの判断材料：耳＋数値（オリジナル vs マスター実測） */}

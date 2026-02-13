@@ -6,6 +6,10 @@ const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  console.error('SERVER CONFIG ERROR: Missing Supabase environment variables in re-download.ts');
+}
+
 /** マイページから再ダウンロード: 履歴が本人のもので有効期限内なら署名付きURLを返す */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -18,6 +22,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'history_id required' });
   }
 
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    return res.status(500).json({ error: 'server_config', message: 'Missing Supabase Config' });
+  }
+
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) {
@@ -28,10 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
   if (authError || !user?.id) {
     return res.status(401).json({ error: 'auth_failed' });
-  }
-
-  if (!supabaseServiceKey) {
-    return res.status(500).json({ error: 'server_config' });
   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

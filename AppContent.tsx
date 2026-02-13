@@ -334,20 +334,23 @@ export default function AppContent() {
         return;
       }
       const baseName = audioFile.name.replace(/\.[^/.]+$/, '') || 'mastered';
-      const suggestedName = `${baseName}_${masteringTarget}_mastered.wav`;
-      triggerBlobDownload(masteredBlob, suggestedName);
-      let storagePath: string | undefined;
-      try {
-        const path = `${session.user.id}/${crypto.randomUUID()}.wav`;
-        const { error: uploadError } = await supabase.storage.from('mastered').upload(path, masteredBlob, { contentType: 'audio/wav', upsert: false });
-        if (!uploadError) storagePath = path;
-      } catch (_) { }
+      const storagePath = `${session.user.id}/${crypto.randomUUID()}_${masteringTarget}.wav`;
+
+      // 1. Upload to Supabase Storage (Required for mypage access)
+      const { error: uploadError } = await supabase.storage.from('mastered').upload(storagePath, masteredBlob, { contentType: 'audio/wav', upsert: false });
+      if (uploadError) throw uploadError;
+
+      // 2. Record in history
       await recordDownload(session.user.id, audioFile.name, masteringTarget, undefined, storagePath);
-      trackEvent('download', { file_name: audioFile.name, target: masteringTarget, storage_path: storagePath }, session.user.id);
+
+      trackEvent('purchase_and_save', { file_name: audioFile.name, target: masteringTarget, storage_path: storagePath }, session.user.id);
+
+      // 3. Move to My Page
       setShowResultsModal(false);
       setSection('mypage');
+      window.location.hash = 'mypage';
     } catch (e) {
-      setError(t('error.download.fail'));
+      setError(language === 'ja' ? '保存に失敗しました。もう一度お試しください。' : 'Failed to save. Please try again.');
     } finally {
       setIsExporting(false);
     }
