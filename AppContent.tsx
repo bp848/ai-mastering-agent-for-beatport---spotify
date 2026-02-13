@@ -182,10 +182,10 @@ export default function AppContent() {
       addActionLog('FFT', language === 'ja' ? '周波数スペクトル解析 (FFT)...' : 'Analyzing Frequency Spectrum (FFT)...', 'FFT_Analysis', 'info');
       addLog(t('log.audio.analysis_start'));
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
-      const targetLufs = target === 'beatport' ? -8.0 : -14.0;
+      const targetLufs = target === 'beatport' ? -9.0 : -14.0;
       const lufsGap = targetLufs - result.lufs;
       addActionLog('LUFS', language === 'ja' ? `ラウドネス計測: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
-      addActionLog('PEAK', language === 'ja' ? `トゥルーピーク: ${result.truePeak.toFixed(2)} dBTP` : `True Peak: ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= (target === 'beatport' ? -0.3 : -1.0) ? 'success' : 'warning');
+      addActionLog('PEAK', language === 'ja' ? `トゥルーピーク: ${result.truePeak.toFixed(2)} dBTP` : `True Peak: ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
       const phaseStatus = result.phaseCorrelation > 0.5 ? 'success' : result.phaseCorrelation > 0 ? 'warning' : 'error';
       addActionLog('PHASE', language === 'ja' ? `位相相関検出: ${result.phaseCorrelation.toFixed(3)}` : `Phase correlation: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', phaseStatus as 'info' | 'success' | 'warning' | 'error');
       if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `歪み検出: ${result.distortionPercent.toFixed(2)}% (クリッピング疑い)` : `Distortion: ${result.distortionPercent.toFixed(2)}% (clipping suspected)`, 'THD_Analyzer', 'warning');
@@ -220,7 +220,7 @@ export default function AppContent() {
       }
       addActionLog('SIG', language === 'ja' ? `Tube: ${rawParams.tube_drive_amount.toFixed(1)} / Exciter: ${rawParams.exciter_amount.toFixed(2)} / Contour: ${rawParams.low_contour_amount.toFixed(1)} / Width: ${rawParams.width_amount.toFixed(2)}` : `Tube: ${rawParams.tube_drive_amount.toFixed(1)} / Exciter: ${rawParams.exciter_amount.toFixed(2)} / Contour: ${rawParams.low_contour_amount.toFixed(1)} / Width: ${rawParams.width_amount.toFixed(2)}`, 'Signature_Sound', 'info');
       addActionLog('LIM', language === 'ja' ? `リミッター: シーリング ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP` : `Limiter: ceiling ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP`, 'Brickwall_Limiter', 'info');
-      const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
+      const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       addActionLog('CORR', language === 'ja' ? `自己補正: 目標 ${targetLufsValue} LUFS（サビ10秒シミュレーション → ゲイン自動補正）` : `Self-correction: target ${targetLufsValue} LUFS (10s simulation → gain auto-adjust)`, 'optimizeMasteringParams', 'info');
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
@@ -254,7 +254,7 @@ export default function AppContent() {
       addActionLog('AI', language === 'ja' ? 'AI再計算: OpenAI でパラメータを再取得中...' : 'Re-calculating with OpenAI...', 'getMasteringSuggestions', 'info');
       const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
       setRawMasteringResponseText(rawResponseText);
-      const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
+      const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
       setMasteringParams(optimizeResult.params);

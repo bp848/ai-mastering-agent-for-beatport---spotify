@@ -13,8 +13,8 @@ interface AnalysisDisplayProps {
 
 const targetValues = {
   beatport: {
-    lufs: { good: [-9.0, -7.0], warn: [-10.0, -6.0], min: -20, max: -4, target: -8.0 },
-    truePeak: { good: [-1.0, -0.3], warn: [-2.0, 0.0], min: -6, max: 1, target: -0.3 },
+    lufs: { good: [-10.0, -8.0], warn: [-11.0, -7.0], min: -20, max: -4, target: -9.0 },
+    truePeak: { good: [-2.0, -0.5], warn: [-3.0, 0.0], min: -6, max: 1, target: -1.0 },
     crestFactor: { good: [5.0, 8.0], warn: [4.0, 10.0], min: 2, max: 15, target: 6.5 },
   },
   spotify: {

@@ -18,7 +18,7 @@ interface Props {
 
 /** スコア計算（分析データのみから決定的に算出。同一曲は常に同じ結果） */
 const calculateScore = (data: AudioAnalysisData, target: MasteringTarget): number => {
-  const targetLufs = target === 'beatport' ? -8.0 : -14.0;
+  const targetLufs = target === 'beatport' ? -9.0 : -14.0;
   let score = 0;
 
   const diffLufs = Math.abs(data.lufs - targetLufs);
@@ -173,12 +173,12 @@ const SpectrumBars: React.FC<{ bands: { name: string; level: number }[]; languag
 /* ── メインコンポーネント ────────────────────────────── */
 const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExecute, onChooseOtherFile, isMastering, language }) => {
   const ja = language === 'ja';
-  const targetLufs = target === 'beatport' ? -8.0 : -14.0;
+  const targetLufs = target === 'beatport' ? -9.0 : -14.0;
   const lufsGap = targetLufs - data.lufs;
   const [copied, setCopied] = React.useState(false);
 
   const copyReportToClipboard = useCallback(() => {
-    const targetPeak = target === 'beatport' ? '-0.3' : '-1';
+    const targetPeak = '-1';
     const lines = [
       ja ? '=== 診断レポート（判断用） ===' : '=== Diagnosis Report (for decision) ===',
       `${ja ? 'ラウドネス' : 'Loudness'}: ${data.lufs.toFixed(1)} LUFS | ${ja ? '目標' : 'Target'} ${targetLufs} LUFS | ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB`,
@@ -287,7 +287,7 @@ const DiagnosisReport: React.FC<Props> = ({ data, target, onTargetChange, onExec
           </div>
           <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/5 shrink-0">
             <p className="text-[9px] text-zinc-500 font-mono truncate">
-              {targetLufs} LUFS, TP≤{target === 'beatport' ? '-0.3' : '-1'} dBTP
+              {targetLufs} LUFS, TP≤-1 dBTP
             </p>
             <button type="button" onClick={copyReportToClipboard} className="shrink-0 px-2 py-1 rounded text-[10px] font-medium border border-white/20 text-zinc-400 hover:text-white hover:bg-white/5">
               {copied ? (ja ? 'コピー済' : 'Copied') : (ja ? 'コピー' : 'Copy')}
