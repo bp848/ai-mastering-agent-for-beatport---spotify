@@ -275,22 +275,45 @@ export default function AppContent() {
   }, [analyzeOnly, masteringTarget, resetToUpload]);
 
   const handleDownload = useCallback(async () => {
-    if (!masteringParams || !audioBuffer || !audioFile) return;
+    if (!masteringParams || !audioBuffer || !audioFile) {
+      setError(language === 'ja' ? 'ダウンロードの準備が完了していません。もう一度マスタリングを実行してください。' : 'The download is not ready yet. Please run mastering again.');
+      return;
+    }
     if (!session?.user) { setShowDownloadGate(true); return; }
     const accessToken = session.access_token;
     const base = typeof window !== 'undefined' ? window.location.origin : '';
-    let serverAllowed = false;
+
+    let entitlement: { allowed?: boolean; remaining?: number | null; admin?: boolean } = {};
     try {
       const res = await fetch(`${base}/api/check-download-entitlement`, { method: 'GET', headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await res.json().catch(() => ({}));
-      serverAllowed = res.ok && data?.allowed === true;
-    } catch (_) { serverAllowed = false; }
-    if (!serverAllowed) { setShowPaywall(true); return; }
+      entitlement = await res.json().catch(() => ({}));
+      if (!res.ok || entitlement?.allowed !== true) {
+        setShowPaywall(true);
+        const remaining = typeof entitlement?.remaining === 'number' ? entitlement.remaining : 0;
+        setError(language === 'ja' ? `ダウンロード可能回数が不足しています（残り: ${remaining}回）。` : `You do not have enough download credits (remaining: ${remaining}).`);
+        return;
+      }
+    } catch (_) {
+      setShowPaywall(true);
+      setError(language === 'ja' ? 'ダウンロード権限の確認に失敗しました。しばらくしてから再試行してください。' : 'Failed to verify your download entitlement. Please try again shortly.');
+      return;
+    }
+
     try {
       const consumeRes = await fetch(`${base}/api/consume-download-token`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const consumeData = await consumeRes.json().catch(() => ({}));
-      if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) { setShowPaywall(true); return; }
-    } catch (_) { setShowPaywall(true); return; }
+      if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) {
+        setShowPaywall(true);
+        const remaining = typeof consumeData?.remaining === 'number' ? consumeData.remaining : 0;
+        setError(language === 'ja' ? `ダウンロード回数が足りません（残り: ${remaining}回）。` : `Not enough download credits (remaining: ${remaining}).`);
+        return;
+      }
+    } catch (_) {
+      setShowPaywall(true);
+      setError(language === 'ja' ? 'ダウンロードトークンの消費に失敗しました。時間をおいて再度お試しください。' : 'Failed to consume download token. Please try again later.');
+      return;
+    }
+
     try {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
@@ -323,7 +346,7 @@ export default function AppContent() {
     } finally {
       setIsExporting(false);
     }
-  }, [masteringParams, audioBuffer, audioFile, masteringTarget, t, session?.user]);
+  }, [masteringParams, audioBuffer, audioFile, masteringTarget, t, session?.user, language]);
 
   const handleSaveToLibrary = useCallback(() => {
     if (!saveToLibraryForm.title.trim() || !saveToLibraryForm.artist.trim()) return;

@@ -16,6 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res.status(500).json({ consumed: false, code: 'server_config' });
+  }
+
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) {
@@ -34,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('email', user.email ?? '')
     .maybeSingle();
   if (adminRow) {
-    return res.status(200).json({ consumed: false, allowed: true, admin: true });
+    return res.status(200).json({ consumed: false, allowed: true, admin: true, remaining: null });
   }
 
   if (!supabaseServiceKey) {
@@ -62,5 +66,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('consume-download-token delete failed:', deleteError);
     return res.status(500).json({ consumed: false, code: 'db_error' });
   }
-  return res.status(200).json({ consumed: true, allowed: true });
+  const { count: remainingCount, error: countError } = await supabaseAdmin
+    .from('download_tokens')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('paid', true);
+
+  if (countError) {
+    console.error('consume-download-token count failed:', countError);
+    return res.status(200).json({ consumed: true, allowed: true, remaining: 0 });
+  }
+
+  return res.status(200).json({ consumed: true, allowed: true, remaining: remainingCount ?? 0 });
 }
