@@ -3,7 +3,7 @@ import { Cpu, BarChart3, Headphones, Target, Gauge, Layers } from 'lucide-react'
 
 const features = [
   { icon: Cpu, title: 'Hybrid-Analog Engine', desc: '真空管サチュレーション + Pultec EQ + Neuro-Drive。AIが最適な組み合わせを自動選択。' },
-  { icon: Target, title: '用途別に自動最適化', desc: '配信ストア (-8 LUFS) / ストリーミング (-14 LUFS) / YouTube (-14 LUFS) / DJプレイ用に1クリックで最適化。' },
+  { icon: Target, title: '用途別に自動最適化', desc: '配信ストア (-9 LUFS) / ストリーミング (-14 LUFS) / YouTube (-14 LUFS) / DJプレイ用に1クリックで最適化。' },
   { icon: BarChart3, title: '7項目AI診断', desc: 'ラウドネス・トゥルーピーク・ダイナミクス・位相・歪み・ノイズ・ステレオ幅を即座に判定。' },
   { icon: Headphones, title: 'Before / After 聴き比べ', desc: 'マスタリング前後をワンクリックで切り替え。波形とリアルタイムピークメーターで視覚的に確認。' },
   { icon: Gauge, title: '30秒で完了', desc: 'アップロードから視聴まで30秒。やり直しも無料。納得いくまで何度でも調整。' },

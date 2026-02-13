@@ -9,6 +9,8 @@ import MasteringDemoSection from './MasteringDemoSection';
 import PricingSection from './PricingSection';
 import FaqSection from './FaqSection';
 import FinalCtaSection from './FinalCtaSection';
+import ChangelogSection from './ChangelogSection';
+import GenreNoticeSection from './GenreNoticeSection';
 import StatusLoader from '../StatusLoader';
 import DiagnosisReport from '../DiagnosisReport';
 import type { AudioAnalysisData, MasteringParams, MasteringTarget } from '../../types';
@@ -88,6 +90,8 @@ export default function LP({
           />
         </section>
 
+        <GenreNoticeSection />
+
         {hasFile && (
           <section id="your-track" className="border-t border-border/50 py-16 md:py-20">
             <div className="mx-auto max-w-4xl px-4">
@@ -149,6 +153,7 @@ export default function LP({
         <FeaturesSection />
         <MasteringDemoSection />
         <PricingSection onPerTrackSelect={onPerTrackSelect} onMonthlySelect={onMonthlySelect} />
+        <ChangelogSection />
         <FaqSection />
         <FinalCtaSection />
         <LPFooter />
