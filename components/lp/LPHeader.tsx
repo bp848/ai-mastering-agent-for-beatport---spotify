@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
-const navLinks = [
+const navLinks: { label: string; href: string; external?: boolean }[] = [
   { label: '使い方', href: '#how-it-works' },
   { label: '特徴', href: '#features' },
   { label: 'アルゴリズム', href: '#algorithm' },
   { label: '私とAI', href: '#watashi-to-ai' },
+  { label: '率直な感想', href: '/cursor-impressions.html', external: true },
   { label: 'デモ', href: '#before-after' },
   { label: '料金', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },
@@ -52,16 +53,26 @@ export default function LPHeader({ onMypageClick, showMypage }: LPHeaderProps) {
         </button>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {navLinks.map((link) => (
-            <button
-              key={link.href}
-              type="button"
-              onClick={(e) => scrollTo(e, link.href)}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground bg-transparent border-none p-0 cursor-pointer font-inherit"
-            >
-              {link.label}
-            </button>
-          ))}
+          {navLinks.map((link) =>
+            link.external ? (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <button
+                key={link.href}
+                type="button"
+                onClick={(e) => scrollTo(e, link.href)}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground bg-transparent border-none p-0 cursor-pointer font-inherit"
+              >
+                {link.label}
+              </button>
+            )
+          )}
           {showMypage && onMypageClick && (
             <button
               type="button"
@@ -95,16 +106,26 @@ export default function LPHeader({ onMypageClick, showMypage }: LPHeaderProps) {
       {mobileOpen && (
         <div className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-1 px-4 py-3">
-            {navLinks.map((link) => (
-              <button
-                key={link.href}
-                type="button"
-                onClick={(e) => scrollTo(e, link.href)}
-                className="rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground w-full bg-transparent border-none cursor-pointer font-inherit"
-              >
-                {link.label}
-              </button>
-            ))}
+            {navLinks.map((link) =>
+              link.external ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground w-full"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <button
+                  key={link.href}
+                  type="button"
+                  onClick={(e) => scrollTo(e, link.href)}
+                  className="rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground w-full bg-transparent border-none cursor-pointer font-inherit"
+                >
+                  {link.label}
+                </button>
+              )
+            )}
             {showMypage && onMypageClick && (
               <button
                 type="button"

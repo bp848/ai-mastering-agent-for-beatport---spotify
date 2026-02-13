@@ -136,17 +136,9 @@ export default function WatashiToAiSection() {
             </ul>
           </div>
 
-          {/* Cursor を使ってみた率直な感想 */}
-          <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-6">
-            <h3 className="mb-4 font-bold text-foreground">Cursor を使ってみた率直な感想</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>・改ざん・偽装の修正、検証、やり直しで余計に時間がかかる。</li>
-              <li>・自分で書いたほうが早い。</li>
-            </ul>
-            <p className="mt-4 text-base font-bold text-primary">
-              結論: AI コーディングは、余計に時間がかかるため不要。
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            <a href="/cursor-impressions.html" className="text-primary hover:underline">Cursor を使ってみた率直な感想</a> は別ページです。
+          </p>
         </div>
       </div>
     </section>
