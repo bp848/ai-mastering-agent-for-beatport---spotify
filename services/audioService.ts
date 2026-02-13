@@ -328,6 +328,7 @@ const makeBrickwallCurve = (): Float32Array => {
 };
 
 const dbToLinear = (db: number): number => Math.pow(10, db / 20);
+export const MASTERING_OVERSAMPLE_FACTOR = 32;
 
 // ==========================================
 // 2. Shared DSP Chain (Preview & Export)
@@ -649,12 +650,12 @@ export const optimizeMasteringParams = async (
 
   if (length <= 0) return { params: aiParams, measuredLufs: -60, measuredPeakDb: -100 };
 
-  const offlineCtx = new OfflineAudioContext(
+  const tempCtx = new OfflineAudioContext(
     originalBuffer.numberOfChannels,
     length,
     originalBuffer.sampleRate,
   );
-  const chunkBuffer = offlineCtx.createBuffer(
+  const chunkBuffer = tempCtx.createBuffer(
     originalBuffer.numberOfChannels,
     length,
     originalBuffer.sampleRate,
@@ -746,8 +747,6 @@ export const optimizeMasteringParams = async (
 // ------------------------------------------------------------------
 // オーバーサンプリング: オフライン処理は x32 デフォルト（WaveShaper 4x と合わせて実質 x32 相当）
 // ------------------------------------------------------------------
-export const MASTERING_OVERSAMPLE_FACTOR = 32;
-
 function getSupportedOversampleFactor(baseSampleRate: number): number {
   const factors = [32, 16, 8, 4, 2, 1];
   for (const f of factors) {
