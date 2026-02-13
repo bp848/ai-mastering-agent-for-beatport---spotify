@@ -10,6 +10,7 @@ import PricingSection from './PricingSection';
 import FaqSection from './FaqSection';
 import FinalCtaSection from './FinalCtaSection';
 import ChangelogSection from './ChangelogSection';
+import AlgorithmSection from './AlgorithmSection';
 import GenreNoticeSection from './GenreNoticeSection';
 import StatusLoader from '../StatusLoader';
 import DiagnosisReport from '../DiagnosisReport';
@@ -91,7 +92,7 @@ export default function LP({
       <LPHeader onMypageClick={onMypageClick} showMypage={!!session?.user} />
 
       <main className="min-h-screen pt-16">
-        <section id="hero" className="relative overflow-hidden pt-12 pb-12 md:pt-16 md:pb-16">
+        <section id="hero" className="scroll-mt-24 relative overflow-hidden pt-12 pb-12 md:pt-16 md:pb-16">
           <ReferenceHero
             language={language}
             onFileChange={onFileChange}
@@ -164,6 +165,7 @@ export default function LP({
         <SocialProofSection />
         <HowItWorksSection />
         <FeaturesSection />
+        <AlgorithmSection />
         <MasteringDemoSection />
         <PricingSection onPerTrackSelect={onPerTrackSelect} onMonthlySelect={onMonthlySelect} />
         <ChangelogSection />

@@ -15,6 +15,13 @@ export interface AudioAnalysisData {
   phaseCorrelation: number;    // -1 to +1 (位相相関)
   distortionPercent: number;   // THD近似（クリッピング率）
   noiseFloorDb: number;        // ノイズフロア（-dB）
+  lowEndCrestDb?: number;
+  subToBassBalanceDb?: number;
+  subEnergyRatio?: number;
+  lowEndToLowMidRatio?: number;
+  bassMonoCompatibility?: number;
+  transientDensity?: number;
+  distortionRiskScore?: number;
   frequencyData: FrequencyData[];
   waveform: number[];
 }

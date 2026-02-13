@@ -1,6 +1,37 @@
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, AIDecision, EQAdjustment } from '../types';
 import { getPlatformSpecifics } from './masteringPrompts';
 
+function evaluateLowEndDistortionRisk(analysis: AudioAnalysisData, gainDb: number): number {
+  const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
+  const bass = analysis.bassVolume ?? -60;
+  const crest = Math.max(0.1, analysis.crestFactor ?? 6);
+  const phase = Math.max(-1, Math.min(1, analysis.phaseCorrelation ?? 1));
+  const dist = analysis.distortionPercent ?? 0;
+  const peak = analysis.truePeak ?? -144;
+
+  const diagnosticRisk = Math.max(0, Math.min(6, Math.round(analysis.distortionRiskScore ?? 0)));
+  const lowEndCrestDb = analysis.lowEndCrestDb ?? crest;
+  const subEnergyRatio = analysis.subEnergyRatio ?? 0;
+  const lowEndToLowMidRatio = analysis.lowEndToLowMidRatio ?? 1;
+  const bassMonoCompatibility = analysis.bassMonoCompatibility ?? (phase + 1) * 50;
+
+  const heuristicRisk =
+    (peak > -1.2 ? 1 : 0) +
+    (crest < 9.5 ? 1 : 0) +
+    (dist > 0.8 ? 1 : 0) +
+    (phase < 0.2 ? 1 : 0) +
+    (subBass > -15 && bass > -12.5 ? 1 : 0) +
+    (gainDb > 1.2 ? 1 : 0);
+
+  const detailedRisk =
+    (lowEndCrestDb < 8.8 ? 1 : 0) +
+    (subEnergyRatio > 0.35 ? 1 : 0) +
+    (lowEndToLowMidRatio > 1.7 ? 1 : 0) +
+    (bassMonoCompatibility < 58 ? 1 : 0);
+
+  return Math.max(heuristicRisk, diagnosticRisk, detailedRisk);
+}
+
 /**
  * AIDecision + AudioAnalysisData から DSP 用 MasteringParams を導出する。
  * 固定数値は極力使わず、分析値と意図カテゴリから算出する。
@@ -26,7 +57,10 @@ export function deriveMasteringParamsFromDecision(
   const lowMid = analysis.frequencyData.find(f => f.name === '250-1k')?.level ?? -60;
 
   const gainDb = specifics.targetLufs - analysis.lufs;
-  const gainBounded = Math.max(-5, Math.min(3, gainDb));
+  const lowEndCollisionRisk = evaluateLowEndDistortionRisk(analysis, gainDb);
+  const gainBounded = lowEndCollisionRisk >= 4
+    ? Math.max(-5, Math.min(3, gainDb - 0.5))
+    : Math.max(-5, Math.min(3, gainDb));
 
   const limiterCeiling = specifics.targetPeak;
 
@@ -35,16 +69,10 @@ export function deriveMasteringParamsFromDecision(
     decision.saturationNeed === 'light' ? Math.min(1.2, (dr / 10) * (crest / 12)) :
     Math.min(2, (dr / 8) * 0.5);
 
-  const lowEndCollisionRisk =
-    (dist > 0.9 ? 1 : 0) +
-    (crest < 8.5 ? 1 : 0) +
-    (phase < 0.2 ? 1 : 0) +
-    (subBass > -14 && bass > -12 ? 1 : 0) +
-    (peak > -0.9 ? 1 : 0);
-
   const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
   const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  const tubeDrive = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
+  let tubeDrive = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
+  if (lowEndCollisionRisk >= 4) tubeDrive = Math.min(tubeDrive, 0.85);
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
@@ -53,15 +81,17 @@ export function deriveMasteringParamsFromDecision(
   const exciterAmount = Math.max(0, Math.min(0.12, exciterRaw));
 
   const lowContourBase = Math.max(0, Math.min(0.8, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0)));
-  const lowContour = lowEndCollisionRisk >= 3
+  let lowContour = lowEndCollisionRisk >= 3
     ? Math.max(0, lowContourBase - 0.2)
     : Math.min(0.8, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
+  if (lowEndCollisionRisk >= 4) lowContour = Math.min(lowContour, 0.15);
 
   const widthAmountRaw =
     decision.stereoIntent === 'narrow' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
-  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
+  let widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
+  if (lowEndCollisionRisk >= 4) widthAmount = Math.min(widthAmount, 1.05);
 
   const lowMonoHz = Math.round(Math.max(120, Math.min(280,
     140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),

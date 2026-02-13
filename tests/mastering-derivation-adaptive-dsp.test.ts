@@ -154,6 +154,34 @@ describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
     expect(highShelf!.gain_db).toBeGreaterThan(0);
   });
 
+  it('uses detailed diagnostic risk score from initial analysis to harden low-end parameters', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        saturationNeed: 'heavy',
+        stereoIntent: 'wide',
+      },
+      analysisBase({
+        truePeak: -2.2,
+        crestFactor: 10.5,
+        phaseCorrelation: 0.6,
+        distortionPercent: 0.2,
+        lufs: -12,
+        lowEndCrestDb: 7.8,
+        subEnergyRatio: 0.42,
+        lowEndToLowMidRatio: 2.1,
+        bassMonoCompatibility: 52,
+        distortionRiskScore: 5,
+      }),
+      'beatport',
+    );
+
+    expect(derived.gain_adjustment_db).toBeLessThanOrEqual(2.5);
+    expect(derived.tube_drive_amount).toBeLessThanOrEqual(0.85);
+    expect(derived.low_contour_amount).toBeLessThanOrEqual(0.15);
+    expect(derived.width_amount).toBeLessThanOrEqual(1.05);
+  });
+
   it('clamps low_mono_hz in safety layer', () => {
     const clamped = clampMasteringParams({
       gain_adjustment_db: 0,

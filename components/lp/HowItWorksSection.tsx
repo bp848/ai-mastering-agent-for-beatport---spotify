@@ -10,7 +10,7 @@ const steps = [
 
 export default function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="border-t border-border/50 py-16 md:py-20">
+    <section id="how-it-works" className="scroll-mt-24 border-t border-border/50 py-16 md:py-20">
       <div className="mx-auto max-w-5xl px-4">
         <div className="mb-10 text-center">
           <p className="text-xs font-medium uppercase tracking-widest text-primary">How It Works</p>

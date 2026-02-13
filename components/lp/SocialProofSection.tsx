@@ -11,7 +11,7 @@ const testimonials = [
 
 export default function SocialProofSection() {
   return (
-    <section id="reviews" className="border-t border-border/50 py-16 md:py-20">
+    <section id="reviews" className="scroll-mt-24 border-t border-border/50 py-16 md:py-20">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-10 text-center">
           <p className="text-xs font-medium uppercase tracking-widest text-primary">User Reviews</p>

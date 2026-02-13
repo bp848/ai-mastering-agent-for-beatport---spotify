@@ -48,7 +48,7 @@ export default function PricingSection({ onPerTrackSelect, onMonthlySelect }: Pr
   };
 
   return (
-    <section id="pricing" className="border-t border-border/50 py-16 md:py-20">
+    <section id="pricing" className="scroll-mt-24 border-t border-border/50 py-16 md:py-20">
       <div className="mx-auto max-w-5xl px-4">
         <div className="mb-10 text-center">
           <p className="text-xs font-medium uppercase tracking-widest text-primary">Pricing</p>
