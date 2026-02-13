@@ -16,5 +16,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["docs/ai-music-mastering-extracted"]
+  "exclude": ["docs/ai-music-mastering", "docs/ai-music-mastering-extracted", "docs/ai-music-mastering-extracted-zip"]
 }

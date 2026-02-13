@@ -6,6 +6,8 @@
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
+  /* 納品仕様: HANDOFF_SPEC デザイントークン準拠。.dark クラスは不使用、:root で直接ダーク値を設定 */
+  color-scheme: dark;
   --background: 220 20% 7%;
   --foreground: 180 10% 92%;
   --card: 220 18% 10%;
@@ -71,13 +73,8 @@ body {
   overscroll-behavior: none;
   font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
 
-  /* ── Design: Dark base + primary glow ── */
-  background:
-    radial-gradient(ellipse 120% 60% at 50% -10%, hsl(180 100% 50% / 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 85% 80%, hsl(180 100% 50% / 0.04) 0%, transparent 35%),
-    radial-gradient(circle at 15% 70%, hsl(220 20% 30% / 0.3) 0%, transparent 35%),
-    hsl(var(--background));
-  background-attachment: fixed;
+  /* 納品デザイン準拠: body は solid bg-background のみ（globals.css と同一） */
+  background: hsl(var(--background));
 }
 
 #root {
