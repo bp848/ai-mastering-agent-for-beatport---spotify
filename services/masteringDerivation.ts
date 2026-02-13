@@ -33,8 +33,23 @@ function evaluateLowEndDistortionRisk(analysis: AudioAnalysisData, gainDb: numbe
 }
 
 /**
- * AIDecision + AudioAnalysisData から DSP 用 MasteringParams を導出する。
- * 固定数値は極力使わず、分析値と意図カテゴリから算出する。
+ * ⚠️ DEPRECATED - FALLBACK ONLY ⚠️
+ * 
+ * This formula-based derivation is NO LONGER the primary mastering parameter source.
+ * 
+ * PRIMARY PATH (recommended):
+ *   getMasteringSuggestionsGemini() → returns numeric params directly from AI
+ * 
+ * This function remains as:
+ *   - Emergency fallback if AI API fails
+ *   - Legacy support for code that still uses AIDecision qualitative labels
+ *   - Reference implementation
+ * 
+ * The hardcoded Math.min/Math.max clamps in this function have been REMOVED
+ * to respect AI judgment when this fallback is used.
+ * 
+ * Derives DSP MasteringParams from AIDecision + AudioAnalysisData.
+ * Uses analysis values and intent categories instead of fixed numbers.
  */
 export function deriveMasteringParamsFromDecision(
   decision: AIDecision,
@@ -58,40 +73,39 @@ export function deriveMasteringParamsFromDecision(
 
   const gainDb = specifics.targetLufs - analysis.lufs;
   const lowEndCollisionRisk = evaluateLowEndDistortionRisk(analysis, gainDb);
-  const gainBounded = lowEndCollisionRisk >= 4
-    ? Math.max(-5, Math.min(3, gainDb - 0.5))
-    : Math.max(-5, Math.min(3, gainDb));
+  // CLAMPS REMOVED - respect gain calculation even in fallback
+  const gainBounded = lowEndCollisionRisk >= 4 ? (gainDb - 0.5) : gainDb;
 
   const limiterCeiling = specifics.targetPeak;
 
   const baseTubeDrive =
     decision.saturationNeed === 'none' ? 0 :
-    decision.saturationNeed === 'light' ? Math.min(1.2, (dr / 10) * (crest / 12)) :
-    Math.min(2, (dr / 8) * 0.5);
+      decision.saturationNeed === 'light' ? (dr / 10) * (crest / 12) : // Clamp removed
+        (dr / 8) * 0.5; // Clamp removed
 
   const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
-  const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  let tubeDrive = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
-  if (lowEndCollisionRisk >= 4) tubeDrive = Math.min(tubeDrive, 0.85);
+  const harmonicLift = canAddBassHarmonics ? ((-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0; // Clamp removed
+  let tubeDrive = Math.max(0, baseTubeDrive + harmonicLift); // Upper clamp removed
+  if (lowEndCollisionRisk >= 4) tubeDrive = Math.min(tubeDrive, 1.5); // Raised from 0.85
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
-    decision.highFreqTreatment === 'polish' ? (high8k > -40 ? 0.02 : (-high8k - 40) / 2000) :
-    Math.min(0.15, (-high4k - 30) / 500);
-  const exciterAmount = Math.max(0, Math.min(0.12, exciterRaw));
+      decision.highFreqTreatment === 'polish' ? (high8k > -40 ? 0.02 : (-high8k - 40) / 2000) :
+        (-high4k - 30) / 500; // Clamp removed
+  const exciterAmount = Math.max(0, exciterRaw); // Upper clamp removed - physical limit at clampMasteringParams
 
-  const lowContourBase = Math.max(0, Math.min(0.8, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0)));
+  const lowContourBase = Math.max(0, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0));
   let lowContour = lowEndCollisionRisk >= 3
     ? Math.max(0, lowContourBase - 0.2)
-    : Math.min(0.8, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
-  if (lowEndCollisionRisk >= 4) lowContour = Math.min(lowContour, 0.15);
+    : lowContourBase + (canAddBassHarmonics ? 0.06 : 0);
+  if (lowEndCollisionRisk >= 4) lowContour = Math.min(lowContour, 0.4); // Raised from 0.15 to 0.4
 
   const widthAmountRaw =
     decision.stereoIntent === 'narrow' ? 1 :
-    decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
-    Math.min(1.25, 1 + (width / 100) * 0.15);
-  let widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
-  if (lowEndCollisionRisk >= 4) widthAmount = Math.min(widthAmount, 1.05);
+      decision.stereoIntent === 'wide' ? 1 + (width / 100) * 0.25 : // Clamp removed
+        1 + (width / 100) * 0.15; // Clamp removed
+  let widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.3) : widthAmountRaw; // Raised from 1.05
+  if (lowEndCollisionRisk >= 4) widthAmount = Math.min(widthAmount, 1.2); // Raised from 1.05
 
   const lowMonoHz = Math.round(Math.max(120, Math.min(280,
     140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),
@@ -102,8 +116,8 @@ export function deriveMasteringParamsFromDecision(
 
   const transientAttack =
     decision.transientHandling === 'preserve' ? 0.01 :
-    decision.transientHandling === 'smooth' ? 0.02 + (1 / (Math.abs(gainBounded) + 1)) * 0.02 :
-    0.03 + (1 / (Math.abs(gainBounded) + 1)) * 0.03;
+      decision.transientHandling === 'smooth' ? 0.02 + (1 / (Math.abs(gainBounded) + 1)) * 0.02 :
+        0.03 + (1 / (Math.abs(gainBounded) + 1)) * 0.03;
   const transientRelease = Math.max(0.1, Math.min(0.5, (lowContour + exciterAmount + 1) / (Math.abs(gainBounded) + 1) * 0.15));
 
   const limiterAttack = Math.max(0.0005, Math.min(0.003, (widthAmount / (Math.abs(tubeDrive) + Math.abs(gainBounded) + 1)) * 0.002));

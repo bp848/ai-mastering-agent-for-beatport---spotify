@@ -59,7 +59,8 @@ export const applyFeedbackAdjustment = (
   const bumpTargetLufs = (delta: number) => {
     if (typeof newParams.target_lufs !== 'number' || !Number.isFinite(newParams.target_lufs)) return;
     // 過激な範囲に飛ばないようにガード
-    newParams.target_lufs = Math.max(-20, Math.min(-5, newParams.target_lufs + delta));
+    // No clamps - allow AI/user to push loudness as desired
+    newParams.target_lufs = newParams.target_lufs + delta;
   };
 
   switch (feedback) {
@@ -70,7 +71,8 @@ export const applyFeedbackAdjustment = (
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 1.0);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.03);
       newParams.low_contour_amount = Math.max(0, newParams.low_contour_amount - 0.2);
-      newParams.limiter_ceiling_db = -1.0;
+      // Reduce ceiling for distortion, but don't hardcode -1.0
+      newParams.limiter_ceiling_db = Math.max(-2.0, (newParams.limiter_ceiling_db ?? -1.0) - 0.3);
       newParams.eq_adjustments.push(
         { frequency: 35, gain_db: -1.5, q: 0.7, type: 'lowshelf' },
         { frequency: 120, gain_db: -2.0, q: 1.2, type: 'peak' },
@@ -82,7 +84,7 @@ export const applyFeedbackAdjustment = (
         { frequency: 250, gain_db: -3.0, q: 1.5, type: 'peak' },
         { frequency: 8000, gain_db: 2.0, q: 0.7, type: 'highshelf' },
       );
-      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
+      newParams.exciter_amount = Math.min(1.0, newParams.exciter_amount + 0.05);
       break;
 
     case 'harsh':
@@ -100,7 +102,7 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'weak_kick':
-      newParams.low_contour_amount = Math.min(1.0, newParams.low_contour_amount + 0.3);
+      newParams.low_contour_amount = Math.min(2.0, newParams.low_contour_amount + 0.3);
       newParams.eq_adjustments.push(
         { frequency: 60, gain_db: 2.0, q: 1.0, type: 'peak' },
       );
@@ -114,12 +116,12 @@ export const applyFeedbackAdjustment = (
       break;
 
     case 'thin':
-      newParams.tube_drive_amount = Math.min(3, newParams.tube_drive_amount + 1.0);
+      newParams.tube_drive_amount = Math.min(5.0, newParams.tube_drive_amount + 1.0);
       break;
 
     case 'narrow':
-      newParams.width_amount = Math.min(1.4, newParams.width_amount + 0.3);
-      newParams.exciter_amount = Math.min(0.15, newParams.exciter_amount + 0.05);
+      newParams.width_amount = Math.min(2.0, newParams.width_amount + 0.3);
+      newParams.exciter_amount = Math.min(1.0, newParams.exciter_amount + 0.05);
       break;
 
     case 'squashed':
@@ -127,13 +129,15 @@ export const applyFeedbackAdjustment = (
       bumpTargetLufs(-1.0);
       newParams.tube_drive_amount = Math.max(0, newParams.tube_drive_amount - 0.5);
       newParams.exciter_amount = Math.max(0, newParams.exciter_amount - 0.02);
-      newParams.limiter_ceiling_db = -1.0;
+      // Reduce ceiling for squashed sound, but don't hardcode -1.0
+      newParams.limiter_ceiling_db = Math.max(-2.0, (newParams.limiter_ceiling_db ?? -1.0) - 0.2);
       break;
 
     case 'not_loud':
       // 「まだ音圧が足りない」= +1.0 dB 目標アップ。ceiling -1.0 dB でレッド張り付き防止
       bumpTargetLufs(+1.0);
-      newParams.limiter_ceiling_db = -1.0;
+      // LOUDNESS UP: progressively increase ceiling instead of fixing at -1.0
+      newParams.limiter_ceiling_db = Math.min(-0.2, (newParams.limiter_ceiling_db ?? -1.0) + 0.3);
       break;
   }
 

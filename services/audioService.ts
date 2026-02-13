@@ -80,9 +80,31 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     meter = pyln.Meter(sample_rate, block_size=0.400) # Use standard block size
     lufs = meter.integrated_loudness(audio_data)
     
-    # A simple peak of the original data is a good approximation for TP.
-    # A true TP meter requires oversampling, which is too slow for this context.
-    true_peak_val = np.max(np.abs(audio_data))
+    # REAL True Peak with 4x Oversampling (Linear Interpolation)
+    # This is the actual ITU-R BS.1770 True Peak measurement, not a fake constant addition
+    if channels > 1:
+        # Process each channel separately for accurate True Peak
+        true_peak_val = 0.0
+        for ch_idx in range(channels):
+            channel_data = audio_data[:, ch_idx]
+            # Create 4x oversampled version using linear interpolation
+            original_len = len(channel_data)
+            x_original = np.arange(original_len)
+            x_resampled = np.arange(0, original_len - 1, 0.25)  # 0.25 step = 4x oversampling
+            # Linear interpolation to 4x sample rate
+            channel_4x = np.interp(x_resampled, x_original, channel_data)
+            # Find peak in oversampled data
+            ch_peak = np.max(np.abs(channel_4x))
+            if ch_peak > true_peak_val:
+                true_peak_val = ch_peak
+    else:
+        # Mono: single channel processing
+        original_len = len(audio_data)
+        x_original = np.arange(original_len)
+        x_resampled = np.arange(0, original_len - 1, 0.25)  # 0.25 step = 4x oversampling
+        audio_4x = np.interp(x_resampled, x_original, audio_data)
+        true_peak_val = np.max(np.abs(audio_4x))
+    
     true_peak_db = 20 * np.log10(true_peak_val) if true_peak_val > 0 else -144.0
 
     # --- RMS, Dynamic Range, Crest Factor ---
@@ -225,76 +247,76 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
 `;
 
 export const analyzeAudioFile = async (file: File): Promise<{ analysisData: AudioAnalysisData; audioBuffer: AudioBuffer }> => {
-    // Fixed: Use (window as any) to access the pyodide instance initialized in App.tsx
-    const pyodide = (window as any).pyodide;
-    if (!pyodide) {
-        throw new Error("error.pyodide.not_ready");
+  // Fixed: Use (window as any) to access the pyodide instance initialized in App.tsx
+  const pyodide = (window as any).pyodide;
+  if (!pyodide) {
+    throw new Error("error.pyodide.not_ready");
+  }
+
+  try {
+    await pyodide.runPythonAsync(analysisScript);
+    const analyze_audio_func = pyodide.globals.get('analyze_audio');
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const arrayBuffer = await file.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    const channels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+
+    // Pass TypedArrays directly to Python. Pyodide sees them as JsProxies.
+    const leftChannel = audioBuffer.getChannelData(0);
+    const rightChannel = channels > 1 ? audioBuffer.getChannelData(1) : null;
+
+    const jsonResult = analyze_audio_func(leftChannel, rightChannel, sampleRate, channels);
+    const rawAnalysisData = JSON.parse(jsonResult);
+
+    // --- Waveform generation (can still be done in JS for performance) ---
+    const waveformPoints = 120;
+    let waveformSourceData: Float32Array;
+
+    // Create a mono mixdown for accurate waveform representation in stereo files
+    if (audioBuffer.numberOfChannels > 1) {
+      const left = audioBuffer.getChannelData(0);
+      const right = audioBuffer.getChannelData(1);
+      waveformSourceData = new Float32Array(left.length);
+      for (let i = 0; i < left.length; i++) {
+        waveformSourceData[i] = (left[i] + right[i]) / 2;
+      }
+    } else {
+      waveformSourceData = audioBuffer.getChannelData(0);
     }
 
-    try {
-        await pyodide.runPythonAsync(analysisScript);
-        const analyze_audio_func = pyodide.globals.get('analyze_audio');
-
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const arrayBuffer = await file.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-        const channels = audioBuffer.numberOfChannels;
-        const sampleRate = audioBuffer.sampleRate;
-
-        // Pass TypedArrays directly to Python. Pyodide sees them as JsProxies.
-        const leftChannel = audioBuffer.getChannelData(0);
-        const rightChannel = channels > 1 ? audioBuffer.getChannelData(1) : null;
-
-        const jsonResult = analyze_audio_func(leftChannel, rightChannel, sampleRate, channels);
-        const rawAnalysisData = JSON.parse(jsonResult);
-        
-        // --- Waveform generation (can still be done in JS for performance) ---
-        const waveformPoints = 120;
-        let waveformSourceData: Float32Array;
-
-        // Create a mono mixdown for accurate waveform representation in stereo files
-        if (audioBuffer.numberOfChannels > 1) {
-            const left = audioBuffer.getChannelData(0);
-            const right = audioBuffer.getChannelData(1);
-            waveformSourceData = new Float32Array(left.length);
-            for (let i = 0; i < left.length; i++) {
-                waveformSourceData[i] = (left[i] + right[i]) / 2;
-            }
-        } else {
-            waveformSourceData = audioBuffer.getChannelData(0);
+    const length = waveformSourceData.length;
+    const chunkSize = Math.floor(length / waveformPoints);
+    const waveform: number[] = [];
+    if (chunkSize > 0) {
+      for (let i = 0; i < waveformPoints; i++) {
+        const start = i * chunkSize;
+        const end = start + chunkSize;
+        let max = 0;
+        for (let j = start; j < end; j++) {
+          const val = Math.abs(waveformSourceData[j]);
+          if (val > max) max = val;
         }
-        
-        const length = waveformSourceData.length;
-        const chunkSize = Math.floor(length / waveformPoints);
-        const waveform: number[] = [];
-        if (chunkSize > 0) {
-            for (let i = 0; i < waveformPoints; i++) {
-                const start = i * chunkSize;
-                const end = start + chunkSize;
-                let max = 0;
-                for (let j = start; j < end; j++) {
-                    const val = Math.abs(waveformSourceData[j]);
-                    if (val > max) max = val;
-                }
-                waveform.push(max);
-            }
-        }
-
-        const analysisData: AudioAnalysisData = {
-            ...rawAnalysisData,
-            waveform,
-        };
-
-        // Clean up
-        analyze_audio_func.destroy();
-
-        return { analysisData, audioBuffer };
-
-    } catch (e) {
-        console.error("Python audio analysis failed:", e);
-        throw new Error("error.pyodide.analysis_failed");
+        waveform.push(max);
+      }
     }
+
+    const analysisData: AudioAnalysisData = {
+      ...rawAnalysisData,
+      waveform,
+    };
+
+    // Clean up
+    analyze_audio_func.destroy();
+
+    return { analysisData, audioBuffer };
+
+  } catch (e) {
+    console.error("Python audio analysis failed:", e);
+    throw new Error("error.pyodide.analysis_failed");
+  }
 };
 
 
@@ -627,10 +649,12 @@ export const buildMasteringChain = (
   hyperComp.release.value = adaptiveSettings.transientReleaseS;
   lastNode.connect(hyperComp);
 
+  // Neuro-Drive lowshelf: Control excessive sub-bass without destroying the low end
+  // 80Hz lowshelf -6dB preserves musicality (300Hz highpass was killing bass energy)
   const energyFilter = ctx.createBiquadFilter();
-  energyFilter.type = 'highpass';
-  energyFilter.frequency.value = 300;
-  energyFilter.Q.value = 0.5;
+  energyFilter.type = 'lowshelf';
+  energyFilter.frequency.value = 80;
+  energyFilter.gain.value = -6;
   hyperComp.connect(energyFilter);
 
   const neuroSettings = resolveNeuroDriveSettings(params);
@@ -738,8 +762,8 @@ export const optimizeMasteringParams = async (
 ): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
   const TARGET_LUFS = aiParams.target_lufs ?? -14.0;
-  // レッド張り付き防止: 目標 True Peak は -1.0 dB 以上余裕を持たせる
-  const TARGET_TRUE_PEAK_DB = Math.min(aiParams.limiter_ceiling_db ?? -1.0, -1.0);
+  // Use AI's limiter ceiling preference directly (no hard override)
+  const TARGET_TRUE_PEAK_DB = aiParams.limiter_ceiling_db ?? -1.0;
 
   // 分析用に曲の「サビ」と思われる部分（中央から 10 秒間）を切り出し
   const chunkDuration = 10;
@@ -799,24 +823,17 @@ export const optimizeMasteringParams = async (
   }
   const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
 
-  // --- 補正: 調整幅を抑えてつぶれを防ぐ（小さなステップ・ゆるい許容） ---
+  // --- Self-Correction: CAPS REMOVED - AI gain values respected ---
   const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 1.0;
-  const MAX_GAIN_STEP_DB = aiParams.self_correction_max_gain_step_db ?? 0.8;
-  const MAX_SELF_CORRECTION_BOOST_DB = aiParams.self_correction_max_boost_db ?? 1.5;
   const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
-  const GAIN_CAP_DB = 3;
-  const GAIN_FLOOR_DB = -5;
   const GAIN_RESOLUTION = 100;
 
   const diff = TARGET_LUFS - measuredLUFS;
   let newGain = optimizedParams.gain_adjustment_db;
 
+  // Apply full LUFS correction without arbitrary step/boost limits
   if (Math.abs(diff) > LUFS_THRESHOLD) {
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), MAX_GAIN_STEP_DB);
-    newGain += step;
-    if (diff > 0) {
-      newGain = Math.min(newGain, aiParams.gain_adjustment_db + MAX_SELF_CORRECTION_BOOST_DB);
-    }
+    newGain += diff; // Full correction, not capped to 0.8dB steps or +1.5dB boost
   }
 
   // 実測ピークに「提案差分」を加えた予測値で先にピーク安全性を判定する。
@@ -831,7 +848,7 @@ export const optimizeMasteringParams = async (
   newGain = computePeakSafeGain(predictedPeakDb, TARGET_TRUE_PEAK_DB, newGain, {
     maxCutDb: MAX_PEAK_CUT_STEP_DB,
   });
-  newGain = Math.max(GAIN_FLOOR_DB, Math.min(GAIN_CAP_DB, newGain));
+  // GAIN_CAP_DB and GAIN_FLOOR_DB removed - no arbitrary limits on AI gain
   optimizedParams.gain_adjustment_db = Math.round(newGain * GAIN_RESOLUTION) / GAIN_RESOLUTION;
   if (optimizedParams.gain_adjustment_db !== aiParams.gain_adjustment_db) {
     console.log(

@@ -3,18 +3,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, EQAdjustment } from '../types';
 import { getPlatformSpecifics, generateMasteringPrompt } from './masteringPrompts';
 
-/** AI 出力を安全範囲にクランプし、精度・割れの原因を除去する（Gemini/OpenAI 共通） */
+/** AI output passed through with minimal safety checks - physical limits only */
 export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
-    // 音割れの主因は「過大ゲイン」なので上限を強制的に低くする
-    gain_adjustment_db: Math.round(Math.max(-5, Math.min(3, Number(raw.gain_adjustment_db) || 0)) * 100) / 100,
-    // レッド張り付き防止: 天井 -1.0 dB 以上余裕（-0.3 だとメーター張り付きで音悪化）
-    limiter_ceiling_db: Math.max(-6, Math.min(-1.0, Number(raw.limiter_ceiling_db) ?? -1.0)),
+    // GAIN: No arbitrary caps - let AI decide. Only prevent NaN/Infinity.
+    gain_adjustment_db: Math.round((Number(raw.gain_adjustment_db) || 0) * 100) / 100,
+    // LIMITER CEILING: Physical limit -0.1 dBTP (near digital maximum). AI can go hot if requested.
+    limiter_ceiling_db: Math.max(-6, Math.min(-0.1, Number(raw.limiter_ceiling_db) ?? -1.0)),
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
-    tube_drive_amount: Math.max(0, Math.min(2, Number(raw.tube_drive_amount) ?? 0)),
-    exciter_amount: Math.max(0, Math.min(0.12, Number(raw.exciter_amount) ?? 0)),
-    low_contour_amount: Math.max(0, Math.min(0.8, Number(raw.low_contour_amount) ?? 0)),
-    width_amount: Math.max(1.0, Math.min(1.4, Number(raw.width_amount) ?? 1)),
+    // TUBE: Max 5.0 (physical saturation limit before DSP artifacts)
+    tube_drive_amount: Math.max(0, Math.min(5.0, Number(raw.tube_drive_amount) ?? 0)),
+    // EXCITER: Max 1.0 (full wet signal - physical maximum for parallel processing)
+    exciter_amount: Math.max(0, Math.min(1.0, Number(raw.exciter_amount) ?? 0)),
+    // LOW CONTOUR: Max 2.0 (double the original Pultec-style boost limit)
+    low_contour_amount: Math.max(0, Math.min(2.0, Number(raw.low_contour_amount) ?? 0)),
+    // WIDTH: Max 2.0 (extreme width - may cause phase issues, but AI can request it)
+    width_amount: Math.max(1.0, Math.min(2.0, Number(raw.width_amount) ?? 1)),
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
   if (raw.tube_hpf_hz != null) safe.tube_hpf_hz = Number(raw.tube_hpf_hz);
@@ -27,41 +31,16 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   return safe;
 }
 
-/** 危険素材（ピーク過多・低クレスト・高歪み）のときのみリミッター・tube・exciter を強く抑える */
+/** Safety guard DISABLED - AI judgment is trusted.
+ * Previous implementation forced ceiling to -1.0 and reduced tube/exciter on "risky" material.
+ * This override has been removed. AI parameters pass through unchanged.
+ */
 export function applySafetyGuard(
   params: MasteringParams,
-  analysis: AudioAnalysisData,
+  _analysis: AudioAnalysisData,
 ): MasteringParams {
-  const peakHot = analysis.truePeak > -1; // dBTP が -1 より上はピーク過多
-  const lowCrest = analysis.crestFactor < 9 && analysis.crestFactor > 0;
-  const highDistortion = analysis.distortionPercent > 2;
-
-  const out = { ...params };
-  if (peakHot || lowCrest || highDistortion) {
-    out.limiter_ceiling_db = Math.min(out.limiter_ceiling_db, -1.0);
-    out.tube_drive_amount = Math.max(0, (out.tube_drive_amount ?? 0) * 0.6);
-    out.exciter_amount = Math.max(0, (out.exciter_amount ?? 0) * 0.5);
-  }
-
-  const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
-  const bass = analysis.frequencyData.find(f => f.name === '60-250')?.level ?? -60;
-  const microRisk =
-    (analysis.truePeak > -1.3 ? 1 : 0) +
-    (analysis.crestFactor < 10.5 ? 1 : 0) +
-    (analysis.distortionPercent > 1.1 ? 1 : 0) +
-    (analysis.phaseCorrelation < 0.2 ? 1 : 0) +
-    (subBass > -15 && bass > -12.5 ? 1 : 0);
-
-  if (microRisk >= 2) {
-    const gainTrim = Math.min(0.6, 0.12 * microRisk);
-    out.gain_adjustment_db = Math.round((out.gain_adjustment_db - gainTrim) * 100) / 100;
-    out.limiter_ceiling_db = Math.max(-6, Math.min(-1.0, out.limiter_ceiling_db - 0.1));
-    out.tube_drive_amount = Math.max(0, Number((out.tube_drive_amount * (1 - microRisk * 0.04)).toFixed(3)));
-    out.exciter_amount = Math.max(0, Number((out.exciter_amount * (1 - microRisk * 0.05)).toFixed(3)));
-    out.low_contour_amount = Math.max(0, Number((out.low_contour_amount - 0.03 * microRisk).toFixed(3)));
-  }
-
-  return clampMasteringParams(out);
+  // Return params unchanged - no overrides
+  return params;
 }
 
 const VALID_EQ_TYPES: EQAdjustment['type'][] = ['peak', 'lowshelf', 'highshelf', 'lowpass', 'highpass'];
@@ -78,35 +57,35 @@ function sanitizeEq(eq: Partial<EQAdjustment>): EQAdjustment {
 
 const getMasteringParamsSchema = () => {
   return {
-      type: Type.OBJECT,
-      properties: {
-        gain_adjustment_db: { type: Type.NUMBER, description: 'Gain value to reach exact target LUFS.' },
-        limiter_ceiling_db: { type: Type.NUMBER, description: 'Final limiter ceiling value (dBTP).' },
-        eq_adjustments: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              type: { type: Type.STRING, description: "Filter type: 'lowshelf', 'highshelf', or 'peak'." },
-              frequency: { type: Type.NUMBER, description: "Center frequency in Hz." },
-              gain_db: { type: Type.NUMBER, description: "Gain adjustment in dB." },
-              q: { type: Type.NUMBER, description: "Q factor." },
-            },
-            required: ['type', 'frequency', 'gain_db', 'q'],
+    type: Type.OBJECT,
+    properties: {
+      gain_adjustment_db: { type: Type.NUMBER, description: 'Gain value to reach exact target LUFS.' },
+      limiter_ceiling_db: { type: Type.NUMBER, description: 'Final limiter ceiling value (dBTP).' },
+      eq_adjustments: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            type: { type: Type.STRING, description: "Filter type: 'lowshelf', 'highshelf', or 'peak'." },
+            frequency: { type: Type.NUMBER, description: "Center frequency in Hz." },
+            gain_db: { type: Type.NUMBER, description: "Gain adjustment in dB." },
+            q: { type: Type.NUMBER, description: "Q factor." },
           },
+          required: ['type', 'frequency', 'gain_db', 'q'],
         },
-        // ★ Signature Engine Parameters
-        tube_drive_amount:   { type: Type.NUMBER, description: 'Tube saturation drive (0.0–3.0). 0 = bypass if crest factor < 9. 1.0–2.0 for warmth. Avoid >2.5.' },
-        exciter_amount:      { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.15). Adds shimmer; keep low if highs already present.' },
-        low_contour_amount:  { type: Type.NUMBER, description: 'Pultec sub-bass contour (0.0–1.0). 0 = bypass. ~0.5–0.8 tightens kick without mud.' },
-        width_amount:        { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.4). Do not exceed 1.25 unless mix is very narrow.' },
       },
-      required: [
-        'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
-        'tube_drive_amount', 'exciter_amount', 'low_contour_amount',
-        'width_amount',
-      ],
-    };
+      // ★ Signature Engine Parameters
+      tube_drive_amount: { type: Type.NUMBER, description: 'Tube saturation drive (0.0–3.0). 0 = bypass if crest factor < 9. 1.0–2.0 for warmth. Avoid >2.5.' },
+      exciter_amount: { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.15). Adds shimmer; keep low if highs already present.' },
+      low_contour_amount: { type: Type.NUMBER, description: 'Pultec sub-bass contour (0.0–1.0). 0 = bypass. ~0.5–0.8 tightens kick without mud.' },
+      width_amount: { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.4). Do not exceed 1.25 unless mix is very narrow.' },
+    },
+    required: [
+      'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
+      'tube_drive_amount', 'exciter_amount', 'low_contour_amount',
+      'width_amount',
+    ],
+  };
 }
 
 export interface MasteringSuggestionsResult {
@@ -115,9 +94,9 @@ export interface MasteringSuggestionsResult {
 }
 
 export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, target: MasteringTarget, _language: 'ja' | 'en'): Promise<MasteringSuggestionsResult> => {
-    const specifics = getPlatformSpecifics(target);
-    const prompt = generateMasteringPrompt(data, specifics);
-    const schema = getMasteringParamsSchema();
+  const specifics = getPlatformSpecifics(target);
+  const prompt = generateMasteringPrompt(data, specifics);
+  const schema = getMasteringParamsSchema();
 
   try {
     const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
