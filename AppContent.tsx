@@ -301,6 +301,9 @@ export default function AppContent() {
     }
 
     try {
+      setIsExporting(true);
+      const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
+
       const consumeRes = await fetch(`${base}/api/consume-download-token`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const consumeData = await consumeRes.json().catch(() => ({}));
       if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) {
@@ -309,15 +312,7 @@ export default function AppContent() {
         setError(language === 'ja' ? `ダウンロード回数が足りません（残り: ${remaining}回）。` : `Not enough download credits (remaining: ${remaining}).`);
         return;
       }
-    } catch (_) {
-      setShowPaywall(true);
-      setError(language === 'ja' ? 'ダウンロードトークンの消費に失敗しました。時間をおいて再度お試しください。' : 'Failed to consume download token. Please try again later.');
-      return;
-    }
 
-    try {
-      setIsExporting(true);
-      const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
       const baseName = audioFile.name.replace(/\.[^/.]+$/, '') || 'mastered';
       const suggestedName = `${baseName}_${masteringTarget}_mastered.wav`;
       triggerBlobDownload(masteredBlob, suggestedName);

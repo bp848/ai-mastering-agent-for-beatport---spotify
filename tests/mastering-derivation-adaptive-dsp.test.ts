@@ -114,6 +114,52 @@ describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
     expect(derived.eq_adjustments.some((eq) => eq.frequency === 700 && eq.gain_db > 0)).toBe(true);
   });
 
+  it('adds broad shelf correction when low-end dominates low-mid balance', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      decisionBase,
+      analysisBase({
+        bassVolume: -9,
+        frequencyData: [
+          { name: '20-60', level: -11 },
+          { name: '60-250', level: -9 },
+          { name: '250-1k', level: -24 },
+          { name: '1k-4k', level: -33 },
+          { name: '4k-8k', level: -36 },
+          { name: '8k-20k', level: -40 },
+        ],
+      }),
+      'beatport',
+    );
+
+    const lowShelf = derived.eq_adjustments.find((eq) => eq.type === 'lowshelf');
+    expect(lowShelf).toBeTruthy();
+    expect(lowShelf?.gain_db).toBeLessThan(0);
+  });
+
+  it('adds a high shelf when highs are recessed versus presence', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        highFreqTreatment: 'lift',
+      },
+      analysisBase({
+        frequencyData: [
+          { name: '20-60', level: -18 },
+          { name: '60-250', level: -15 },
+          { name: '250-1k', level: -28 },
+          { name: '1k-4k', level: -30 },
+          { name: '4k-8k', level: -41 },
+          { name: '8k-20k', level: -46 },
+        ],
+      }),
+      'spotify',
+    );
+
+    const highShelf = derived.eq_adjustments.find((eq) => eq.type === 'highshelf');
+    expect(highShelf).toBeTruthy();
+    expect(highShelf?.gain_db).toBeGreaterThan(0);
+  });
+
   it('clamps low_mono_hz in safety layer', () => {
     const clamped = clampMasteringParams({
       gain_adjustment_db: 0,

@@ -22,6 +22,7 @@ export function deriveMasteringParamsFromDecision(
   const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
   const high8k = analysis.frequencyData.find(f => f.name === '8k-20k')?.level ?? -60;
   const high4k = analysis.frequencyData.find(f => f.name === '4k-8k')?.level ?? -60;
+  const presence = analysis.frequencyData.find(f => f.name === '1k-4k')?.level ?? -60;
   const lowMid = analysis.frequencyData.find(f => f.name === '250-1k')?.level ?? -60;
 
   const gainDb = specifics.targetLufs - analysis.lufs;
@@ -101,6 +102,40 @@ export function deriveMasteringParamsFromDecision(
       frequency: 700,
       gain_db: Math.min(1.8, 0.6 + (-24 - lowMid) * 0.04),
       q: 0.9,
+    });
+  }
+
+  const lowVsLowMid = bass - lowMid;
+  if (lowVsLowMid > 10) {
+    eqAdjustments.push({
+      type: 'lowshelf',
+      frequency: 90,
+      gain_db: Math.max(-2.5, -0.12 * (lowVsLowMid - 10) - 0.6),
+      q: 0.7,
+    });
+  } else if (lowVsLowMid < -8) {
+    eqAdjustments.push({
+      type: 'lowshelf',
+      frequency: 110,
+      gain_db: Math.min(2.2, 0.1 * (-8 - lowVsLowMid) + 0.5),
+      q: 0.8,
+    });
+  }
+
+  const highVsPresence = high8k - presence;
+  if (highVsPresence < -10 && decision.highFreqTreatment !== 'leave') {
+    eqAdjustments.push({
+      type: 'highshelf',
+      frequency: 9000,
+      gain_db: Math.min(2.4, 0.12 * (-10 - highVsPresence) + 0.5),
+      q: 0.7,
+    });
+  } else if (highVsPresence > 9) {
+    eqAdjustments.push({
+      type: 'highshelf',
+      frequency: 8500,
+      gain_db: Math.max(-2.2, -0.1 * (highVsPresence - 9) - 0.4),
+      q: 0.7,
     });
   }
 
