@@ -1,6 +1,37 @@
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, AIDecision, EQAdjustment } from '../types';
 import { getPlatformSpecifics } from './masteringPrompts';
 
+function evaluateLowEndDistortionRisk(analysis: AudioAnalysisData, gainDb: number): number {
+  const subBass = analysis.frequencyData.find(f => f.name === '20-60')?.level ?? -60;
+  const bass = analysis.frequencyData.find(f => f.name === '60-250')?.level ?? -60;
+  const crest = analysis.crestFactor ?? 0;
+  const phase = analysis.phaseCorrelation ?? 1;
+  const dist = analysis.distortionPercent ?? 0;
+  const peak = analysis.truePeak ?? -144;
+
+  const diagnosticRisk = Math.max(0, Math.min(6, Math.round(analysis.distortionRiskScore ?? 0)));
+  const lowEndCrestDb = analysis.lowEndCrestDb ?? crest;
+  const subEnergyRatio = analysis.subEnergyRatio ?? 0;
+  const lowEndToLowMidRatio = analysis.lowEndToLowMidRatio ?? 1;
+  const bassMonoCompatibility = analysis.bassMonoCompatibility ?? ((phase + 1) * 50);
+
+  const heuristicRisk =
+    (peak > -1.2 ? 1 : 0) +
+    (crest < 9.5 ? 1 : 0) +
+    (dist > 0.8 ? 1 : 0) +
+    (phase < 0.2 ? 1 : 0) +
+    (subBass > -15 && bass > -12.5 ? 1 : 0) +
+    (gainDb > 1.2 ? 1 : 0);
+
+  const detailedRisk =
+    (lowEndCrestDb < 8.8 ? 1 : 0) +
+    (subEnergyRatio > 0.35 ? 1 : 0) +
+    (lowEndToLowMidRatio > 1.7 ? 1 : 0) +
+    (bassMonoCompatibility < 58 ? 1 : 0);
+
+  return Math.max(heuristicRisk, diagnosticRisk, detailedRisk);
+}
+
 /**
  * AIDecision + AudioAnalysisData から DSP 用 MasteringParams を導出する。
  * 固定数値は極力使わず、分析値と意図カテゴリから算出する。
@@ -27,6 +58,7 @@ export function deriveMasteringParamsFromDecision(
 
   const gainDb = specifics.targetLufs - analysis.lufs;
   const gainBounded = Math.max(-5, Math.min(3, gainDb));
+  const lowEndDistortionRisk = evaluateLowEndDistortionRisk(analysis, gainBounded);
 
   const limiterCeiling = specifics.targetPeak;
 
@@ -44,7 +76,8 @@ export function deriveMasteringParamsFromDecision(
 
   const canAddBassHarmonics = lowEndCollisionRisk <= 1 && bass > -16 && dist < 0.6 && phase > 0.35;
   const harmonicLift = canAddBassHarmonics ? Math.min(0.6, (-Math.min(-10, bass) - 10) * 0.05 + 0.2) : 0;
-  const tubeDrive = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
+  const tubeDriveRaw = Math.max(0, Math.min(2, baseTubeDrive + harmonicLift));
+  const tubeDrive = lowEndDistortionRisk >= 4 ? Math.min(tubeDriveRaw, 0.85) : tubeDriveRaw;
 
   const exciterRaw =
     decision.highFreqTreatment === 'leave' ? 0 :
@@ -53,15 +86,16 @@ export function deriveMasteringParamsFromDecision(
   const exciterAmount = Math.max(0, Math.min(0.12, exciterRaw));
 
   const lowContourBase = Math.max(0, Math.min(0.8, (bass + 50) / 50 * 0.4 + (decision.kickSafety === 'danger' ? 0.15 : 0)));
-  const lowContour = lowEndCollisionRisk >= 3
+  const lowContourRaw = lowEndCollisionRisk >= 3
     ? Math.max(0, lowContourBase - 0.2)
     : Math.min(0.8, lowContourBase + (canAddBassHarmonics ? 0.06 : 0));
+  const lowContour = lowEndDistortionRisk >= 4 ? Math.min(lowContourRaw, 0.15) : lowContourRaw;
 
   const widthAmountRaw =
     decision.stereoIntent === 'narrow' ? 1 :
     decision.stereoIntent === 'wide' ? Math.min(1.4, 1 + (width / 100) * 0.25) :
     Math.min(1.25, 1 + (width / 100) * 0.15);
-  const widthAmount = lowEndCollisionRisk >= 3 ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
+  const widthAmount = (lowEndCollisionRisk >= 3 || lowEndDistortionRisk >= 4) ? Math.min(widthAmountRaw, 1.05) : widthAmountRaw;
 
   const lowMonoHz = Math.round(Math.max(120, Math.min(280,
     140 + lowEndCollisionRisk * 25 + (subBass > -16 ? 12 : 0) + (phase < 0.15 ? 20 : 0),
@@ -141,7 +175,7 @@ export function deriveMasteringParamsFromDecision(
   }
 
   return {
-    gain_adjustment_db: Math.round(gainBounded * 100) / 100,
+    gain_adjustment_db: Math.round(Math.max(-5, Math.min(3, lowEndDistortionRisk >= 4 ? gainBounded - 0.5 : gainBounded)) * 100) / 100,
     eq_adjustments: eqAdjustments,
     limiter_ceiling_db: limiterCeiling,
     tube_drive_amount: Math.round(tubeDrive * 100) / 100,
