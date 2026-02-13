@@ -70,7 +70,7 @@ describe('triggerBlobDownload', () => {
 
     expect(revokeObjectURLSpy).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(2000);
     expect(revokeObjectURLSpy).toHaveBeenCalledTimes(1);
   });
 

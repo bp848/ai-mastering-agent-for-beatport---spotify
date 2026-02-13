@@ -16,5 +16,5 @@ export function triggerBlobDownload(
   doc.body.appendChild(a);
   a.click();
   doc.body.removeChild(a);
-  globalThis.setTimeout(() => URL.revokeObjectURL(url), 500);
+  globalThis.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
