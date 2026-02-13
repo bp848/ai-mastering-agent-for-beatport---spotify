@@ -168,4 +168,67 @@ describe('deriveMasteringParamsFromDecision adaptive low-end DSP', () => {
 
     expect(clamped.low_mono_hz).toBe(320);
   });
+
+
+  it('aggressively trims low-end enhancement when kick/bass distortion risk is critical', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        saturationNeed: 'heavy',
+        kickSafety: 'danger',
+        stereoIntent: 'wide',
+      },
+      analysisBase({
+        lufs: -16,
+        truePeak: -0.8,
+        crestFactor: 8.7,
+        phaseCorrelation: 0.1,
+        distortionPercent: 1.3,
+        bassVolume: -11.5,
+        frequencyData: [
+          { name: '20-60', level: -13 },
+          { name: '60-250', level: -11.5 },
+          { name: '250-1k', level: -30 },
+          { name: '1k-4k', level: -34 },
+          { name: '4k-8k', level: -40 },
+          { name: '8k-20k', level: -45 },
+        ],
+      }),
+      'beatport',
+    );
+
+    expect(derived.gain_adjustment_db).toBeLessThanOrEqual(2.5);
+    expect(derived.tube_drive_amount).toBeLessThanOrEqual(0.85);
+    expect(derived.low_contour_amount).toBeLessThanOrEqual(0.15);
+    expect(derived.width_amount).toBeLessThanOrEqual(1.05);
+  });
+
+  it('uses detailed diagnostic risk score from initial analysis to harden low-end parameters', () => {
+    const derived = deriveMasteringParamsFromDecision(
+      {
+        ...decisionBase,
+        saturationNeed: 'heavy',
+        stereoIntent: 'wide',
+      },
+      analysisBase({
+        truePeak: -2.2,
+        crestFactor: 10.5,
+        phaseCorrelation: 0.6,
+        distortionPercent: 0.2,
+        lufs: -16,
+        lowEndCrestDb: 7.8,
+        subEnergyRatio: 0.42,
+        lowEndToLowMidRatio: 2.1,
+        bassMonoCompatibility: 52,
+        distortionRiskScore: 5,
+      }),
+      'beatport',
+    );
+
+    expect(derived.gain_adjustment_db).toBeLessThanOrEqual(2.5);
+    expect(derived.tube_drive_amount).toBeLessThanOrEqual(0.85);
+    expect(derived.low_contour_amount).toBeLessThanOrEqual(0.15);
+    expect(derived.width_amount).toBeLessThanOrEqual(1.05);
+  });
+
 });

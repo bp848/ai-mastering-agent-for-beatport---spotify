@@ -159,6 +159,47 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     
     bass_volume = next((item['level'] for item in frequency_results if item['name'] == '60-250'), -100.0)
 
+    # --- Detailed Low-End Diagnostics (AI-driven parameter derivation) ---
+    sub_band = next((item['level'] for item in frequency_results if item['name'] == '20-60'), -100.0)
+    bass_band = bass_volume
+
+    low_end_crest_db = float(np.clip(crest_factor - max(0.0, bass_band + 20.0) * 0.15, 0.0, 30.0))
+    sub_to_bass_balance_db = float(sub_band - bass_band)
+
+    if len(freqs) > 0 and N > 0:
+        spectrum_power = np.square(np.abs(fft_result))
+        total_power = float(np.sum(spectrum_power))
+        low_end_mask = np.where((freqs >= 20) & (freqs < 250))
+        low_mid_mask = np.where((freqs >= 250) & (freqs < 1000))
+        low_end_power = float(np.sum(spectrum_power[low_end_mask])) if len(low_end_mask[0]) > 0 else 0.0
+        low_mid_power = float(np.sum(spectrum_power[low_mid_mask])) if len(low_mid_mask[0]) > 0 else 0.0
+        sub_energy_ratio = (low_end_power / total_power) if total_power > 1e-12 else 0.0
+        low_end_to_low_mid_ratio = (low_end_power / low_mid_power) if low_mid_power > 1e-12 else (5.0 if low_end_power > 0 else 1.0)
+    else:
+        sub_energy_ratio = 0.0
+        low_end_to_low_mid_ratio = 1.0
+
+    if channels > 1:
+        bass_mono_compatibility = float(np.clip((phase_correlation + 1.0) * 50.0, 0.0, 100.0))
+    else:
+        bass_mono_compatibility = 100.0
+
+    abs_signal = np.abs(mono_chunk) if N > 0 else np.array([])
+    if len(abs_signal) > 8:
+        edge = np.abs(np.diff(abs_signal))
+        transient_density = float(np.mean(edge > np.percentile(edge, 85)) * 100.0)
+    else:
+        transient_density = 0.0
+
+    distortion_risk_score = int(
+        (true_peak_db > -1.2) +
+        (crest_factor < 9.5) +
+        (estimated_thd_percent > 0.8) +
+        (sub_to_bass_balance_db > 1.5) +
+        (sub_energy_ratio > 0.35) +
+        (phase_correlation < 0.2)
+    )
+
     results = {
         "lufs": lufs if np.isfinite(lufs) else -144.0,
         "truePeak": true_peak_db if np.isfinite(true_peak_db) else -144.0,
@@ -171,6 +212,13 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         "phaseCorrelation": phase_correlation if channels > 1 else 1.0,
         "distortionPercent": estimated_thd_percent,
         "noiseFloorDb": noise_floor_db if np.isfinite(noise_floor_db) else -100.0,
+        "lowEndCrestDb": low_end_crest_db if np.isfinite(low_end_crest_db) else 0.0,
+        "subToBassBalanceDb": sub_to_bass_balance_db if np.isfinite(sub_to_bass_balance_db) else 0.0,
+        "subEnergyRatio": sub_energy_ratio if np.isfinite(sub_energy_ratio) else 0.0,
+        "lowEndToLowMidRatio": low_end_to_low_mid_ratio if np.isfinite(low_end_to_low_mid_ratio) else 1.0,
+        "bassMonoCompatibility": bass_mono_compatibility if np.isfinite(bass_mono_compatibility) else 100.0,
+        "transientDensity": transient_density if np.isfinite(transient_density) else 0.0,
+        "distortionRiskScore": distortion_risk_score,
     }
 
     return json.dumps(results)
