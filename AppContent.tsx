@@ -14,6 +14,7 @@ import type { ActionLog } from './components/Console';
 import MyPageView from './components/MyPageView';
 import { createCheckoutSession } from './services/stripeCheckout';
 import { recordDownload } from './services/downloadHistory';
+import { triggerBlobDownload } from './utils/download';
 import { supabase } from './services/supabase';
 import { trackEvent } from './services/analytics';
 
@@ -319,18 +320,7 @@ export default function AppContent() {
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
       const baseName = audioFile.name.replace(/\.[^/.]+$/, '') || 'mastered';
       const suggestedName = `${baseName}_${masteringTarget}_mastered.wav`;
-      const url = URL.createObjectURL(masteredBlob);
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = suggestedName;
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
+      triggerBlobDownload(masteredBlob, suggestedName);
       let storagePath: string | undefined;
       try {
         const path = `${session.user.id}/${crypto.randomUUID()}.wav`;
