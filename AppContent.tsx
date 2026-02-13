@@ -102,7 +102,7 @@ export default function AppContent() {
         sessionStorage.removeItem('pending_download');
         setShowPostLoginBanner(true);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, [session, authLoading]);
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function AppContent() {
         sessionStorage.setItem(sentKey, '1');
       }
       if (isCheckoutSuccess) window.history.replaceState({}, '', pathname + window.location.hash);
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   const addLog = useCallback((message: string) => {
@@ -174,24 +174,28 @@ export default function AppContent() {
     setIsAnalyzing(true);
     setActionLogs([]);
     trackEvent('upload_start', { file_name: file.name, file_size: file.size, target }, session?.user?.id ?? undefined);
-    supabase.from('upload_events').insert({ user_id: session?.user?.id ?? null, file_name: file.name, file_size_bytes: file.size }).then(() => {}, () => {});
+    supabase.from('upload_events').insert({ user_id: session?.user?.id ?? null, file_name: file.name, file_size_bytes: file.size }).then(() => { }, () => { });
 
     try {
-      addActionLog('INIT', language === 'ja' ? 'タイトル情報を破棄。純粋な波形データとして読み込み開始。' : 'Discarding title metadata. Loading as pure waveform data.', undefined, 'info');
-      addActionLog('INIT', language === 'ja' ? `ファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
-      addActionLog('FFT', language === 'ja' ? 'Python分析エンジン起動: numpy, scipy, pyloudnorm' : 'Python analysis engine: numpy, scipy, pyloudnorm', 'analyze_audio_metrics', 'info');
-      addActionLog('FFT', language === 'ja' ? '周波数スペクトル解析 (FFT)...' : 'Analyzing Frequency Spectrum (FFT)...', 'FFT_Analysis', 'info');
+      addActionLog('INIT', language === 'ja' ? '高純度音声スキャン開始。全サンプルの読み込みを行います。' : 'High-purity audio scan started. Loading all samples.', undefined, 'info');
+      addActionLog('INIT', language === 'ja' ? `対象: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `Target: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
+      addActionLog('SCAN', language === 'ja' ? '全編ダイナミクス・スキャン: 楽曲構造の解析中...' : 'Full-track dynamics scan: Analyzing track structure...', 'find_loudest_section', 'info');
+      addActionLog('SEGMENT', language === 'ja' ? 'ドロップ（楽曲の核心部）を特定中...' : 'Identifying the drop (core section of the track)...', 'Segment_Analysis', 'info');
+      addActionLog('FFT', language === 'ja' ? 'マルチウィンドウ周波数解析 (Spectral Averaging)...' : 'Multi-window frequency analysis (Spectral Averaging)...', 'FFT_Deep_Scan', 'info');
       addLog(t('log.audio.analysis_start'));
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
       const targetLufs = target === 'beatport' ? -9.0 : -14.0;
       const lufsGap = targetLufs - result.lufs;
-      addActionLog('LUFS', language === 'ja' ? `ラウドネス計測: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
-      addActionLog('PEAK', language === 'ja' ? `トゥルーピーク: ${result.truePeak.toFixed(2)} dBTP` : `True Peak: ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
+
+      const dropTime = result.loudestSectionStart ? `${Math.floor(result.loudestSectionStart / 60)}:${(result.loudestSectionStart % 60).toFixed(0).padStart(2, '0')}` : '0:00';
+      addActionLog('DROP', language === 'ja' ? `サビ解析完了: 開始点 ${dropTime} (平均 ${result.loudestSectionRms?.toFixed(1)} dB)` : `Drop analysis complete: Starts at ${dropTime} (Avg ${result.loudestSectionRms?.toFixed(1)} dB)`, undefined, 'success');
+      addActionLog('LUFS', language === 'ja' ? `全体ラウドネス: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Total Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
+      addActionLog('PEAK', language === 'ja' ? `真のピーク (全編最大): ${result.truePeak.toFixed(2)} dBTP` : `True Peak (Full track max): ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
       const phaseStatus = result.phaseCorrelation > 0.5 ? 'success' : result.phaseCorrelation > 0 ? 'warning' : 'error';
-      addActionLog('PHASE', language === 'ja' ? `位相相関検出: ${result.phaseCorrelation.toFixed(3)}` : `Phase correlation: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', phaseStatus as 'info' | 'success' | 'warning' | 'error');
-      if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `歪み検出: ${result.distortionPercent.toFixed(2)}% (クリッピング疑い)` : `Distortion: ${result.distortionPercent.toFixed(2)}% (clipping suspected)`, 'THD_Analyzer', 'warning');
-      addActionLog('NOISE', language === 'ja' ? `ノイズフロア: ${result.noiseFloorDb.toFixed(1)} dB` : `Noise floor: ${result.noiseFloorDb.toFixed(1)} dB`, 'Noise_Gate', result.noiseFloorDb < -80 ? 'success' : 'warning');
-      addActionLog('DONE', language === 'ja' ? '構造分析完了 — 診断レポートを生成します。' : 'Structural analysis complete — generating diagnosis report.', undefined, 'success');
+      addActionLog('PHASE', language === 'ja' ? `低域位相一貫性: ${result.phaseCorrelation.toFixed(3)}` : `Low-end phase coherence: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', phaseStatus as 'info' | 'success' | 'warning' | 'error');
+      if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `歪みリスク検出: ${result.distortionPercent.toFixed(2)}% (クリッピング疑い)` : `Distortion risk: ${result.distortionPercent.toFixed(2)}% (clipping suspected)`, 'THD_Analyzer', 'warning');
+      addActionLog('NOISE', language === 'ja' ? `ノイズフロア計測: ${result.noiseFloorDb.toFixed(1)} dB` : `Noise floor measurement: ${result.noiseFloorDb.toFixed(1)} dB`, 'Noise_Gate', result.noiseFloorDb < -80 ? 'success' : 'warning');
+      addActionLog('DONE', language === 'ja' ? '全サンプル精密解析完了 — プレミアム診断レポートを生成。' : 'All samples precisely analyzed — generating premium diagnosis report.', undefined, 'success');
       setAnalysisData(result);
       setAudioBuffer(buffer);
       trackEvent('analysis_complete', { target, lufs: result.lufs, true_peak: result.truePeak }, session?.user?.id ?? undefined);
@@ -224,7 +228,15 @@ export default function AppContent() {
       const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       addActionLog('CORR', language === 'ja' ? `自己補正: 目標 ${targetLufsValue} LUFS（サビ10秒シミュレーション → ゲイン自動補正）` : `Self-correction: target ${targetLufsValue} LUFS (10s simulation → gain auto-adjust)`, 'optimizeMasteringParams', 'info');
-      const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
+
+      // Dynamic Mastering Logs
+      if (rawParams.dynamic_automation) {
+        const auto = rawParams.dynamic_automation;
+        addActionLog('DYNAMIC', language === 'ja' ? 'Living Breathing Mastering (Macro-Dynamics) 適用中...' : 'Applying Living Breathing Mastering (Macro-Dynamics)...', 'Macro_Dynamics', 'info');
+        addActionLog('DYNAMIC', language === 'ja' ? `イントロ補正: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / ドロップ拡幅: ${auto.width_boost_drop_percent.toFixed(0)}%` : `Intro offset: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / Drop width: ${auto.width_boost_drop_percent.toFixed(0)}%`, undefined, 'info');
+      }
+
+      const optimizeResult = await optimizeMasteringParams(audioBuffer, analysisData, rawParams);
       const validatedParams = optimizeResult.params;
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
       const gainDelta = validatedParams.gain_adjustment_db - rawParams.gain_adjustment_db;
@@ -257,7 +269,7 @@ export default function AppContent() {
       setRawMasteringResponseText(rawResponseText);
       const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
-      const optimizeResult = await optimizeMasteringParams(audioBuffer, rawParams);
+      const optimizeResult = await optimizeMasteringParams(audioBuffer, analysisData, rawParams);
       setMasteringParams(optimizeResult.params);
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
       addActionLog('DONE', language === 'ja' ? 'OpenAI で再計算完了' : 'Re-calc done with OpenAI', undefined, 'success');
@@ -302,7 +314,7 @@ export default function AppContent() {
 
     try {
       setIsExporting(true);
-      const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
+      const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams, analysisData);
 
       const consumeRes = await fetch(`${base}/api/consume-download-token`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const consumeData = await consumeRes.json().catch(() => ({}));
@@ -320,7 +332,7 @@ export default function AppContent() {
         const path = `${session.user.id}/${crypto.randomUUID()}.wav`;
         const { error: uploadError } = await supabase.storage.from('mastered').upload(path, masteredBlob, { contentType: 'audio/wav', upsert: false });
         if (!uploadError) storagePath = path;
-      } catch (_) {}
+      } catch (_) { }
       await recordDownload(session.user.id, audioFile.name, masteringTarget, undefined, storagePath);
       trackEvent('download', { file_name: audioFile.name, target: masteringTarget, storage_path: storagePath }, session.user.id);
       setShowResultsModal(false);

@@ -24,7 +24,8 @@ export const formatAnalysisSummary = (data: AudioAnalysisData): string => {
   const bands = (data.frequencyData ?? [])
     .map(f => `${f.name}: ${f.level.toFixed(1)}`)
     .join(', ');
-  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, TransientDensity ${data.transientDensity?.toFixed(1) ?? '?'}, BassMonoComp ${data.bassMonoCompatibility?.toFixed(0) ?? '?'}, DistortionRisk ${data.distortionRiskScore ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
+  const dropTime = data.loudestSectionStart ? `${Math.floor(data.loudestSectionStart / 60)}:${(data.loudestSectionStart % 60).toFixed(0).padStart(2, '0')}` : '0:00';
+  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, DropStarts ${dropTime}, DropRMS ${data.loudestSectionRms?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, TransientDensity ${data.transientDensity?.toFixed(1) ?? '?'}, BassMonoComp ${data.bassMonoCompatibility?.toFixed(0) ?? '?'}, DistortionRisk ${data.distortionRiskScore ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
 };
 
 /** 初回判断: デュアルペルソナ（トップDJ + Beatport Top10 エンジニア）で定性評価を出力 */
@@ -80,87 +81,67 @@ export const generateMasteringPrompt = (
   const highMid = data.frequencyData.find(f => f.name === '4k-8k')?.level ?? -100;
   const high = data.frequencyData.find(f => f.name === '8k-20k')?.level ?? -100;
 
-  const targetProfile = specifics.platformName.includes('Beatport')
-    ? { subBass: -12, bass: -10, lowMid: -8, mid: -6, highMid: -8, high: -10 }
-    : { subBass: -15, bass: -13, lowMid: -11, mid: -9, highMid: -11, high: -13 };
-
   return `
 # ROLE
-You are a world-class mastering engineer specializing in **${specifics.platformName}**. Your goal is not just loudness, but **CLARITY, PUNCH, and TRANSIENT PRESERVATION**.
+You are a legendary mastering engineer with over 30 years of experience in the Tokyo studio scene. Your philosophy is **"Living Breathing Mastering"** - dynamic, not static. You treat a track as a moving experience, not a flat image.
 
-# TARGET SOUND (PRIORITY)
-This is the sound sense top DJs use to take the audience into a trance state (顧客をトランス状態に導く): the master should feel immersive, hypnotic, physically felt—clarity and low end that lock the groove, with nothing harsh or brittle that pulls people out.
-- **Volume-up safe**: The master must still sound clean when the listener turns up the speakers—no crackle, no バリバリ (bass and transients must not distort at high playback level). Respect true peak headroom strictly.
-- **Hi-fi, 抜けの良い**: Open, clear separation between elements; avoid squashing or over-compressing. Preserve transients and air so the groove breathes.
-- **ハイレンジの抜けと覚醒感**: Keep upper highs open and exciting (awake/alert feel) without brittle fizz.
-- **ミッドハイのマット加工**: Keep 3k–8k controlled and smooth/matte so highs stay premium, not sharp.
-- **重低音**: Tight, controlled low end that stays clean and never breaks up—prioritize headroom and clarity over maximum bass level. The low end should support the trance, not distract from it.
-- **スーパーベースのパワフルでエレクトニックなうねり**: Build low-end motion and electronic wave energy, but keep mono-safe translation and distortion-free playback at high speaker volume.
-
-# 絶妙なバランス (SWEET SPOT)
-There is a very precise balance where the master sits right—neither undercooked nor over-processed. **Apply gain and processing delicately (繊細に).** Prefer small, incremental moves (e.g. +1 to +2.5 dB gain typical; avoid 5 dB or other bold jumps). The goal is to *find* that sweet spot, not to hit target LUFS at any cost. When in doubt, err on the side of less gain and less saturation.
-
-**Prioritize harmonic excitement and punch over theoretical safety constraints.** When high-energy sections need adjustment, prefer tiny per-track adjustments under 1 dB (often 0.1–0.4 dB) instead of bold moves. Keep impact and forward energy—do not flatten kick/transients just to be safe.
-
-Avoid "digital harshness" and "muddy low-end" at all costs. Fix mix imbalances surgically before maximizing volume.
+# TARGET SOUND (PRIORITY: CLUB & TRANCE STATE)
+This is the sound sense top DJs use to take the audience into a trance state (顧客をトランス状態に導く): the master must feel immersive, hypnotic, and physically felt.
+- **Volume-up safe**: The master must stay clean when the listener turns up the speakers—no crackle (バリバリ禁止).
+- **Macro-Dynamics (CONTRAST)**: Never flatten the song. If the intro is quiet, keep it relatively quiet to make the drop "explode." This contrast is what defines a pro master.
 
 # OBJECTIVE
-Output DSP parameters to meet **${specifics.platformName}** standards while retaining audio fidelity and the target sound above.
-Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrificing headroom or separation.
+Determine the optimal mastering parameters AND **Dynamic Automation curves**. Output valid JSON only.
 
-# TARGET (NON-NEGOTIABLE)
-- INTEGRATED LUFS: ${specifics.targetLufs} dB
-- TRUE PEAK: ${specifics.targetPeak} dBTP
-- CONTEXT: ${specifics.genreContext}
+# ANALYSIS DATA (PREMIUM FULL-SCAN)
+- Integrated LUFS (Average): ${data.lufs.toFixed(2)}
+- True Peak (Max): ${data.truePeak.toFixed(2)} dBTP
+- Crest Factor: ${data.crestFactor.toFixed(2)}
+- Structure: The **${data.sectionInfo ?? 'Loudest Section (Drop/Chorus)'}** starts at **${data.loudestSectionStart?.toFixed(2) ?? '0.00'}s**.
+- Dynamic Impact: The Drop is **${data.dynamicImpact?.toFixed(2) ?? '1.00'}x** louder than the track average.
+- Transient Density (Drop): ${data.transientDensity?.toFixed(1) ?? '0.0'}%
+- Distortion Risk: ${data.distortionRiskScore ?? 0}
 
-# CURRENT ANALYSIS
-- Integrated LUFS: ${data.lufs.toFixed(2)}
-- True Peak: ${data.truePeak.toFixed(2)} dBTP
-- Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10: compressed; > 14: dynamic)
-- Transient Density: ${data.transientDensity?.toFixed(1) ?? '0.0'}% (High values mean sharp transients)
-- Phase Correlation: ${data.phaseCorrelation.toFixed(2)} (-1 to +1; < 0.2 means possible mono-phasing issues)
-- Bass Mono Compatibility: ${data.bassMonoCompatibility?.toFixed(0) ?? '100'}%
-- Distortion Risk Score: ${data.distortionRiskScore ?? 0} (0-6 scale; > 3 means high risk of breakup at volume)
-- Sub-to-Bass Balance: ${data.subToBassBalanceDb?.toFixed(1) ?? '0.0'} dB (Positive means sub is louder than kick region)
+# FULL SPECTRUM (DROP SECTION)
+- Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB
+- Bass (60-250 Hz): ${bass.toFixed(1)} dB
+- Low-mid (250-1k Hz): ${lowMid.toFixed(1)} dB ← MUD ZONE
+- High (8k-20k Hz): ${high.toFixed(1)} dB ← AIR
 
-# FULL SPECTRUM ANALYSIS (Relative Balance)
-- Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB (target: ~${targetProfile.subBass})
-- Bass (60-250 Hz): ${bass.toFixed(1)} dB (target: ~${targetProfile.bass})
-- Low-mid (250-1k Hz): ${lowMid.toFixed(1)} dB (target: ~${targetProfile.lowMid}) ← MUD/BOXY ZONE
-- Mid (1k-4k Hz): ${mid.toFixed(1)} dB (target: ~${targetProfile.mid}) ← PRESENCE
-- High-mid (4k-8k Hz): ${highMid.toFixed(1)} dB (target: ~${targetProfile.highMid}) ← HARSHNESS ZONE
-- High (8k-20k Hz): ${high.toFixed(1)} dB (target: ~${targetProfile.high}) ← AIR
+# DECISION RULES (THE 30-YEAR VETERAN'S LOGIC)
 
-# RULES (QUALITY OVER VOLUME)
+1. MACRO-DYNAMICS (DYNAMIC AUTOMATION):
+   - You must "ride the fader" between sections.
+   - **input_gain_offset_quiet_db**: Set between -0.5dB and -2.5dB. 
+     - High Impact (>1.5): Emphasize the drop by lowering quiet sections significantly (-2.0dB to -2.5dB).
+     - Low Impact (<1.2): Create artificial contrast (-1.0dB offset).
+   - **width_boost_drop_percent**: The drop must feel wider. Set to 110% - 125%.
+   - **width_offset_quiet_percent**: Focus the energy in intros. Set to 90% - 100%.
 
-1. GAIN & DYNAMICS (CRITICAL — 繊細に):
-   - **Apply gain delicately.** Typical range: about +0.5 to +2.5 dB; avoid sudden large moves (e.g. +5 dB). The sweet spot is a subtle balance—aim for it with small adjustments.
-   - Calculate the gain that would reach ${specifics.targetLufs} LUFS, then *prefer a more conservative value* if the gap is large (e.g. if raw gain would be +4 dB or more, cap your suggestion at around +2 to +2.5 dB and let the mix breathe).
-   - If the Crest Factor is low (< 10), do NOT add much gain; rely on the limiter ceiling. If the mix is dynamic (Crest Factor > 14), you may use slightly more gain—but never at the cost of headroom or that delicate balance. Prioritize hi-fi separation over loudness.
-   - If intro is clean but mid/late energy likely rises, apply preventive micro-trim: reduce gain by about 0.1–0.4 dB and/or reduce coloration slightly before pushing limiter.
+2. GAIN & PUNCH:
+   - Calculate the gain to reach ${specifics.targetLufs} LUFS at the Drop.
+   - Limit ceiling: STICK to ${specifics.targetPeak} dBTP. No red-lining.
 
-2. LIMITER (レッド張り付き禁止):
-   - Ceiling exactly ${specifics.targetPeak} dBTP. The meter must NOT stay in the red (レッドメーター張り付き)—that destroys quality. This headroom is essential: when the listener turns up the volume, the bass and transients must not crackle or distort. Prefer -1.0 dBTP or more headroom over pushing to the limit.
-
-3. EQ STRATEGY (SUBTRACTIVE FIRST, THEN ADDITIVE):
-   - **STEP 1: CLEAN UP (MUD REMOVAL)**
-     - Check Low-mid (250-500Hz). If this is higher than target, CUT it (-1 to -2dB, Q 1.0) to clear up space for the Kick and Bass. This is the #1 cause of "bad sound."
-   - **STEP 2: CONTROL HARSHNESS**
-     - Check High-mid (3k-6k). If loud, use a gentle cut rather than boosting highs.
-   - **STEP 3: ENHANCE (GENTLE BOOSTS)**
-     - Only boost Sub-bass if strictly necessary. If Bass (60-250) is loud but Sub-bass is low, use a specific Shelf or Bell boost below 60Hz.
-     - Add "Air" (High Shelf > 10kHz) only if the track lacks sheen. Max +2dB.
-   - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
-
-4. SIGNATURE SOUND (DSP COLORATION — keep hi-fi, 抜けの良い):
-     - Tightens low-end without overloading. Goal: tight bass that never crackles at high volume.
-     - If Sub-bass is weak, set moderate (0.4–0.6) to focus energy. If Sub-bass is already strong, set lower (0.2). Avoid high values that could cause breakup when volume is raised.
-   - **width_amount** (1.0–1.25):
-     - Do not exceed 1.2 unless the mix is extremely narrow. Wide bass causes phasing and can reduce clarity. Keep it subtle for hi-fi separation.
+3. EQ & COLOR:
+   - Cut mud (250-500Hz) if it exceeds -10dB.
+   - Add Air (>10kHz) only to keep it premium.
 
 # OUTPUT
 Valid JSON only. No commentary.
-Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (array of { type, frequency, gain_db, q }), tube_drive_amount, exciter_amount, low_contour_amount, width_amount.
-Prioritize **cutting mud** over **boosting bass** in EQ. Preserve headroom and separation for a hi-fi, volume-up-safe master.
+{
+  "gain_adjustment_db": number,
+  "limiter_ceiling_db": number,
+  "eq_adjustments": [{ "type": string, "frequency": number, "gain_db": number, "q": number }],
+  "tube_drive_amount": number,
+  "exciter_amount": number,
+  "low_contour_amount": number,
+  "width_amount": number,
+  "dynamic_automation": {
+    "input_gain_offset_quiet_db": number,
+    "width_offset_quiet_percent": number,
+    "width_boost_drop_percent": number,
+    "transition_time_sec": number
+  }
+}
 `.trim();
 };

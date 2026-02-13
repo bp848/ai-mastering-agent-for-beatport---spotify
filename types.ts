@@ -22,6 +22,11 @@ export interface AudioAnalysisData {
   bassMonoCompatibility?: number;
   transientDensity?: number;
   distortionRiskScore?: number;
+  loudestSectionStart?: number; // seconds
+  loudestSectionEnd?: number;   // seconds
+  loudestSectionRms?: number;   // dB
+  dynamicImpact?: number;       // loud section multiplier
+  sectionInfo?: string;         // description of analyzed section
   frequencyData: FrequencyData[];
   waveform: number[];
 }
@@ -39,6 +44,13 @@ export interface AIDecision {
 }
 
 export type MetricStatus = 'good' | 'warning' | 'bad' | 'neutral';
+
+export interface DynamicAutomation {
+  input_gain_offset_quiet_db: number;
+  width_offset_quiet_percent: number;
+  width_boost_drop_percent: number;
+  transition_time_sec: number;
+}
 
 export interface EQAdjustment {
   frequency: number;
@@ -58,6 +70,9 @@ export interface MasteringParams {
   exciter_amount: number;         // 0.0–0.2  高域倍音付加量
   low_contour_amount: number;     // 0.0–1.0  Pultec式 低域処理量
   width_amount: number;           // 1.0–1.5  ステレオ幅
+
+  // --- Dynamic Automation (Macro-Dynamics) ---
+  dynamic_automation?: DynamicAutomation;
 
   // --- Target Logic (アルゴリズムが強制する目標値) ---
   target_lufs?: number;           // 目標音圧 (例: -8.0 LUFS)

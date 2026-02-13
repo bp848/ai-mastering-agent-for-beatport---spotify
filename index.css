@@ -6,43 +6,35 @@
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* 納品仕様: HANDOFF_SPEC デザイントークン準拠。.dark クラスは不使用、:root で直接ダーク値を設定 */
+  /* Hardware Legacy Design System — Premium Carbon Edition */
   color-scheme: dark;
-  --background: 220 20% 7%;
+  --background: 220 25% 4%;     /* Deeper Carbon Black */
   --foreground: 180 10% 92%;
-  --card: 220 18% 10%;
+  --card: 220 20% 6%;           /* Solid Chassis Black */
   --card-foreground: 180 10% 92%;
-  --popover: 220 18% 10%;
+  --popover: 220 20% 6%;
   --popover-foreground: 180 10% 92%;
-  --primary: 180 100% 50%;
-  --primary-foreground: 220 20% 7%;
-  --secondary: 220 15% 15%;
+  --primary: 180 100% 50%;      /* Pioneer/CDJ Cyan */
+  --primary-foreground: 220 25% 4%;
+  --secondary: 220 15% 12%;     /* Metallic Grey */
   --secondary-foreground: 180 10% 85%;
-  --muted: 220 15% 13%;
+  --muted: 220 15% 10%;
   --muted-foreground: 220 10% 55%;
   --accent: 180 100% 50%;
-  --accent-foreground: 220 20% 7%;
+  --accent-foreground: 220 25% 4%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 220 15% 18%;
-  --input: 220 15% 18%;
+  --border: 220 15% 15%;        /* Panel Gap color */
+  --input: 220 15% 15%;
   --ring: 180 100% 50%;
-  --radius: 0.625rem;
+  --radius: 0.5rem;             /* Sharper hardware corners */
   --success: 142 76% 46%;
-  --warning: 38 92% 50%;
-  /* legacy aliases (for existing class names / JS) */
-  --bg-deep: hsl(var(--background));
-  --bg-card: hsl(var(--card));
-  --accent-dim: hsl(180 100% 50% / 0.15);
-  --accent-glow: hsl(180 100% 50% / 0.25);
-  --border-subtle: hsl(var(--border));
-  --text-primary: hsl(var(--foreground));
-  --text-muted: hsl(var(--muted-foreground));
-  --text-secondary: hsl(var(--muted-foreground));
-  --text-tiny: 0.6875rem;
-  --text-caption: 0.8125rem;
-  --text-body: 0.9375rem;
-  --text-lead: 1.0625rem;
+  --warning: 38 92% 50%;        /* Analog Warning Orange */
+  
+  /* Brand Constants */
+  --hardware-hairline: rgba(255, 255, 255, 0.03);
+  --pioneer-orange: 38 92% 50%;
+  --technics-silver: 220 10% 60%;
 }
 
 * {
@@ -282,4 +274,61 @@ code, pre, .font-mono, [class*="tabular-nums"] {
 @keyframes scanline-scroll {
   0%   { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
+}
+
+/* ── Hardware Surface (Brushed Metal / Hairline) ── */
+.hardware-chassis {
+  background-color: hsl(var(--card));
+  background-image: 
+    linear-gradient(90deg, transparent 50%, var(--hardware-hairline) 50.5%),
+    linear-gradient(rgba(255,255,255,0.01) 1px, transparent 1px);
+  background-size: 2px 100%, 100% 4px;
+}
+
+.hardware-panel {
+  background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--background)));
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-left: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 
+    inset 0 1px 0 rgba(255,255,255,0.02),
+    0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* ── LED & OLED Glow Utilities ── */
+.led-cyan {
+  color: hsl(180 100% 50%);
+  text-shadow: 0 0 8px hsl(180 100% 50% / 0.8), 0 0 20px hsl(180 100% 50% / 0.3);
+}
+
+.led-orange {
+  color: hsl(var(--warning));
+  text-shadow: 0 0 8px hsl(var(--warning) / 0.8), 0 0 20px hsl(var(--warning) / 0.3);
+}
+
+.glow-panel {
+  box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(34, 211, 238, 0.03);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+}
+
+/* ── LCD / VFD Metric Displays ── */
+.lcd-screen {
+  font-family: 'JetBrains Mono', monospace;
+  background: #050a0a;
+  border: 2px solid #1a1a1a;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+  padding: 0.5rem;
+  color: #00f2f2;
+}
+
+.lcd-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em;
+}
+
+/* ── Hardware Knobs & Rotary (Visual only) ── */
+.knob-marker {
+  width: 2px;
+  height: 6px;
+  background: var(--primary);
+  box-shadow: 0 0 5px var(--primary);
 }

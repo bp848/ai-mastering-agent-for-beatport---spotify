@@ -85,18 +85,20 @@ export default function ReferenceHero({
           </div>
         </div>
 
-        {/* Headline - 参照どおり */}
+        {/* Headline - Legacy Hardware Context */}
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            {ja ? 'あなたの曲を' : 'Your track.'}
+          <h2 className="mb-2 text-xs font-bold tracking-[0.3em] uppercase text-primary/80">
+            {t('brand.hardware.spirit')}
+          </h2>
+          <h1 className="text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground md:text-5xl lg:text-6xl">
+            {ja ? 'あなたの曲に、' : 'Master your track with'}
             <br />
-            <span className="text-primary">{ja ? 'チャート上位の音圧' : 'Chart-ready loudness'}</span>
-            {ja ? 'に仕上げる' : '.'}
+            <span className="text-primary italic">{ja ? '日本の音響の執念' : 'Japanese Precision.'}</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
-            {ja
-              ? 'WAVをアップロードするだけ。AIが配信基準を自動解析し、配信・YouTube・DJプレイに最適化されたマスタリングを30秒で完了。'
-              : 'Just upload WAV. AI analyzes to spec and delivers mastering optimized for streaming, YouTube and DJ in 30 seconds.'}
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-base font-medium text-muted-foreground md:text-lg">
+            {t('brand.hardware.trust')}
+            <br className="hidden md:block" />
+            <span className="text-foreground/90">{t('brand.hardware.mission')}</span>
           </p>
           <div className="mx-auto mt-4 flex flex-wrap items-center justify-center gap-2">
             {tags.map((tag) => (
@@ -107,21 +109,19 @@ export default function ReferenceHero({
           </div>
         </div>
 
-        {/* Stats row - 参照どおり */}
-        <div className="mx-auto mt-8 flex max-w-lg items-center justify-center gap-6 md:gap-10">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-foreground md:text-3xl">4,700+</div>
-            <div className="text-xs text-muted-foreground">{ja ? '曲を処理済み' : 'tracks processed'}</div>
+        {/* Stats row - LCD Style */}
+        <div className="mx-auto mt-10 flex max-w-2xl items-center justify-center gap-4 md:gap-8">
+          <div className="lcd-screen flex-1 text-center">
+            <div className="lcd-value text-2xl font-bold md:text-3xl">4,700+</div>
+            <div className="text-[10px] uppercase tracking-wider text-primary/60">{ja ? '処理済み' : 'processed'}</div>
           </div>
-          <div className="h-8 w-px bg-border" />
-          <div className="text-center">
-            <div className="text-2xl font-bold text-foreground md:text-3xl">30秒</div>
-            <div className="text-xs text-muted-foreground">{ja ? '処理時間' : 'processing'}</div>
+          <div className="lcd-screen flex-1 text-center border-primary/30">
+            <div className="lcd-value text-2xl font-bold md:text-3xl">30 SEC</div>
+            <div className="text-[10px] uppercase tracking-wider text-primary/60">{ja ? '平均処理' : 'average'}</div>
           </div>
-          <div className="h-8 w-px bg-border" />
-          <div className="text-center">
-            <div className="text-2xl font-bold text-foreground md:text-3xl">0円</div>
-            <div className="text-xs text-muted-foreground">{ja ? '初回無料' : 'first free'}</div>
+          <div className="lcd-screen flex-1 text-center">
+            <div className="lcd-value text-2xl font-bold md:text-3xl">MADE IN</div>
+            <div className="text-[10px] uppercase tracking-wider text-primary/60">TOKYO, JP</div>
           </div>
         </div>
 
@@ -135,13 +135,12 @@ export default function ReferenceHero({
             onDrop={handleDrop}
             onClick={handleZoneClick}
             onKeyDown={(e) => { if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleZoneClick(); } }}
-            className={`group cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-all md:p-12 ${isDisabled ? 'opacity-70 cursor-not-allowed' : ''} ${
-              isDragging
-                ? 'border-primary bg-primary/15 shadow-[0_0_30px_hsl(180_100%_50%/0.2)]'
-                : fileName
-                  ? 'border-primary/60 bg-primary/10 shadow-[0_0_20px_hsl(180_100%_50%/0.1)]'
-                  : 'border-primary/40 bg-primary/5 shadow-[0_0_15px_hsl(180_100%_50%/0.08)] hover:border-primary/70 hover:bg-primary/10 hover:shadow-[0_0_25px_hsl(180_100%_50%/0.15)]'
-            }`}
+            className={`group hardware-chassis relative cursor-pointer rounded-xl border p-12 text-center transition-all md:p-14 ${isDisabled ? 'opacity-70 cursor-not-allowed' : ''} ${isDragging
+              ? 'border-primary shadow-[0_0_50px_hsl(180_100%_50%/0.3)]'
+              : fileName
+                ? 'border-primary/60 shadow-[0_0_30px_hsl(180_100%_50%/0.15)]'
+                : 'border-white/10 shadow-2xl hover:border-primary/50'
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -221,16 +220,17 @@ export default function ReferenceHero({
             )}
           </button>
 
-          {/* Trust signals - 参照どおり */}
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3.5 w-3.5 rounded border border-current" aria-hidden />
-              {ja ? '登録不要' : 'No signup'}
-            </span>
-            <span>|</span>
-            <span>{ja ? 'クレジットカード不要' : 'No card required'}</span>
-            <span>|</span>
-            <span>{ja ? 'すぐに聴ける' : 'Listen instantly'}</span>
+          {/* Trust signals - Hardware Lineage */}
+          <div className="mt-6 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-3">
+              Inspired by the lineage of legends
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-6 opacity-40 grayscale transition-opacity hover:opacity-70">
+              <span className="text-sm font-black tracking-tighter">Pioneer DJ</span>
+              <span className="text-sm font-black tracking-tighter">Technics</span>
+              <span className="text-sm font-black tracking-tighter">Roland</span>
+              <span className="text-sm font-black tracking-tighter">KORG</span>
+            </div>
           </div>
         </div>
 

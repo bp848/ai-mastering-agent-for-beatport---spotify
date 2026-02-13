@@ -21,6 +21,7 @@ function getInitialLanguage(): LanguageCode {
 
 const ja = {
   "header.title": "Dance Music Mastering AI",
+  "header.tagline": "30 Years of Mastery | Engineered in Tokyo",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "音源アップロード",
   "section.step2.title": "Beatport/Spotify 配信基準分析",
@@ -105,7 +106,7 @@ const ja = {
   "nav.pricing": "料金",
   "nav.login": "ログイン",
   "pricing.title": "料金プラン",
-  "pricing.free_preview_cta": "無料でプレビュー。聴いて気に入ったら購入してください。",
+  "pricing.free_preview_cta": "無料プレビュー。30年の感性を移植したAIの音を聴いて、気に入ったら購入してください。",
   "pricing.coming_soon": "準備中です。",
   "nav.library": "ライブラリ",
   "nav.checklist": "チェック",
@@ -130,32 +131,37 @@ const ja = {
   "mypage.sign_in_required_description": "ログインすると、マスタリング履歴の閲覧やダウンロードが可能になります。",
   "mypage.download_history": "マスタリング履歴",
   "mypage.no_history": "まだ履歴がありません",
-  "flow.preview_no_login": "ログイン不要でプレビューまで聴けます。気に入ったらダウンロードのときだけログイン。",
+  "flow.preview_no_login": "30年のエンジニア人生を賭けたフルスキャンAI。ログイン不要でプレビューまで聴けます。",
   "flow.download_gate_after_listen": "すでにプレビューで音は聴けました。気に入ったらログインしてWAVをダウンロード。",
-  "flow.preview_then_download": "まず再生で聴いてみて。気に入ったら下のボタンでマスタリングデータを購入（1曲1,000円・ログイン必要）。",
+  "flow.preview_then_download": "まず再生で聴いてみて。気に入ったらマスタリングデータを購入（1曲4,000円・ログイン必要）。",
   "flow.complete_teaser": "ログインなしでプレビューまで聴けます。気に入ったら購入してWAVを取得。",
   "result.retry.title": "リトライする",
   "result.retry.problems": "音が割れている。音が曇っている。音がひずんでいる。音に力がない。音が細い。すべてやり直せ。",
   "result.retry.free": "再度マスタリングを実行（無料）",
-  "result.purchase_cta": "購入してマイページでダウンロード（1000円）",
-  "result.purchase_cta_aria": "マスタリング音源を1,000円で購入。マイページで7日間ダウンロード可能（ログインが必要）",
+  "result.purchase_cta": "購入してマイページでダウンロード（4000円）",
+  "result.purchase_cta_aria": "マスタリング音源を4,000円で購入。マイページで7日間ダウンロード可能（ログインが必要）",
   "flow.post_login_banner": "ログインしました。マスタリング画面でもう一度プレビューしてダウンロードできます。",
   "flow.post_login_cta": "マスタリングへ",
   "mypage.cta_master_again": "もう1曲マスタリングする",
   "campaign.banner": "今だけ1曲無料キャンペーン中（おひとり様1回限り）",
   "campaign.pricing_lead": "今なら1曲無料キャンペーン実施中。Basic 1曲からご購入いただけます。",
-  "paywall.campaign_note": "今なら1曲無料キャンペーン実施中。料金ページで Basic（1曲・¥1,000）をご選択ください。",
+  "paywall.campaign_note": "今なら1曲無料キャンペーン実施中。料金ページで Premium（1曲・¥4,000）をご選択ください。",
   "pricing.checkout_redirecting": "決済ページへ移動中… 切り替わらない場合はポップアップを許可してください",
   "pricing.sign_in_hint": "※ クリックでGoogleログイン画面が開きます",
   "pricing.checkout_failed": "決済の開始に失敗しました。しばらくして再度お試しください。",
   "ux.leave_while_processing": "処理中です。離脱すると結果が失われます。よろしいですか？",
-  "campaign.youtube.title": "YouTubeでBefore/Afterをアップしてくれたら30曲無料",
-  "campaign.youtube.lead": "本サービスのBefore/AfterをYouTubeで紹介してくださった方に、30曲分のダウンロード権をプレゼント。",
-  "campaign.youtube.cta": "応募・お問い合わせ"
+  "campaign.youtube.cta": "応募・お問い合わせ",
+  "brand.hardware.spirit": "The Spirit of Japanese Audio.",
+  "brand.hardware.lineage": "From the Booth to the Cloud.",
+  "brand.hardware.trust": "あなたはCDJを信頼している。Technicsを、Rolandを信頼している。では、マスタリングだけ出所不明のアルゴリズムに任せますか？",
+  "brand.hardware.mission": "私たちは、あの機材たちが伝説となった理由である「日本の精密さ・音への執念」をAIマスタリングに持ち込みました。",
+  "brand.dynamic.title": "Living Breathing Mastering",
+  "brand.dynamic.desc": "他社のAIは、曲を「静止画」として処理します。私たちは「動画」として処理します。ドロップの衝撃を最大化するために、AIがフェーダーを動的に操作します。",
 };
 
 const en = {
   "header.title": "Dance Music Mastering AI",
+  "header.tagline": "30 Years of Mastery | Engineered in Tokyo",
   "footer.copyright": "ALGORITHM MUSIC TOKYO © {year}",
   "section.step1.title": "Upload Track",
   "section.step2.title": "Distribution Standards Analysis",
@@ -240,7 +246,7 @@ const en = {
   "nav.pricing": "Pricing",
   "nav.login": "Login",
   "pricing.title": "Pricing Plans",
-  "pricing.free_preview_cta": "Free preview. Listen, and if you like it, purchase.",
+  "pricing.free_preview_cta": "Free preview. Hear the AI that digitizes 30 years of mastery. If you like it, purchase.",
   "pricing.coming_soon": "Coming soon.",
   "nav.library": "Library",
   "nav.checklist": "Check",
@@ -265,28 +271,32 @@ const en = {
   "mypage.sign_in_required_description": "Sign in to view your mastering history and access downloads.",
   "mypage.download_history": "Mastering History",
   "mypage.no_history": "No history yet",
-  "flow.preview_no_login": "No sign-in needed to listen to the full preview. Like it? Sign in only when you download.",
+  "flow.preview_no_login": "Mastered by 30 years of experience. No sign-in needed to listen to the full preview.",
   "flow.download_gate_after_listen": "You've already heard the preview. Like it? Sign in to download the WAV.",
-  "flow.preview_then_download": "Play and listen first. Like it? Purchase mastering data (¥1,000/track, sign-in required).",
+  "flow.preview_then_download": "Play and listen first. Like it? Purchase mastering data (¥4,000/track, sign-in required).",
   "flow.complete_teaser": "Preview with no sign-in. Like it? Purchase to get the WAV.",
   "result.retry.title": "Retry",
   "result.retry.problems": "Clipping, muddy, distorted, no punch, thin? Run it again.",
   "result.retry.free": "Re-run mastering (free)",
-  "result.purchase_cta": "Purchase → Download from My Page (¥1,000)",
-  "result.purchase_cta_aria": "Purchase mastered file for ¥1,000. Download from My Page within 7 days (sign-in required)",
+  "result.purchase_cta": "Purchase → Download from My Page (¥4,000)",
+  "result.purchase_cta_aria": "Purchase mastered file for ¥4,000. Download from My Page within 7 days (sign-in required)",
   "flow.post_login_banner": "You're signed in. Go to Mastering to preview again and download.",
   "flow.post_login_cta": "Go to Mastering",
   "mypage.cta_master_again": "Master another track",
   "campaign.banner": "Limited time: 1 track free (one per person)",
   "campaign.pricing_lead": "1 track free campaign now. Start with Basic (1 track).",
-  "paywall.campaign_note": "1 track free campaign. Select Basic (1 track, ¥1,000) on the pricing page.",
+  "paywall.campaign_note": "1 track free campaign. Select Premium (1 track, ¥4,000) on the pricing page.",
   "pricing.checkout_redirecting": "Redirecting to checkout… Allow pop-ups if the page doesn't change",
   "pricing.sign_in_hint": "Click to open Google sign-in",
   "pricing.checkout_failed": "Could not start checkout. Please try again later.",
   "ux.leave_while_processing": "Processing in progress. Leave anyway? Progress will be lost.",
-  "campaign.youtube.title": "30 tracks free — upload Before/After to YouTube",
-  "campaign.youtube.lead": "We'll gift 30 download credits to anyone who shares a Before/After of this service on YouTube.",
-  "campaign.youtube.cta": "Apply / Contact"
+  "campaign.youtube.cta": "Apply / Contact",
+  "brand.hardware.spirit": "The Spirit of Japanese Audio.",
+  "brand.hardware.lineage": "From the Booth to the Cloud.",
+  "brand.hardware.trust": "You trust your CDJs. You trust your Technics. You trust your Roland synths. Why trust your mastering to a random algorithm?",
+  "brand.hardware.mission": "We bring the same Japanese precision, durability, and obsession with sound quality to AI mastering.",
+  "brand.dynamic.title": "Living Breathing Mastering",
+  "brand.dynamic.desc": "Other AIs treat your track as a static image. We treat it as a moving experience. The AI dynamically rides the faders to maximize the impact of your drop.",
 };
 
 const translations: Record<Language, Record<string, string>> = { ja, en };
@@ -304,9 +314,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   const t = useCallback((key: string, options?: { replacements?: Record<string, string | number>, default?: string }) => {
     let translation = translations[language][key] || options?.default || key;
     if (options?.replacements) {
-        Object.entries(options.replacements).forEach(([key, value]) => {
-            translation = translation.replace(`{${key}}`, String(value));
-        });
+      Object.entries(options.replacements).forEach(([key, value]) => {
+        translation = translation.replace(`{${key}}`, String(value));
+      });
     }
     return translation;
   }, [language]);

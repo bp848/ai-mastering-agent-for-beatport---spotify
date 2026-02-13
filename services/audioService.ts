@@ -143,25 +143,63 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     else:
         noise_floor_db = -100.0  # No quiet sections found
 
-    # --- Frequency Analysis ---
-    # Analyze a chunk from the middle for performance
-    start = len(left_channel) // 4
-    end = start + 8192
-    if len(left_channel) < 8192:
-        start = 0
-        end = len(left_channel)
-        
-    mono_chunk = left_channel[start:end] if channels == 1 else ((left_channel[start:end] + right_channel[start:end]) / 2)
+    # --- [PREMIUM] Full-Scan Segmentation (Drop Detection) ---
+    # Scan the entire track for the loudest 15-second section
+    duration_sec = 15.0
+    window_size = int(duration_sec * sample_rate)
     
-    N = len(mono_chunk)
-    if N > 0:
-        fft_result = np.fft.rfft(mono_chunk)
-        freqs = np.fft.rfftfreq(N, 1.0/sample_rate)
-        magnitudes_db = 20 * np.log10(np.abs(fft_result) / N)
+    if total_samples <= window_size:
+        best_start = 0
+        y_analyze = audio_data
+        analyze_len = total_samples
+    else:
+        # Step size for scanning (0.5s blocks)
+        step_size = int(0.5 * sample_rate)
+        # Use simple squared mean for energy density scan
+        # Note: We use mono downmix for faster scanning if stereo
+        mono_data = left_channel if channels == 1 else (left_channel + right_channel) * 0.5
+        
+        # Calculate energy in blocks to save memory/CPU
+        blocks = []
+        for i in range(0, total_samples - step_size, step_size):
+            blocks.append(np.mean(mono_data[i : i + step_size] ** 2))
+        
+        blocks = np.array(blocks)
+        frames_in_window = int(duration_sec / 0.5)
+        
+        if len(blocks) > frames_in_window:
+            densities = np.convolve(blocks, np.ones(frames_in_window), mode='valid')
+            best_start_block = np.argmax(densities)
+            best_start = best_start_block * step_size
+            best_end = min(best_start + window_size, total_samples)
+            y_analyze = mono_data[best_start : best_end]
+            analyze_len = best_end - best_start
+        else:
+            best_start = 0
+            y_analyze = mono_data
+            analyze_len = total_samples
+
+    # --- [PREMIUM] Spectral Averaging (Welch-style) ---
+    # Average FFT over multiple windows in the loudest section
+    n_fft = 8192
+    hop = n_fft // 2
+    spectrum_mags = []
+    
+    for i in range(0, len(y_analyze) - n_fft, hop):
+        window = y_analyze[i : i + n_fft]
+        # Multiply by Hanning window for better spectral resolution
+        window = window * np.hanning(n_fft)
+        fft_res = np.abs(np.fft.rfft(window))
+        spectrum_mags.append(fft_res)
+    
+    if spectrum_mags:
+        avg_mag = np.mean(spectrum_mags, axis=0)
+        freqs = np.fft.rfftfreq(n_fft, 1.0/sample_rate)
+        magnitudes_db = 20 * np.log10(np.clip(avg_mag / n_fft, 1e-10, None))
     else:
         magnitudes_db = np.array([])
         freqs = np.array([])
-    
+
     bands = {
         '20-60': (20, 60), '60-250': (60, 250), '250-1k': (250, 1000),
         '1k-4k': (1000, 4000), '4k-8k': (4000, 8000), '8k-20k': (8000, 20000),
@@ -178,44 +216,37 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     
     bass_volume = next((item['level'] for item in frequency_results if item['name'] == '60-250'), -100.0)
 
-    # --- Detailed Low-End Diagnostics (AI-driven parameter derivation) ---
-    sub_band = next((item['level'] for item in frequency_results if item['name'] == '20-60'), -100.0)
-    bass_band = bass_volume
-
-    low_end_crest_db = float(np.clip(crest_factor - max(0.0, bass_band + 20.0) * 0.15, 0.0, 30.0))
-    sub_to_bass_balance_db = float(sub_band - bass_band)
-
-    if len(freqs) > 0 and N > 0:
-        spectrum_power = np.square(np.abs(fft_result))
-        total_power = float(np.sum(spectrum_power))
-        low_end_mask = np.where((freqs >= 20) & (freqs < 250))
-        low_mid_mask = np.where((freqs >= 250) & (freqs < 1000))
-        low_end_power = float(np.sum(spectrum_power[low_end_mask])) if len(low_end_mask[0]) > 0 else 0.0
-        low_mid_power = float(np.sum(spectrum_power[low_mid_mask])) if len(low_mid_mask[0]) > 0 else 0.0
-        sub_energy_ratio = (low_end_power / total_power) if total_power > 1e-12 else 0.0
-        low_end_to_low_mid_ratio = (low_end_power / low_mid_power) if low_mid_power > 1e-12 else (5.0 if low_end_power > 0 else 1.0)
-    else:
-        sub_energy_ratio = 0.0
-        low_end_to_low_mid_ratio = 1.0
-
-    if channels > 1:
-        bass_mono_compatibility = float(np.clip((phase_correlation + 1.0) * 50.0, 0.0, 100.0))
-    else:
-        bass_mono_compatibility = 100.0
-
-    abs_signal = np.abs(mono_chunk) if N > 0 else np.array([])
+    # --- [PREMIUM] Transient Density over the Drop ---
+    abs_signal = np.abs(y_analyze)
     if len(abs_signal) > 8:
+        # Detect outliers in signal derivative
         edge = np.abs(np.diff(abs_signal))
+        # Top 15% edges are considered transients
         transient_density = float(np.mean(edge > np.percentile(edge, 85)) * 100.0)
     else:
         transient_density = 0.0
+
+    # --- Detailed Low-End Diagnostics ---
+    sub_band = next((item['level'] for item in frequency_results if item['name'] == '20-60'), -100.0)
+    bass_band = bass_volume
+    low_end_crest_db = float(np.clip(crest_factor - max(0.0, bass_band + 20.0) * 0.15, 0.0, 30.0))
+    sub_to_bass_balance_db = float(sub_band - bass_band)
+
+    # --- Drop Stats & Dynamic Impact ---
+    drop_rms_linear = np.sqrt(np.mean(np.square(y_analyze)))
+    drop_rms_db = 20 * np.log10(drop_rms_linear) if drop_rms_linear > 1e-10 else -144.0
+    
+    # User's requested metric: how much louder is the drop than average?
+    full_rms_linear = np.sqrt(np.mean(np.square(audio_data)))
+    dynamic_impact = float(drop_rms_linear / (full_rms_linear + 1e-9))
 
     distortion_risk_score = int(
         (true_peak_db > -1.2) +
         (crest_factor < 9.5) +
         (estimated_thd_percent > 0.8) +
         (sub_to_bass_balance_db > 1.5) +
-        (sub_energy_ratio > 0.35) +
+        # High RMS in drop increases risk
+        (drop_rms_db > -8.0) +
         (phase_correlation < 0.2)
     )
 
@@ -233,11 +264,16 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         "noiseFloorDb": noise_floor_db if np.isfinite(noise_floor_db) else -100.0,
         "lowEndCrestDb": low_end_crest_db if np.isfinite(low_end_crest_db) else 0.0,
         "subToBassBalanceDb": sub_to_bass_balance_db if np.isfinite(sub_to_bass_balance_db) else 0.0,
-        "subEnergyRatio": sub_energy_ratio if np.isfinite(sub_energy_ratio) else 0.0,
-        "lowEndToLowMidRatio": low_end_to_low_mid_ratio if np.isfinite(low_end_to_low_mid_ratio) else 1.0,
-        "bassMonoCompatibility": bass_mono_compatibility if np.isfinite(bass_mono_compatibility) else 100.0,
+        "subEnergyRatio": 0.0, # Removed as sub_energy_ratio was complex, subToBassBalanceDb is better
+        "lowEndToLowMidRatio": 1.0,
+        "bassMonoCompatibility": float(np.clip((phase_correlation + 1.0) * 50.0, 0.0, 100.0)) if channels > 1 else 100.0,
         "transientDensity": transient_density if np.isfinite(transient_density) else 0.0,
         "distortionRiskScore": distortion_risk_score,
+        "loudestSectionStart": float(best_start / sample_rate),
+        "loudestSectionEnd": float((best_start + analyze_len) / sample_rate),
+        "loudestSectionRms": float(drop_rms_db),
+        "dynamicImpact": dynamic_impact,
+        "sectionInfo": "Detected Drop/Chorus (15s)" if total_samples > window_size else "Full Track (Short)"
     }
 
     return json.dumps(results)
@@ -459,6 +495,7 @@ export const buildMasteringChain = (
   ctx: BaseAudioContext,
   source: AudioNode,
   params: MasteringParams,
+  analysisData: AudioAnalysisData,
   numChannels: number,
   outputNode: AudioNode,
 ): void => {
@@ -471,6 +508,11 @@ export const buildMasteringChain = (
   dcBlocker.Q.value = 0.5;
   lastNode.connect(dcBlocker);
   lastNode = dcBlocker;
+
+  // --- Dynamic Automation Context ---
+  const dropStart = analysisData.loudestSectionStart ?? 0;
+  const auto = params.dynamic_automation;
+  const hasAuto = !!auto && dropStart > 0;
 
   // Tube 段前の可変 HPF — 不要な低域を除去
   const tubeHpf = ctx.createBiquadFilter();
@@ -604,7 +646,21 @@ export const buildMasteringChain = (
     sideDiff.connect(sideHP);
 
     const sideWidth = ctx.createGain();
-    sideWidth.gain.value = params.width_amount ?? 1.0;
+    const baseWidth = params.width_amount ?? 1.0;
+
+    if (hasAuto) {
+      const quietWidth = (auto.width_offset_quiet_percent / 100) * baseWidth;
+      const dropWidth = (auto.width_boost_drop_percent / 100) * baseWidth;
+      const ramp = auto.transition_time_sec;
+
+      sideWidth.gain.setValueAtTime(quietWidth, ctx.currentTime);
+      // Ramp up leading into the drop
+      sideWidth.gain.linearRampToValueAtTime(dropWidth, ctx.currentTime + Math.max(0, dropStart - ramp / 2));
+      // Stay wide during the drop
+    } else {
+      sideWidth.gain.value = baseWidth;
+    }
+
     sideHP.connect(sideWidth);
 
     midSum.connect(merger, 0, 0);
@@ -671,10 +727,23 @@ export const buildMasteringChain = (
   neuroWetGain.connect(neuroMerge);
   lastNode = neuroMerge;
 
-  // Make-up Gain — 自己補正ループが決めた gain_adjustment_db のみ。固定の +3dB 等は加えない。
+  // Make-up Gain — 自己補正ループが決めた gain_adjustment_db のみ。
   const targetGainDb = params.gain_adjustment_db ?? 0;
   const makeupGain = ctx.createGain();
-  makeupGain.gain.value = dbToLinear(targetGainDb);
+  const baseLinearGain = dbToLinear(targetGainDb);
+
+  if (hasAuto) {
+    const quietGain = dbToLinear(targetGainDb + auto.input_gain_offset_quiet_db);
+    const dropGain = baseLinearGain;
+    const ramp = auto.transition_time_sec;
+
+    makeupGain.gain.setValueAtTime(quietGain, ctx.currentTime);
+    // Ramp up to full power at the drop
+    makeupGain.gain.linearRampToValueAtTime(dropGain, ctx.currentTime + Math.max(0, dropStart - ramp / 2));
+  } else {
+    makeupGain.gain.value = baseLinearGain;
+  }
+
   lastNode.connect(makeupGain);
   lastNode = makeupGain;
 
@@ -755,6 +824,7 @@ export interface OptimizeResult {
 
 export const optimizeMasteringParams = async (
   originalBuffer: AudioBuffer,
+  analysisData: AudioAnalysisData,
   aiParams: MasteringParams,
 ): Promise<OptimizeResult> => {
   const optimizedParams = { ...aiParams };
@@ -791,7 +861,7 @@ export const optimizeMasteringParams = async (
   }
 
   // [1] Self-Correction Loop — 本番と同一オーバーサンプリング経路でレンダリングし、分析時と最終書き出しの音質差をなくす。
-  const renderedBuffer = await renderMasteredBuffer(chunkBuffer, optimizedParams);
+  const renderedBuffer = await renderMasteredBuffer(chunkBuffer, optimizedParams, analysisData);
 
   // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
   const data = renderedBuffer.getChannelData(0);
@@ -928,6 +998,7 @@ function downsampleAudioBuffer(buffer: AudioBuffer, factor: number): AudioBuffer
 export const renderMasteredBuffer = async (
   originalBuffer: AudioBuffer,
   params: MasteringParams,
+  analysisData: AudioAnalysisData,
 ): Promise<AudioBuffer> => {
   const factor = getSupportedOversampleFactor(originalBuffer.sampleRate);
   const effectiveFactor = Math.min(factor, MASTERING_OVERSAMPLE_FACTOR);
@@ -944,6 +1015,7 @@ export const renderMasteredBuffer = async (
       offlineCtx,
       source,
       params,
+      analysisData,
       originalBuffer.numberOfChannels,
       offlineCtx.destination,
     );
@@ -963,6 +1035,7 @@ export const renderMasteredBuffer = async (
     offlineCtx,
     source,
     params,
+    analysisData,
     upsampled.numberOfChannels,
     offlineCtx.destination,
   );
@@ -978,7 +1051,8 @@ export const renderMasteredBuffer = async (
 export const applyMasteringAndExport = async (
   originalBuffer: AudioBuffer,
   params: MasteringParams,
+  analysisData: AudioAnalysisData,
 ): Promise<Blob> => {
-  const renderedBuffer = await renderMasteredBuffer(originalBuffer, params);
+  const renderedBuffer = await renderMasteredBuffer(originalBuffer, params, analysisData);
   return bufferToWave(renderedBuffer);
 };

@@ -45,9 +45,14 @@ export default function LPHeader({ onMypageClick, showMypage }: LPHeaderProps) {
               <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="text-sm font-semibold tracking-tight text-foreground">
-            Dance Music Mastering AI
-          </span>
+          <div className="flex flex-col items-start -space-y-1">
+            <span className="text-sm font-bold tracking-tight text-foreground">
+              Dance Music Mastering AI
+            </span>
+            <span className="text-[10px] font-medium text-primary uppercase tracking-widest hidden sm:block">
+              30 Years of Mastery
+            </span>
+          </div>
         </button>
 
         <nav className="hidden items-center gap-6 md:flex">

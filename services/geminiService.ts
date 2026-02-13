@@ -19,6 +19,12 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
     low_contour_amount: Number(raw.low_contour_amount) ?? 0,
     // WIDTH: No clamps - respect AI judgment
     width_amount: Number(raw.width_amount) ?? 1,
+    dynamic_automation: raw.dynamic_automation ? {
+      input_gain_offset_quiet_db: Number(raw.dynamic_automation.input_gain_offset_quiet_db) ?? -1.0,
+      width_offset_quiet_percent: Number(raw.dynamic_automation.width_offset_quiet_percent) ?? 100,
+      width_boost_drop_percent: Number(raw.dynamic_automation.width_boost_drop_percent) ?? 115,
+      transition_time_sec: Number(raw.dynamic_automation.transition_time_sec) ?? 1.5,
+    } : undefined
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
   if (raw.tube_hpf_hz != null) safe.tube_hpf_hz = Number(raw.tube_hpf_hz);
@@ -79,11 +85,21 @@ const getMasteringParamsSchema = () => {
       exciter_amount: { type: Type.NUMBER, description: 'High-freq exciter mix.' },
       low_contour_amount: { type: Type.NUMBER, description: 'Pultec sub-bass contour level.' },
       width_amount: { type: Type.NUMBER, description: 'Stereo width multiplier for side signal.' },
+      dynamic_automation: {
+        type: Type.OBJECT,
+        properties: {
+          input_gain_offset_quiet_db: { type: Type.NUMBER, description: 'Input gain offset for quiet sections (e.g. -1.5).' },
+          width_offset_quiet_percent: { type: Type.NUMBER, description: 'Width offset for quiet sections (e.g. 100).' },
+          width_boost_drop_percent: { type: Type.NUMBER, description: 'Width boost for drop (e.g. 115).' },
+          transition_time_sec: { type: Type.NUMBER, description: 'Transition ramp duration (e.g. 1.5).' },
+        },
+        required: ['input_gain_offset_quiet_db', 'width_offset_quiet_percent', 'width_boost_drop_percent', 'transition_time_sec'],
+      },
     },
     required: [
       'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
       'tube_drive_amount', 'exciter_amount', 'low_contour_amount',
-      'width_amount',
+      'width_amount', 'dynamic_automation'
     ],
   };
 }

@@ -1,5 +1,5 @@
-import React from 'react';
 import { Cpu, BarChart3, Headphones, Target, Gauge, Layers } from 'lucide-react';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 const features = [
   { icon: Cpu, title: 'Hybrid-Analog Engine', desc: '真空管サチュレーション + Pultec EQ + Neuro-Drive。AIが最適な組み合わせを自動選択。' },
@@ -11,14 +11,22 @@ const features = [
 ];
 
 export default function FeaturesSection() {
+  const { language, t } = useTranslation();
+  const ja = language === 'ja';
+
   return (
     <section id="features" className="scroll-mt-24 border-t border-border/50 py-16 md:py-20">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="mb-10 text-center">
-          <p className="text-xs font-medium uppercase tracking-widest text-primary">Technology</p>
-          <h2 className="mt-2 text-balance text-2xl font-bold text-foreground md:text-3xl">なぜ配信で通用する音になるのか</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-            物理モデリングとAI解析のハイブリッド。プロのマスタリングエンジニアの判断をアルゴリズムで再現。
+        <div className="mb-12 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary/80">Japanese Audio Precision</p>
+          <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            {ja ? '30年の技術を、伝説の機材のDNAとともに。' : '30 Years of Mastery. The DNA of Legends.'}
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground leading-relaxed">
+            {ja
+              ? 'Roland、Technics、Pioneer。世界を席巻した日本製機材たちが大切にしてきた「音への執念」と「絶対的な信頼」。私たちはその魂をAIという新しい器に移植しました。'
+              : 'The obsession with sound that made Roland, Technics, and Pioneer global icons. We’ve transplanted that same Japanese heritage into a state-of-the-art AI mastering engine.'
+            }
           </p>
         </div>
 
@@ -26,13 +34,13 @@ export default function FeaturesSection() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="rounded-xl border border-border/50 bg-card p-5 transition-all hover:border-primary/30 hover:bg-card/80"
+              className="hardware-panel group rounded-lg border border-white/5 p-6 transition-all hover:border-primary/40 hover:shadow-[0_0_20px_hsl(180_100%_50%/0.1)]"
             >
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <f.icon className="h-5 w-5 text-primary" />
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-primary/20 text-primary shadow-[0_0_15px_hsl(180_100%_50%/0.2)]">
+                <f.icon className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">{f.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+              <h3 className="led-cyan text-sm font-bold tracking-wider uppercase">{f.title}</h3>
+              <p className="mt-2 text-xs leading-loose text-muted-foreground/80">{f.desc}</p>
             </div>
           ))}
         </div>

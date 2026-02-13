@@ -26,11 +26,23 @@ interface PlanCard {
 
 const SHOT_CARDS: PlanCard[] = [
   {
-    name: 'Basic', nameEn: 'Basic',
-    price: 1000, priceLabel: '¥1,000', priceLabelEn: '$7',
+    name: 'Premium', nameEn: 'Premium',
+    price: 4000, priceLabel: '¥4,000', priceLabelEn: '$27',
     tokenCount: 1,
-    features: ['WAV 16bit / 44.1kHz', 'Tube Saturation', 'Neuro-Drive Engine', 'プレビュー無制限'],
-    featuresEn: ['WAV 16bit / 44.1kHz', 'Tube Saturation', 'Neuro-Drive Engine', 'Unlimited previews'],
+    features: [
+      '「全サンプル」精密解析 (Full Scan)',
+      'サビ検出 (Auto Drop Detection)',
+      '24bit / 96kHz High-Res WAV',
+      '詳細診断レポート (PDF) 特典',
+      '全額返金保証 (Money-back)',
+    ],
+    featuresEn: [
+      'Full-Track Deep Scan (100% Analysis)',
+      'Auto Drop/Chorus Detection',
+      '24bit / 96kHz High-Res WAV Support',
+      'Detailed Mastering Report included',
+      'Money-back Guarantee',
+    ],
   },
   {
     name: 'Pro 10', nameEn: 'Pro 10',
@@ -109,11 +121,10 @@ const Card: React.FC<{
   isLoggedIn?: boolean;
   signInLabel?: string;
 }> = ({ plan, isJa, onSelect, loading, isLoggedIn, signInLabel }) => (
-  <div className={`relative flex flex-col rounded-xl p-6 transition-all border ${
-    plan.best
-      ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10 scale-[1.02]'
-      : 'border-border/50 bg-card hover:border-border'
-  }`}>
+  <div className={`relative flex flex-col rounded-xl p-6 transition-all border ${plan.best
+    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10 scale-[1.02]'
+    : 'border-border/50 bg-card hover:border-border'
+    }`}>
     {plan.best && (
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest whitespace-nowrap">
         Best Value
@@ -144,11 +155,10 @@ const Card: React.FC<{
       type="button"
       onClick={() => onSelect(plan)}
       disabled={loading}
-      className={`w-full py-3 rounded-lg font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${
-        plan.best
-          ? 'bg-primary text-primary-foreground hover:brightness-110 shadow-lg shadow-primary/20'
-          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border'
-      }`}
+      className={`w-full py-3 rounded-lg font-bold text-sm transition-all active:scale-[0.98] touch-manipulation disabled:opacity-60 ${plan.best
+        ? 'bg-primary text-primary-foreground hover:brightness-110 shadow-lg shadow-primary/20'
+        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border'
+        }`}
     >
       {loading ? (isJa ? '送信中...' : 'Loading...') : isLoggedIn ? (isJa ? '選択する' : 'Select') : (signInLabel ?? (isJa ? 'ログインして購入' : 'Sign in to purchase'))}
     </button>
@@ -207,127 +217,126 @@ export default function PricingView() {
   return (
     <section className="border-t border-border/50 py-16 md:py-20 animate-fade-up">
       <div className="mx-auto max-w-5xl px-4 space-y-8">
-      {/* ── キャンペーン案内 ── */}
-      <div className="rounded-xl bg-primary/10 border border-primary/30 px-4 py-3 text-center space-y-2">
-        <p className="text-sm font-bold text-primary">
-          {t('campaign.banner')}
-        </p>
-        <p className="text-xs text-primary/90">
-          {t('campaign.pricing_lead')}
-        </p>
-        <p className="text-xs text-warning pt-1 border-t border-border mt-2">
-          {t('campaign.youtube.title')} →{' '}
-          <a
-            href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(isJa ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
-            className="underline font-bold text-amber-300 hover:text-amber-200"
-          >
-            {t('campaign.youtube.cta')}
-          </a>
-        </p>
-      </div>
+        {/* ── キャンペーン案内 ── */}
+        <div className="rounded-xl bg-primary/10 border border-primary/30 px-4 py-3 text-center space-y-2">
+          <p className="text-sm font-bold text-primary">
+            {t('campaign.banner')}
+          </p>
+          <p className="text-xs text-primary/90">
+            {t('campaign.pricing_lead')}
+          </p>
+          <p className="text-xs text-warning pt-1 border-t border-border mt-2">
+            {t('campaign.youtube.title')} →{' '}
+            <a
+              href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(isJa ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
+              className="underline font-bold text-amber-300 hover:text-amber-200"
+            >
+              {t('campaign.youtube.cta')}
+            </a>
+          </p>
+        </div>
 
-      {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
-      <div className="text-center space-y-3">
-        <p className="text-xs font-medium uppercase tracking-widest text-primary">
-          {isJa ? '無料' : 'Free'}
-        </p>
-        <h2 className="text-balance text-xl sm:text-2xl font-bold text-foreground">
-          {t('pricing.title')}
-        </h2>
-        <p className="text-sm sm:text-base text-primary font-medium max-w-lg mx-auto">
-          {t('pricing.free_preview_cta')}
-        </p>
-        <p className="text-xs text-muted-foreground max-w-lg mx-auto">
-          {isJa
-            ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
-            : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
-        </p>
-      </div>
+        {/* ── Header: 無料プレビュー → 気に入ったら購入 ── */}
+        <div className="text-center space-y-3">
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">
+            {isJa ? '無料' : 'Free'}
+          </p>
+          <h2 className="text-balance text-xl sm:text-2xl font-bold text-foreground">
+            {t('pricing.title')}
+          </h2>
+          <p className="text-sm sm:text-base text-primary font-medium max-w-lg mx-auto">
+            {t('pricing.free_preview_cta')}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+            {isJa
+              ? '1曲から購入可能。まとめ買い・月額でさらにお得に。全プランで Hybrid-Analog Engine のフル機能をご利用いただけます。'
+              : 'Purchase from a single track. Save more with bundles and subscriptions. All plans include the full Hybrid-Analog Engine.'}
+          </p>
+        </div>
 
-      {/* ── Tab Switcher ── */}
-      <div className="flex justify-center">
-        <div className="inline-flex rounded-xl bg-secondary border border-border p-1">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                tab === t.id
+        {/* ── Tab Switcher ── */}
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-xl bg-secondary border border-border p-1">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${tab === t.id
                   ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {isJa ? t.label : t.labelEn}
-            </button>
-          ))}
+                  }`}
+              >
+                {isJa ? t.label : t.labelEn}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {(error || (loading && !!session)) && (
-        <div className={`rounded-xl border text-sm p-3 text-center ${error ? 'bg-destructive/10 border-destructive/30 text-destructive' : 'bg-primary/10 border-primary/30 text-primary'}`}>
-          {error || t('pricing.checkout_redirecting')}
-        </div>
-      )}
-      {!session && !loading && (
-        <p className="text-xs text-muted-foreground text-center">
-          {t('pricing.sign_in_hint')}
+        {(error || (loading && !!session)) && (
+          <div className={`rounded-xl border text-sm p-3 text-center ${error ? 'bg-destructive/10 border-destructive/30 text-destructive' : 'bg-primary/10 border-primary/30 text-primary'}`}>
+            {error || t('pricing.checkout_redirecting')}
+          </div>
+        )}
+        {!session && !loading && (
+          <p className="text-xs text-muted-foreground text-center">
+            {t('pricing.sign_in_hint')}
+          </p>
+        )}
+
+        {/* ── Cards Grid ── */}
+        {tab === 'shot' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+            {SHOT_CARDS.map((p) => (
+              <Card
+                key={p.name}
+                plan={p}
+                isJa={isJa}
+                onSelect={handleSelectPlan}
+                loading={loading}
+                isLoggedIn={!!session}
+                signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+              />
+            ))}
+          </div>
+        )}
+        {tab === 'volume' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
+            {SUBSCRIPTION_CARDS.map((p) => (
+              <Card
+                key={p.name}
+                plan={p}
+                isJa={isJa}
+                onSelect={handleSelectPlan}
+                loading={loading}
+                isLoggedIn={!!session}
+                signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+              />
+            ))}
+          </div>
+        )}
+        {tab === 'subscription' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
+            {ENTERPRISE_CARDS.map((p) => (
+              <Card
+                key={p.name}
+                plan={p}
+                isJa={isJa}
+                onSelect={handleSelectPlan}
+                loading={loading}
+                isLoggedIn={!!session}
+                signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ── Note ── */}
+        <p className="text-center text-xs text-muted-foreground/80">
+          {isJa
+            ? '※ 価格はすべて税込表示です。プレビューは全プラン無制限・無料です。'
+            : '※ All prices include tax. Preview is unlimited and free on all plans.'}
         </p>
-      )}
-
-      {/* ── Cards Grid ── */}
-      {tab === 'shot' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-          {SHOT_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
-          ))}
-        </div>
-      )}
-      {tab === 'volume' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
-          {SUBSCRIPTION_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
-          ))}
-        </div>
-      )}
-      {tab === 'subscription' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {ENTERPRISE_CARDS.map((p) => (
-            <Card
-              key={p.name}
-              plan={p}
-              isJa={isJa}
-              onSelect={handleSelectPlan}
-              loading={loading}
-              isLoggedIn={!!session}
-              signInLabel={isJa ? 'ログインして購入' : 'Sign in to purchase'}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ── Note ── */}
-      <p className="text-center text-xs text-muted-foreground/80">
-        {isJa
-          ? '※ 価格はすべて税込表示です。プレビューは全プラン無制限・無料です。'
-          : '※ All prices include tax. Preview is unlimited and free on all plans.'}
-      </p>
       </div>
     </section>
   );
