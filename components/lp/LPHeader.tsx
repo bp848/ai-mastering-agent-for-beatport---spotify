@@ -5,7 +5,6 @@ const navLinks: { label: string; href: string; external?: boolean }[] = [
   { label: '使い方', href: '#how-it-works' },
   { label: '特徴', href: '#features' },
   { label: 'アルゴリズム', href: '#algorithm' },
-  { label: '私とAI', href: '#watashi-to-ai' },
   { label: '率直な感想', href: '/cursor-impressions.html', external: true },
   { label: 'デモ', href: '#before-after' },
   { label: '料金', href: '#pricing' },

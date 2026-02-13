@@ -27,7 +27,6 @@ export default function LPFooter() {
 
         <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
           <button type="button" onClick={() => document.getElementById('algorithm')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="transition-colors hover:text-foreground cursor-pointer bg-transparent border-none p-0 font-inherit text-inherit">アルゴリズム</button>
-          <button type="button" onClick={() => document.getElementById('watashi-to-ai')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="transition-colors hover:text-foreground cursor-pointer bg-transparent border-none p-0 font-inherit text-inherit">私とAI</button>
           <a href="/cursor-impressions.html" className="transition-colors hover:text-foreground">率直な感想</a>
           <button type="button" onClick={scrollToChangelog} className="transition-colors hover:text-foreground cursor-pointer bg-transparent border-none p-0 font-inherit text-inherit" title="改善履歴を見る">改善履歴</button>
           <span className="tabular-nums">v1.0.0</span>

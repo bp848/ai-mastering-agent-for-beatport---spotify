@@ -2,7 +2,7 @@ import React from 'react';
 import { History } from 'lucide-react';
 
 const entries = [
-  { date: '2026-02-13', items: ['ナビ・ロゴのスクロール遷移を修正（ボタン化で確実に動作）', 'アルゴリズムページ追加（仕様・データフロー・2つのAI・業務用適性）', '私とAIページ追加（Cursor が犯した罪の一覧・ナビ・フッターにリンク）', 'キック・ベース歪み対策（詳細診断・evaluateLowEndDistortionRisk）', '努力目標を LUFS -9 / TP -1 に統一', 'WAVダウンロード安定化（遅延 revoke で起動失敗を防止）', 'Neuro-Drive 迫力回復と高音量ノイズガード強化'] },
+  { date: '2026-02-13', items: ['ナビ・ロゴのスクロール遷移を修正（ボタン化で確実に動作）', 'アルゴリズムページ追加（仕様・データフロー・2つのAI・業務用適性）', 'キック・ベース歪み対策（詳細診断・evaluateLowEndDistortionRisk）', '努力目標を LUFS -9 / TP -1 に統一', 'WAVダウンロード安定化（遅延 revoke で起動失敗を防止）', 'Neuro-Drive 迫力回復と高音量ノイズガード強化'] },
   { date: '2026-02', items: ['ダウンロードボタン無反応の修正', '残ダウンロード回数の表示', 'オフラインオーバーサンプリング x32 導入', 'resolveAdaptiveMasteringSettings で固定 DSP を AI パラメータに置換', 'ChangelogSection・GenreNoticeSection 追加'] },
 ];
 
