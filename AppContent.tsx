@@ -304,6 +304,11 @@ export default function AppContent() {
       setIsExporting(true);
       const masteredBlob = await applyMasteringAndExport(audioBuffer, masteringParams);
 
+      if (!masteredBlob || masteredBlob.size === 0) {
+        setError(language === 'ja' ? '書き出しに失敗しました。もう一度お試しください。' : 'Export failed. Please try again.');
+        return;
+      }
+
       const consumeRes = await fetch(`${base}/api/consume-download-token`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } });
       const consumeData = await consumeRes.json().catch(() => ({}));
       if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) {

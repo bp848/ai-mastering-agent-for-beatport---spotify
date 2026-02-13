@@ -1,4 +1,13 @@
-import type { AudioAnalysisData, MasteringTarget } from '../types';
+import type { AudioAnalysisData, MasteringTarget, SegmentAnalysis } from '../types';
+
+/** 100箇所セグメントの検証結果をAI用テキストに整形（省略なし） */
+export const formatSegmentAnalyses = (segments: SegmentAnalysis[]): string => {
+  if (!segments?.length) return '';
+  return segments.map(s => {
+    const bands = (s.frequencyData ?? []).map(f => `${f.name}:${f.level.toFixed(1)}`).join(', ');
+    return `[${s.timeSec}s] LUFS ${s.lufs.toFixed(1)}, TP ${s.truePeak.toFixed(1)}, Crest ${s.crestFactor.toFixed(1)}; Bands: ${bands}`;
+  }).join('\n');
+};
 
 export const getPlatformSpecifics = (target: MasteringTarget) => {
   if (target === 'spotify') {
@@ -19,12 +28,15 @@ export const getPlatformSpecifics = (target: MasteringTarget) => {
 
 export type PlatformSpecifics = ReturnType<typeof getPlatformSpecifics>;
 
-/** 議論レイヤー用に分析データを要約テキストにする */
+/** 議論レイヤー用に分析データを要約テキストにする（5秒置きセグメント含む） */
 export const formatAnalysisSummary = (data: AudioAnalysisData): string => {
   const bands = (data.frequencyData ?? [])
     .map(f => `${f.name}: ${f.level}`)
     .join(', ');
-  return `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
+  const base = `LUFS ${data.lufs?.toFixed(1) ?? '?'}, TruePeak ${data.truePeak?.toFixed(1) ?? '?'}, Crest ${data.crestFactor?.toFixed(1) ?? '?'}, Phase ${data.phaseCorrelation?.toFixed(2) ?? '?'}, Distortion% ${data.distortionPercent?.toFixed(1) ?? '?'}, BassVol ${data.bassVolume?.toFixed(1) ?? '?'}; Bands: ${bands || 'none'}`;
+  const segs = data.segmentAnalyses ?? [];
+  const segments = segs.length ? `\nSegments: ${segs.map(s => `${s.timeSec}s L${s.lufs.toFixed(0)} TP${s.truePeak.toFixed(0)}`).join(', ')}` : '';
+  return base + segments;
 };
 
 /** 初回判断: デュアルペルソナ（トップDJ + Beatport Top10 エンジニア）で定性評価を出力 */
@@ -113,12 +125,16 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
 - TRUE PEAK: ${specifics.targetPeak} dBTP
 - CONTEXT: ${specifics.genreContext}
 
-# CURRENT ANALYSIS
+# CURRENT ANALYSIS (Whole Track)
 - Integrated LUFS: ${data.lufs.toFixed(2)}
 - True Peak: ${data.truePeak.toFixed(2)} dBTP
 - Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10 indicate a compressed mix; Values > 14 indicate a dynamic mix)
 
-# FULL SPECTRUM ANALYSIS (Relative Balance)
+# SEGMENT-BY-SEGMENT VERIFICATION (100 points across the track — use this for decisions, not just the intro)
+The following shows how LUFS, True Peak, Crest, and spectrum vary across 100 analysis points. Do NOT base decisions on the first 2 seconds alone; consider drops, builds, and energy changes throughout.
+${data.segmentAnalyses?.length ? formatSegmentAnalyses(data.segmentAnalyses) : '(No segment data)'}
+
+# FULL SPECTRUM ANALYSIS (Relative Balance, averaged across segments)
 - Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB (target: ~${targetProfile.subBass})
 - Bass (60-250 Hz): ${bass.toFixed(1)} dB (target: ~${targetProfile.bass})
 - Low-mid (250-1k Hz): ${lowMid.toFixed(1)} dB (target: ~${targetProfile.lowMid}) ← MUD/BOXY ZONE
@@ -129,6 +145,7 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
 # RULES (QUALITY OVER VOLUME)
 
 1. GAIN & DYNAMICS (CRITICAL — 繊細に):
+   - **Use SEGMENT-BY-SEGMENT data for decisions.** Do NOT rely on the first 2 seconds alone. Check if later segments (10s, 15s, 20s...) have higher LUFS/peak—if so, the drop/build may need different treatment. Apply gain for the loudest/most critical section, not just the intro.
    - **Apply gain delicately.** Typical range: about +0.5 to +2.5 dB; avoid sudden large moves (e.g. +5 dB). The sweet spot is a subtle balance—aim for it with small adjustments.
    - Calculate the gain that would reach ${specifics.targetLufs} LUFS, then *prefer a more conservative value* if the gap is large (e.g. if raw gain would be +4 dB or more, cap your suggestion at around +2 to +2.5 dB and let the mix breathe).
    - If the Crest Factor is low (< 10), do NOT add much gain; rely on the limiter ceiling. If the mix is dynamic (Crest Factor > 14), you may use slightly more gain—but never at the cost of headroom or that delicate balance. Prioritize hi-fi separation over loudness.

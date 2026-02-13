@@ -65,12 +65,11 @@ describe('triggerBlobDownload', () => {
     expect(appendedElements).toHaveLength(1);
     expect(appendedElements[0]).toMatchObject({ tagName: 'A', download: fileName, rel: 'noopener noreferrer' });
     expect(clickedElements).toHaveLength(1);
-    expect(removedElements).toHaveLength(1);
-    expect(removedElements[0]).toBe(appendedElements[0]);
-
     expect(revokeObjectURLSpy).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(10000);
+    expect(removedElements).toHaveLength(1);
+    expect(removedElements[0]).toBe(appendedElements[0]);
     expect(revokeObjectURLSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -93,5 +92,12 @@ describe('triggerBlobDownload', () => {
 
     expect(capturedEl?.href).toMatch(/^blob:/);
     expect(capturedEl?.download).toBe('out.bin');
+  });
+
+  it('does nothing for empty blob', () => {
+    const blob = new Blob([], { type: 'audio/wav' });
+    triggerBlobDownload(blob, 'empty.wav', fakeDoc);
+    expect(appendedElements).toHaveLength(0);
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
   });
 });

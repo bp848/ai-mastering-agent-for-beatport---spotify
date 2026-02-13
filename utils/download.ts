@@ -8,13 +8,35 @@ export function triggerBlobDownload(
   fileName: string,
   doc: Document = document,
 ): void {
+  if (!blob || blob.size === 0) return;
+  const safeName = (fileName || 'download.wav').replace(/[<>:"/\\|?*]/g, '_').trim() || 'download.wav';
   const url = URL.createObjectURL(blob);
   const a = doc.createElement('a');
   a.href = url;
-  a.download = fileName;
+  a.download = safeName;
   a.rel = 'noopener noreferrer';
+  a.style.cssText = 'position:fixed;left:-9999px;top:0;';
   doc.body.appendChild(a);
-  a.click();
-  doc.body.removeChild(a);
-  globalThis.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  try {
+    if (isIOS) {
+      window.open(url, '_blank');
+    } else {
+      a.click();
+    }
+  } catch {
+    try {
+      const ev = doc.createEvent('MouseEvents');
+      ev.initEvent('click', true, true);
+      a.dispatchEvent(ev);
+    } catch {
+      window.open(url, '_blank');
+    }
+  }
+  globalThis.setTimeout(() => {
+    try {
+      if (a.parentNode) doc.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {}
+  }, 10000);
 }

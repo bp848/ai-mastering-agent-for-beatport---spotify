@@ -124,38 +124,114 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     else:
         noise_floor_db = -100.0  # No quiet sections found
 
-    # --- Frequency Analysis ---
-    # Analyze a chunk from the middle for performance
-    start = len(left_channel) // 4
-    end = start + 8192
-    if len(left_channel) < 8192:
-        start = 0
-        end = len(left_channel)
-        
-    mono_chunk = left_channel[start:end] if channels == 1 else ((left_channel[start:end] + right_channel[start:end]) / 2)
-    
-    N = len(mono_chunk)
-    if N > 0:
-        fft_result = np.fft.rfft(mono_chunk)
-        freqs = np.fft.rfftfreq(N, 1.0/sample_rate)
-        magnitudes_db = 20 * np.log10(np.abs(fft_result) / N)
-    else:
-        magnitudes_db = np.array([])
-        freqs = np.array([])
-    
+    # --- Frequency Analysis: 5秒置きの複数ポイントで検証（最初の2秒だけでなく曲全体の変動を反映）---
     bands = {
         '20-60': (20, 60), '60-250': (60, 250), '250-1k': (250, 1000),
         '1k-4k': (1000, 4000), '4k-8k': (4000, 8000), '8k-20k': (8000, 20000),
     }
+    chunk_samples = 8192
+    num_points = 100  # 100箇所のポイントで検証（最初の2秒だけでなく曲全体を反映）
+    total_duration_sec = len(left_channel) / sample_rate
+    segment_duration_sec = 2.0  # 各ポイントで2秒分を分析
+    segment_samples = int(segment_duration_sec * sample_rate)
+    start_times = np.linspace(0, max(0, total_duration_sec - segment_duration_sec), num_points) if total_duration_sec > segment_duration_sec else np.array([0])
     
-    frequency_results = []
-    for name, (fmin, fmax) in bands.items():
-        if len(freqs) > 0:
-            indices = np.where((freqs >= fmin) & (freqs < fmax))
-            avg_level = np.mean(magnitudes_db[indices]) if len(indices[0]) > 0 else -100.0
+    segment_analyses = []
+    first_fft_result = None
+    first_freqs = np.array([])
+    first_N = 0
+    first_mono_chunk = np.array([])
+    for time_sec in start_times:
+        time_sec = float(time_sec)
+        if time_sec * sample_rate + segment_samples > len(left_channel):
+            break
+        start = int(time_sec * sample_rate)
+        end = start + segment_samples
+        seg_left = left_channel[start:end]
+        if channels > 1:
+            seg_right = right_channel[start:end]
+            seg_audio = np.stack([seg_left, seg_right], axis=1)
         else:
-            avg_level = -100.0
-        frequency_results.append({"name": name, "level": float(avg_level)})
+            seg_audio = seg_left
+        
+        # セグメント LUFS / peak
+        try:
+            min_samples = int(0.4 * sample_rate)
+            seg_lufs = meter.integrated_loudness(seg_audio) if len(seg_audio) >= min_samples else -144.0
+        except Exception:
+            seg_lufs = -144.0
+        seg_peak = np.max(np.abs(seg_audio))
+        seg_peak_db = 20 * np.log10(seg_peak) if seg_peak > 0 else -144.0
+        seg_rms = np.sqrt(np.mean(np.square(seg_audio)))
+        seg_crest = (20 * np.log10(seg_peak / seg_rms)) if seg_rms > 1e-12 else 0.0
+        
+        # セグメント周波数分析（FFT用に8192サンプル使用、中央から取得）
+        fft_start = max(0, (len(seg_left) - chunk_samples) // 2)
+        fft_end = fft_start + min(chunk_samples, len(seg_left) - fft_start)
+        mono_chunk = seg_left[fft_start:fft_end] if channels == 1 else ((seg_left[fft_start:fft_end] + seg_right[fft_start:fft_end]) / 2)
+        N = len(mono_chunk)
+        if N > 0:
+            fft_result = np.fft.rfft(mono_chunk)
+            freqs = np.fft.rfftfreq(N, 1.0/sample_rate)
+            magnitudes_db = 20 * np.log10(np.abs(fft_result) / N)
+            if first_fft_result is None:
+                first_fft_result = fft_result
+                first_freqs = freqs
+                first_N = N
+                first_mono_chunk = mono_chunk
+        else:
+            magnitudes_db = np.array([])
+            freqs = np.array([])
+        
+        seg_freq_results = []
+        for name, (fmin, fmax) in bands.items():
+            if len(freqs) > 0:
+                indices = np.where((freqs >= fmin) & (freqs < fmax))
+                avg_level = np.mean(magnitudes_db[indices]) if len(indices[0]) > 0 else -100.0
+            else:
+                avg_level = -100.0
+            seg_freq_results.append({"name": name, "level": float(avg_level)})
+        
+        segment_analyses.append({
+            "timeSec": round(time_sec, 2),
+            "frequencyData": seg_freq_results,
+            "lufs": float(seg_lufs) if np.isfinite(seg_lufs) else -144.0,
+            "truePeak": float(seg_peak_db) if np.isfinite(seg_peak_db) else -144.0,
+            "crestFactor": float(seg_crest) if np.isfinite(seg_crest) and seg_crest > 0 else 0.0,
+        })
+    
+    # 後方互換: frequencyData は全セグメントの平均
+    if len(segment_analyses) > 0:
+        all_freq = []
+        for name, _ in bands.items():
+            levels = [next((fd["level"] for fd in s["frequencyData"] if fd["name"] == name), -100.0) for s in segment_analyses]
+            avg_level = float(np.mean(levels)) if levels else -100.0
+            all_freq.append({"name": name, "level": avg_level})
+        frequency_results = all_freq
+    else:
+        # フォールバック: 従来どおり len//4 の1点のみ
+        start = len(left_channel) // 4
+        end = start + chunk_samples
+        if len(left_channel) < chunk_samples:
+            start = 0
+            end = len(left_channel)
+        mono_chunk = left_channel[start:end] if channels == 1 else ((left_channel[start:end] + right_channel[start:end]) / 2)
+        N = len(mono_chunk)
+        if N > 0:
+            fft_result = np.fft.rfft(mono_chunk)
+            freqs = np.fft.rfftfreq(N, 1.0/sample_rate)
+            magnitudes_db = 20 * np.log10(np.abs(fft_result) / N)
+        else:
+            magnitudes_db = np.array([])
+            freqs = np.array([])
+        frequency_results = []
+        for name, (fmin, fmax) in bands.items():
+            if len(freqs) > 0:
+                indices = np.where((freqs >= fmin) & (freqs < fmax))
+                avg_level = np.mean(magnitudes_db[indices]) if len(indices[0]) > 0 else -100.0
+            else:
+                avg_level = -100.0
+            frequency_results.append({"name": name, "level": float(avg_level)})
     
     bass_volume = next((item['level'] for item in frequency_results if item['name'] == '60-250'), -100.0)
 
@@ -166,11 +242,16 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     low_end_crest_db = float(np.clip(crest_factor - max(0.0, bass_band + 20.0) * 0.15, 0.0, 30.0))
     sub_to_bass_balance_db = float(sub_band - bass_band)
 
-    if len(freqs) > 0 and N > 0:
-        spectrum_power = np.square(np.abs(fft_result))
+    if len(segment_analyses) > 0:
+        _fft, _freqs, _N, _mono = first_fft_result, first_freqs, first_N, first_mono_chunk
+    else:
+        _fft, _freqs, _N, _mono = fft_result, freqs, N, mono_chunk
+
+    if len(_freqs) > 0 and _N > 0 and _fft is not None:
+        spectrum_power = np.square(np.abs(_fft))
         total_power = float(np.sum(spectrum_power))
-        low_end_mask = np.where((freqs >= 20) & (freqs < 250))
-        low_mid_mask = np.where((freqs >= 250) & (freqs < 1000))
+        low_end_mask = np.where((_freqs >= 20) & (_freqs < 250))
+        low_mid_mask = np.where((_freqs >= 250) & (_freqs < 1000))
         low_end_power = float(np.sum(spectrum_power[low_end_mask])) if len(low_end_mask[0]) > 0 else 0.0
         low_mid_power = float(np.sum(spectrum_power[low_mid_mask])) if len(low_mid_mask[0]) > 0 else 0.0
         sub_energy_ratio = (low_end_power / total_power) if total_power > 1e-12 else 0.0
@@ -184,7 +265,7 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
     else:
         bass_mono_compatibility = 100.0
 
-    abs_signal = np.abs(mono_chunk) if N > 0 else np.array([])
+    abs_signal = np.abs(_mono) if _N > 0 else np.array([])
     if len(abs_signal) > 8:
         edge = np.abs(np.diff(abs_signal))
         transient_density = float(np.mean(edge > np.percentile(edge, 85)) * 100.0)
@@ -219,6 +300,7 @@ def analyze_audio(left_channel_proxy, right_channel_proxy, sample_rate, channels
         "bassMonoCompatibility": bass_mono_compatibility if np.isfinite(bass_mono_compatibility) else 100.0,
         "transientDensity": transient_density if np.isfinite(transient_density) else 0.0,
         "distortionRiskScore": distortion_risk_score,
+        "segmentAnalyses": segment_analyses,
     }
 
     return json.dumps(results)

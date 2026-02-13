@@ -4,6 +4,15 @@ export interface FrequencyData {
   level: number;
 }
 
+/** 100箇所のセグメント検証結果（AIに渡す） */
+export interface SegmentAnalysis {
+  timeSec: number;
+  frequencyData: FrequencyData[];
+  lufs: number;
+  truePeak: number;
+  crestFactor: number;
+}
+
 export interface AudioAnalysisData {
   lufs: number;
   truePeak: number;
@@ -24,6 +33,8 @@ export interface AudioAnalysisData {
   distortionRiskScore?: number;
   frequencyData: FrequencyData[];
   waveform: number[];
+  /** 100箇所の検証結果（AI判断用。最初の2秒だけでなく曲全体の変動を反映） */
+  segmentAnalyses?: SegmentAnalysis[];
 }
 
 export type MasteringTarget = 'beatport' | 'spotify';
