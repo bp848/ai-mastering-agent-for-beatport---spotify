@@ -11,6 +11,7 @@ import FaqSection from './FaqSection';
 import FinalCtaSection from './FinalCtaSection';
 import ChangelogSection from './ChangelogSection';
 import AlgorithmSection from './AlgorithmSection';
+import WatashiToAiSection from './WatashiToAiSection';
 import GenreNoticeSection from './GenreNoticeSection';
 import StatusLoader from '../StatusLoader';
 import DiagnosisReport from '../DiagnosisReport';
@@ -166,6 +167,7 @@ export default function LP({
         <HowItWorksSection />
         <FeaturesSection />
         <AlgorithmSection />
+        <WatashiToAiSection />
         <MasteringDemoSection />
         <PricingSection onPerTrackSelect={onPerTrackSelect} onMonthlySelect={onMonthlySelect} />
         <ChangelogSection />

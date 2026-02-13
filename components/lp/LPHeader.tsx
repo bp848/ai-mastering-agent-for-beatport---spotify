@@ -5,6 +5,7 @@ const navLinks = [
   { label: '使い方', href: '#how-it-works' },
   { label: '特徴', href: '#features' },
   { label: 'アルゴリズム', href: '#algorithm' },
+  { label: '私とAI', href: '#watashi-to-ai' },
   { label: 'デモ', href: '#before-after' },
   { label: '料金', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },
