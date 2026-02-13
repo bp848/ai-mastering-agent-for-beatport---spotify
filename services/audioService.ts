@@ -355,7 +355,7 @@ const makeTubeCurve = (amount: number): Float32Array => {
 const makeExciterCurve = (drive: number): Float32Array => {
   const n = 65536;
   const curve = new Float32Array(n);
-  const d = Math.max(0, Math.min(1, drive * 0.25));
+  const d = drive * 0.25;
   for (let i = 0; i < n; i++) {
     const x = (i * 2) / n - 1;
     let y = x + d * (Math.abs(x) * x - x);
@@ -407,8 +407,8 @@ export function resolveNeuroDriveSettings(params: MasteringParams): { airShelfGa
   const lowContourAmount = Number.isFinite(params.low_contour_amount) ? Math.max(0, params.low_contour_amount) : 0;
 
   const highLoudnessGuard = Math.max(0, loudnessPush - 2.5);
-  const airShelfGainDb = Math.max(1.25, Math.min(2.8, 1.4 + exciterAmount * 3.8 + tubeDriveAmount * 0.1 - highLoudnessGuard * 0.08));
-  const wetMix = Math.max(0.08, Math.min(0.17, 0.09 + exciterAmount * 0.28 + Math.max(0, lowContourAmount - 0.3) * 0.05 + Math.min(loudnessPush, 2.5) * 0.01));
+  const airShelfGainDb = 1.4 + exciterAmount * 3.8 + tubeDriveAmount * 0.1;
+  const wetMix = 0.09 + exciterAmount * 0.28 + (lowContourAmount - 0.3) * 0.05 + loudnessPush * 0.01;
 
   return {
     airShelfGainDb,
@@ -427,12 +427,12 @@ export interface AdaptiveMasteringSettings {
 
 /** AI 由来の可変パラメータを安全範囲で正規化。固定値依存を減らす。 */
 export function resolveAdaptiveMasteringSettings(params: MasteringParams): AdaptiveMasteringSettings {
-  const tubeHpfHz = Math.max(20, Math.min(120, params.tube_hpf_hz ?? 30));
-  const exciterHpfHz = Math.max(4000, Math.min(12000, params.exciter_hpf_hz ?? 6000));
-  const transientAttackS = Math.max(0.008, Math.min(0.06, params.transient_attack_s ?? 0.02));
-  const transientReleaseS = Math.max(0.08, Math.min(0.5, params.transient_release_s ?? 0.25));
-  const limiterAttackS = Math.max(0.0005, Math.min(0.005, params.limiter_attack_s ?? 0.002));
-  const limiterReleaseS = Math.max(0.05, Math.min(0.25, params.limiter_release_s ?? 0.15));
+  const tubeHpfHz = params.tube_hpf_hz ?? 30;
+  const exciterHpfHz = params.exciter_hpf_hz ?? 6000;
+  const transientAttackS = params.transient_attack_s ?? 0.02;
+  const transientReleaseS = params.transient_release_s ?? 0.25;
+  const limiterAttackS = params.limiter_attack_s ?? 0.002;
+  const limiterReleaseS = params.limiter_release_s ?? 0.15;
   return {
     tubeHpfHz,
     exciterHpfHz,
@@ -506,7 +506,7 @@ export const buildMasteringChain = (
     midRaw.connect(midShaper);
 
     const sideShaper = ctx.createWaveShaper();
-    sideShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount, 4)));
+    sideShaper.curve = asCurve(makeTubeCurve(params.tube_drive_amount));
     sideShaper.oversample = '4x';
     sideRaw.connect(sideShaper);
 
@@ -525,7 +525,7 @@ export const buildMasteringChain = (
     lastNode = msNorm;
   } else if (params.tube_drive_amount > 0) {
     const tubeShaper = ctx.createWaveShaper();
-    tubeShaper.curve = asCurve(makeTubeCurve(Math.min(params.tube_drive_amount, 4)));
+    tubeShaper.curve = asCurve(makeTubeCurve(params.tube_drive_amount));
     tubeShaper.oversample = '4x';
     lastNode.connect(tubeShaper);
     lastNode = tubeShaper;

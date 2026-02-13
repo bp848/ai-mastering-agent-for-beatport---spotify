@@ -36,10 +36,9 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
 
 # RULES (QUALITY OVER VOLUME)
 
-1. GAIN & DYNAMICS (CRITICAL):
+1. GAIN & DYNAMICS:
    - Calculate the gain needed to reach ${specifics.targetLufs} LUFS.
-   - **WARNING**: If the Crest Factor is low (< 10), the track is already dense. Do NOT over-compress. Rely more on the limiter ceiling than input gain to avoid distortion.
-   - If the mix is dynamic (Crest Factor > 14), you can push the gain harder.
+   - Use the limiter ceiling and input gain as you see fit to achieve the target while maintaining fidelity.
 
 2. LIMITER:
    - Ceiling exactly ${specifics.targetPeak} dBTP.
@@ -55,19 +54,10 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
    - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
 
 4. SIGNATURE SOUND (DSP COLORATION):
-   - **tube_drive_amount** (0.0–3.0):
-     - Adds harmonics/density.
-     - **Logic**: If Crest Factor is < 9 (squashed mix), set to 0.0 or 0.5 to prevent distortion.
-     - If mix is clean/dynamic, set 1.0–2.0 for warmth.
-     - Avoid values > 2.5 unless specifically requested for "Hard Techno Distortion."
-   - **exciter_amount** (0.0–0.15):
-     - Adds high-end shimmer.
-     - If High band is already near target, keep low (0.02). Too much creates "digital fizz."
-   - **low_contour_amount** (0.0–1.0):
-     - Tightens low-end. High values (0.7+) make the kick punchy but lean.
-     - If Sub-bass is weak, set higher (0.6-0.8) to focus energy. If Sub-bass is already booming, set lower (0.2).
-   - **width_amount** (1.0–1.4):
-     - **CAUTION**: Do not exceed 1.25 unless the mix is extremely narrow. Wide bass causes phasing. Keep it subtle.
+   - **tube_drive_amount**: Tube saturation harmonics and density.
+   - **exciter_amount**: High-frequency shimmer.
+   - **low_contour_amount**: Pultec-style low-end tightening.
+   - **width_amount**: Stereo width multiplier.
 
 # OUTPUT
 Valid JSON only. No commentary.
@@ -104,9 +94,8 @@ Return an array of EQ adjustments prioritizing **cutting mud** over **boosting b
    低域・高域のブーストばかりで中低域（Mud）が整理されず、濁り・音圧不足になる。  
    → **Subtractive First**（まず Mud/Boxy をカット、次にハーシュネス制御、最後に控えめなブースト）に変更。
 
-3. **過剰なサチュレーション**  
-   tube_drive / exciter が高く、倍音の多いミックスでデジタル的な荒れ（Harshness）が出る。  
-   → **tube_drive 0–3、exciter 0–0.15** に上限を変更し、Crest Factor &lt; 9 のときはドライブを抑える指示を追加。
+3. **過剰なサチュレーションへの懸念の払拭**  
+   AI の判断を尊重し、不要な上限を撤廃。
 
 ---
 
@@ -119,9 +108,8 @@ Return an array of EQ adjustments prioritizing **cutting mud** over **boosting b
   「安全策を取るな、ターゲットまで突っ込め」だと、既にコンプがかかったミックス（Crest Factor 低）で二重コンプになりがち。  
   **Crest Factor &lt; 10 のときはゲイン/ドライブを控える**指示を追加。
 
-- **Tube Drive / Exciter の上限**  
-  tube_drive を 5.0 → 3.0、exciter を 0.20 → 0.15 に変更。  
-  「クリーンなミックスには足すが、Squashed なミックスには足さない」条件分岐をプロンプトに記載。
+- **Tube Drive / Exciter の上限撤廃**  
+  AI の判断を優先するため、プログラム側のハード的な上限・分岐を削除。
 
 - **EQ 戦略（Subtractive First）**  
   「足りないから足す」より「邪魔な帯域を引く」を優先。リミッター前のヘッドルームを確保し、音圧を上げてもクリアに聞こえるようにする。

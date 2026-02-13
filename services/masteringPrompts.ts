@@ -148,14 +148,6 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
    - **Avoid "Smile Curve" blindly.** Listen to the Mid-range. If vocals/leads are buried, boost 1k-3k gently (+1dB).
 
 4. SIGNATURE SOUND (DSP COLORATION — keep hi-fi, 抜けの良い):
-   - **tube_drive_amount** (0.0–2.0):
-     - Adds harmonics/density. Prefer conservative values so the low end stays clean when volume is turned up (no バリバリ).
-     - If Crest Factor is < 9 (squashed mix), set to 0.0 or 0.3 to prevent distortion.
-     - If mix is clean/dynamic, 0.5–1.2 for warmth. Avoid > 1.5 to preserve separation and headroom.
-   - **exciter_amount** (0.0–0.12):
-     - Adds high-end shimmer. Keep subtle to maintain clarity; too much creates "digital fizz" and hurts 抜け.
-     - If High band is already near target, keep low (0.02).
-   - **low_contour_amount** (0.0–0.8):
      - Tightens low-end without overloading. Goal: tight bass that never crackles at high volume.
      - If Sub-bass is weak, set moderate (0.4–0.6) to focus energy. If Sub-bass is already strong, set lower (0.2). Avoid high values that could cause breakup when volume is raised.
    - **width_amount** (1.0–1.25):
@@ -163,7 +155,7 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance" without sacrif
 
 # OUTPUT
 Valid JSON only. No commentary.
-Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (array of { type, frequency, gain_db, q }), tube_drive_amount (0–2), exciter_amount (0–0.12), low_contour_amount (0–0.8), width_amount (1–1.25).
+Return an object with: gain_adjustment_db, limiter_ceiling_db, eq_adjustments (array of { type, frequency, gain_db, q }), tube_drive_amount, exciter_amount, low_contour_amount, width_amount.
 Prioritize **cutting mud** over **boosting bass** in EQ. Preserve headroom and separation for a hi-fi, volume-up-safe master.
 `.trim();
 };

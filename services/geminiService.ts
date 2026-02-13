@@ -8,17 +8,17 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   const safe: MasteringParams = {
     // GAIN: No arbitrary caps - let AI decide. Only prevent NaN/Infinity.
     gain_adjustment_db: Math.round((Number(raw.gain_adjustment_db) || 0) * 100) / 100,
-    // LIMITER CEILING: Physical limit -0.1 dBTP (near digital maximum). AI can go hot if requested.
-    limiter_ceiling_db: Math.max(-6, Math.min(-0.1, Number(raw.limiter_ceiling_db) ?? -1.0)),
+    // LIMITER CEILING: Physical limit only. AI can go as hot as requested.
+    limiter_ceiling_db: Number(raw.limiter_ceiling_db) ?? -1.0,
     eq_adjustments: Array.isArray(raw.eq_adjustments) ? raw.eq_adjustments.map(sanitizeEq) : [],
-    // TUBE: Max 5.0 (physical saturation limit before DSP artifacts)
-    tube_drive_amount: Math.max(0, Math.min(5.0, Number(raw.tube_drive_amount) ?? 0)),
-    // EXCITER: Max 1.0 (full wet signal - physical maximum for parallel processing)
-    exciter_amount: Math.max(0, Math.min(1.0, Number(raw.exciter_amount) ?? 0)),
-    // LOW CONTOUR: Max 2.0 (double the original Pultec-style boost limit)
-    low_contour_amount: Math.max(0, Math.min(2.0, Number(raw.low_contour_amount) ?? 0)),
-    // WIDTH: Max 2.0 (extreme width - may cause phase issues, but AI can request it)
-    width_amount: Math.max(1.0, Math.min(2.0, Number(raw.width_amount) ?? 1)),
+    // TUBE: No clamps - respect AI judgment
+    tube_drive_amount: Number(raw.tube_drive_amount) ?? 0,
+    // EXCITER: No clamps - respect AI judgment
+    exciter_amount: Number(raw.exciter_amount) ?? 0,
+    // LOW CONTOUR: No clamps - respect AI judgment
+    low_contour_amount: Number(raw.low_contour_amount) ?? 0,
+    // WIDTH: No clamps - respect AI judgment
+    width_amount: Number(raw.width_amount) ?? 1,
   };
   if (raw.target_lufs != null) safe.target_lufs = Number(raw.target_lufs);
   if (raw.tube_hpf_hz != null) safe.tube_hpf_hz = Number(raw.tube_hpf_hz);
@@ -27,7 +27,7 @@ export function clampMasteringParams(raw: MasteringParams): MasteringParams {
   if (raw.transient_release_s != null) safe.transient_release_s = Number(raw.transient_release_s);
   if (raw.limiter_attack_s != null) safe.limiter_attack_s = Number(raw.limiter_attack_s);
   if (raw.limiter_release_s != null) safe.limiter_release_s = Number(raw.limiter_release_s);
-  if (raw.low_mono_hz != null) safe.low_mono_hz = Math.max(100, Math.min(320, Number(raw.low_mono_hz) || 150));
+  if (raw.low_mono_hz != null) safe.low_mono_hz = Number(raw.low_mono_hz) || 150;
   return safe;
 }
 
@@ -75,10 +75,10 @@ const getMasteringParamsSchema = () => {
         },
       },
       // ★ Signature Engine Parameters
-      tube_drive_amount: { type: Type.NUMBER, description: 'Tube saturation drive (0.0–3.0). 0 = bypass if crest factor < 9. 1.0–2.0 for warmth. Avoid >2.5.' },
-      exciter_amount: { type: Type.NUMBER, description: 'High-freq exciter mix (0.0–0.15). Adds shimmer; keep low if highs already present.' },
-      low_contour_amount: { type: Type.NUMBER, description: 'Pultec sub-bass contour (0.0–1.0). 0 = bypass. ~0.5–0.8 tightens kick without mud.' },
-      width_amount: { type: Type.NUMBER, description: 'Stereo width multiplier for side signal (1.0–1.4). Do not exceed 1.25 unless mix is very narrow.' },
+      tube_drive_amount: { type: Type.NUMBER, description: 'Tube saturation drive.' },
+      exciter_amount: { type: Type.NUMBER, description: 'High-freq exciter mix.' },
+      low_contour_amount: { type: Type.NUMBER, description: 'Pultec sub-bass contour level.' },
+      width_amount: { type: Type.NUMBER, description: 'Stereo width multiplier for side signal.' },
     },
     required: [
       'gain_adjustment_db', 'limiter_ceiling_db', 'eq_adjustments',
