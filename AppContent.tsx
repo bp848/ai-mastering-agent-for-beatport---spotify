@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams, PlatformSection } from './types';
 import { analyzeAudioFile, applyMasteringAndExport, optimizeMasteringParams } from './services/audioService';
+import MasteringWorkspace from './components/MasteringWorkspace';
 import { getMasteringSuggestions, isOpenAIAvailable } from './services/aiService';
 import PricingView from './components/PricingView';
 import { useTranslation } from './contexts/LanguageContext';
@@ -38,6 +39,7 @@ export default function AppContent() {
   const [analysisData, setAnalysisData] = useState<AudioAnalysisData | null>(null);
   const [masteringParams, setMasteringParams] = useState<MasteringParams | null>(null);
   const [masterMetrics, setMasterMetrics] = useState<{ lufs: number; peakDb: number } | null>(null);
+  const [masterBuffer, setMasterBuffer] = useState<AudioBuffer | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isMastering, setIsMastering] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -158,6 +160,7 @@ export default function AppContent() {
     setAnalysisData(null);
     setMasteringParams(null);
     setMasterMetrics(null);
+    setMasterBuffer(null);
     setRawMasteringResponseText(null);
     setError('');
     setActionLogs([]);
@@ -169,6 +172,7 @@ export default function AppContent() {
     setAnalysisData(null);
     setMasteringParams(null);
     setMasterMetrics(null);
+    setMasterBuffer(null);
     setRawMasteringResponseText(null);
     setError('');
     setIsAnalyzing(true);
@@ -292,6 +296,15 @@ export default function AppContent() {
       setMasteringParams(validatedParams);
       addActionLog('DONE', t('log.action.optimize_done'), undefined, 'success');
       addLog(t('log.gemini.success'));
+      try {
+        const blob = await applyMasteringAndExport(audioBuffer, validatedParams, analysisData);
+        const arrayBuffer = await blob.arrayBuffer();
+        const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        const decoded = await ctx.decodeAudioData(arrayBuffer);
+        setMasterBuffer(decoded);
+      } catch (_) {
+        // masterBuffer optional for workspace playback
+      }
       setShowResultsModal(true);
     } catch (err) {
       const errorKey = err instanceof Error ? err.message : 'error.audio.analysis';
@@ -465,6 +478,26 @@ export default function AppContent() {
             <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">{t('common.loading', { default: 'Loading…' })}</div>}>
               <DownloadGateModal open={showDownloadGate} onClose={() => setShowDownloadGate(false)} onSignInWithGoogle={signInWithGoogle} />
               <PaywallModal open={showPaywall} onClose={() => setShowPaywall(false)} onGoToPricing={() => { window.location.hash = 'pricing'; setSection('pricing'); }} />
+              {audioFile && section === 'mastering' && (
+                <MasteringWorkspace
+                  language={language}
+                  audioFile={audioFile}
+                  audioBuffer={audioBuffer}
+                  analysisData={analysisData}
+                  masteringParams={masteringParams}
+                  masterMetrics={masterMetrics}
+                  masterBuffer={masterBuffer}
+                  masteringTarget={masteringTarget}
+                  isAnalyzing={isAnalyzing}
+                  isMastering={isMastering}
+                  onTargetChange={setMasteringTarget}
+                  onExecuteMastering={executeMastering}
+                  onResetUpload={resetToUpload}
+                  onOpenResults={() => setShowResultsModal(true)}
+                  onDownloadMastered={handleDownload}
+                  isExporting={isExporting}
+                />
+              )}
               {analysisData && masteringParams && (
                 <ResultsModal
                   open={showResultsModal}
@@ -492,6 +525,7 @@ export default function AppContent() {
                   rawMasteringResponseText={rawMasteringResponseText}
                 />
               )}
+              {(!audioFile || section !== 'mastering') && (
               <LP
                 language={language}
                 onFileChange={handleFileChange}
@@ -514,6 +548,7 @@ export default function AppContent() {
                 onPerTrackSelect={onPerTrackSelect}
                 onMonthlySelect={onMonthlySelect}
               />
+              )}
             </Suspense>
           </div>
         )}
