@@ -12,7 +12,7 @@ interface MyPageViewProps {
 
 export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
   const { user, session, loading: authLoading, signInWithGoogle, signOut } = useAuth();
-  const { language } = useTranslation();
+  const { t, language } = useTranslation();
   const ja = language === 'ja';
   const [history, setHistory] = useState<{
     id: string;
@@ -96,7 +96,7 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
       <section className="border-t border-border/50 py-16 md:py-20">
         <div className="max-w-md mx-auto px-4 py-20 text-center animate-fade-up">
           <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">{ja ? '認証確認中...' : 'Verifying authentication...'}</p>
+          <p className="text-sm text-muted-foreground">{t('auth.loading')}</p>
         </div>
       </section>
     );
@@ -110,21 +110,19 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
           <div className="w-20 h-20 rounded-full border border-border bg-card flex items-center justify-center mx-auto text-muted-foreground">
             <UserIcon />
           </div>
-          <p className="text-xs font-medium uppercase tracking-widest text-primary">{ja ? 'My Page' : 'My Page'}</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">{t('header.mypage', { default: 'My Page' })}</p>
           <h2 className="text-2xl font-bold text-foreground">
-            {ja ? 'マイページ' : 'My Page'}
+            {t('mypage.sign_in_required')}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {ja
-              ? 'ログインすると、マスタリング履歴の閲覧やダウンロードが可能になります。'
-              : 'Sign in to view your mastering history and access downloads.'}
+            {t('mypage.sign_in_required_description')}
           </p>
           <button
             type="button"
             onClick={signInWithGoogle}
             className="rounded-xl bg-primary px-8 py-3.5 text-primary-foreground font-bold text-sm hover:brightness-110 transition-colors active:scale-[0.98] touch-manipulation shadow-lg"
           >
-            {ja ? 'Google でログイン' : 'Sign in with Google'}
+            {t('auth.sign_in_google')}
           </button>
         </div>
       </section>
@@ -154,14 +152,14 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
               onClick={onNavigateToMastering}
               className="text-xs font-bold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:brightness-110 shadow-sm transition-all"
             >
-              {ja ? '次の曲をマスタリング' : 'Next Song Mastering'}
+              {t('mypage.button.next_mastering', { default: 'Next Song Mastering' })}
             </button>
             <button
               type="button"
               onClick={signOut}
               className="text-xs font-medium text-muted-foreground hover:text-foreground px-4 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 transition-all"
             >
-              {ja ? 'ログアウト' : 'Sign out'}
+              {t('auth.sign_out')}
             </button>
           </div>
         </div>
@@ -170,12 +168,12 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
         <div className="rounded-xl border border-border/50 bg-card p-6 space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs font-medium uppercase tracking-widest text-primary">
-              {ja ? 'マスタリング履歴' : 'Mastering History'}
+              {t('mypage.download_history')}
             </p>
             <p className="text-xs text-muted-foreground">
               {remainingDownloads == null
-                ? (ja ? 'ダウンロード残数: 無制限 / 取得中' : 'Download credits: Unlimited / Loading')
-                : (ja ? `ダウンロード残数: ${remainingDownloads}回` : `Download credits: ${remainingDownloads}`)}
+                ? t('mypage.credits.unlimited')
+                : t('mypage.credits.count', { replacements: { count: remainingDownloads } })}
             </p>
           </div>
 
@@ -183,21 +181,17 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
           {error && (
             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
               <p className="text-sm text-destructive">
-                {ja
-                  ? '履歴の読み込みに失敗しました。しばらくしてから「再読み込み」を押してください。'
-                  : 'Failed to load history. Please try "Retry" again in a moment.'}
+                {t('mypage.history.error')}
               </p>
               <p className="text-xs text-muted-foreground">
-                {ja
-                  ? '繰り返し発生する場合は、お手数ですが ishijima@b-p.co.jp までご連絡ください。'
-                  : 'If this keeps happening, please contact ishijima@b-p.co.jp.'}
+                {t('mypage.history.error_contact')}
               </p>
               <button
                 type="button"
                 onClick={loadHistory}
                 className="text-xs font-bold text-destructive hover:brightness-110 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 transition-all"
               >
-                {ja ? '再読み込み' : 'Retry'}
+                {t('mypage.history.retry')}
               </button>
             </div>
           )}
@@ -206,7 +200,7 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
           {loading && !error && (
             <div className="py-8 text-center">
               <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto mb-3" />
-              <p className="text-xs text-muted-foreground">{ja ? '読み込み中...' : 'Loading...'}</p>
+              <p className="text-xs text-muted-foreground">{t('common.loading', { default: 'Loading...' })}</p>
             </div>
           )}
 
@@ -218,19 +212,17 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
               </div>
               <div className="space-y-4 text-center">
                 <p className="text-sm font-medium text-muted-foreground">
-                  {ja ? 'まだ履歴がありません' : 'No history yet'}
+                  {t('mypage.no_history')}
                 </p>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  {ja
-                    ? 'マスタリング完了後、結果画面の「購入してWAVを取得」から保存すると、ここに表示されます（7日間保存）。'
-                    : 'After mastering, save from "Purchase & Save" on the result screen; it will appear here (Stored for 7 days).'}
+                  {t('mypage.history.empty_description')}
                 </p>
                 <button
                   type="button"
                   onClick={onNavigateToMastering}
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-primary-foreground font-bold text-sm shadow-lg hover:brightness-110 transition-all"
                 >
-                  {ja ? 'さっそくマスタリングを始める' : 'Start Mastering Now'}
+                  {t('mypage.history.cta_start')}
                 </button>
               </div>
             </div>
@@ -269,13 +261,12 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
                             type="button"
                             onClick={() => {
                               const name = `${row.file_name.replace(/\.[^/.]+$/, '')}_${row.mastering_target}_mastered.wav`;
-                              const body = ja
-                                ? `AIマスタリングした楽曲「${name}」を送付します。\n\n※このメールは直接ファイルを送る代わりに、マスタリング履歴からURLを取得するための参照用です。`
-                                : `I am sending the AI-mastered track: ${name}.\n\n*This is for reference to identify the track in your history.`;
-                              window.location.href = `mailto:?subject=${encodeURIComponent(`${ja ? 'マスタリング完了: ' : 'Mastering Result: '}${name}`)}&body=${encodeURIComponent(body)}`;
+                              const subject = t('mypage.history.email_subject', { replacements: { name } });
+                              const body = t('mypage.history.email_body', { replacements: { name } });
+                              window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                             }}
                             className="p-2.5 rounded-lg bg-secondary border border-border text-muted-foreground hover:text-foreground transition-all"
-                            title={ja ? '情報をメール' : 'Email Info'}
+                            title={t('mypage.history.email_info')}
                           >
                             <MailIcon className="w-4 h-4" />
                           </button>
@@ -302,12 +293,12 @@ export default function MyPageView({ onNavigateToMastering }: MyPageViewProps) {
                             }}
                             className="min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:brightness-110 disabled:opacity-50 transition-colors"
                           >
-                            {isDownloading ? (ja ? '取得中...' : 'Loading...') : (ja ? 'ダウンロード' : 'Download')}
+                            {isDownloading ? t('common.loading', { default: 'Loading...' }) : t('agent.button.download', { default: 'Download' })}
                           </button>
                         </>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">
-                          {ja ? '7日経過で自動削除済' : 'Expired (7 days)'}
+                          {t('mypage.history.expired')}
                         </span>
                       )}
                     </div>

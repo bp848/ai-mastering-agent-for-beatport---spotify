@@ -93,16 +93,26 @@ Avoid "digital harshness" and "muddy low-end" at all costs. You fix mix imbalanc
 Output DSP parameters to meet **${specifics.platformName}** standards while retaining audio fidelity.
 Use the spectral analysis to achieve a "Commercial Tonal Balance."
 
+# CRITICAL: DYNAMIC AUTOMATION IS NON-NEGOTIABLE
+**1曲ずっと同じマスタリング = 古い技術・アマチュア。** Applying identical processing to the entire track is outdated and low-skill. World-class mastering uses **time-varying automation** that responds to song structure: intro, breakdown (ブレイク), build-up (展開), drop, outro—each section gets appropriate gain and width. This is the **world standard**. No compromise. You MUST output meaningful dynamic_automation. Never output flat/static values that ignore the track's structure.
+
+# FULL-TRACK COMPREHENSIVE JUDGMENT
+The analysis is derived from a **full-length scan** of the entire track. You have comprehensive context—not isolated snippets. Use loudestSectionStart/End to drive **dynamic_automation**:
+- **Quiet sections** (intro, breakdown, build-up): input_gain_offset_quiet_db (typically -0.5 to -2.5 dB), width_offset_quiet_percent (90–100%)—tighter, focused energy.
+- **Drop/chorus**: width_boost_drop_percent (110–125%)—explosive width and impact.
+- **transition_time_sec**: Smooth ramps (1.0–2.5 s) so changes feel musical, not abrupt.
+
 # TARGET (NON-NEGOTIABLE)
 - INTEGRATED LUFS: ${specifics.targetLufs} dB
 - TRUE PEAK: ${specifics.targetPeak} dBTP
 - CONTEXT: ${specifics.genreContext}
 
-# CURRENT ANALYSIS
+# CURRENT ANALYSIS (Full-Track Scan)
 - Integrated LUFS: ${data.lufs.toFixed(2)}
 - True Peak: ${data.truePeak.toFixed(2)} dBTP
 - Crest Factor: ${data.crestFactor.toFixed(2)} (Values < 10 indicate a compressed mix; Values > 14 indicate a dynamic mix)
 - Structure: ${data.sectionInfo ?? 'High-energy segment'} at ${data.loudestSectionStart?.toFixed(2) ?? '0.00'}s.
+- Loudest section: ${data.loudestSectionStart?.toFixed(1) ?? '0'}s–${data.loudestSectionEnd?.toFixed(1) ?? '0'}s (use for dynamic_automation timing).
 
 # FULL SPECTRUM ANALYSIS (Relative Balance)
 - Sub-bass (20-60 Hz): ${subBass.toFixed(1)} dB
@@ -136,10 +146,12 @@ Use the spectral analysis to achieve a "Commercial Tonal Balance."
    - **low_contour_amount**: Essential for Club tracks. Boosts "Chest Thump" while keeping the bottom clear.
    - **width_amount**: If Phase Correlation is < 0.6, do NOT exceed 1.1. If Correlation is > 0.9, you can push to 1.3 for modern immersion.
 
-5. MACRO-DYNAMICS (DYNAMIC AUTOMATION):
-   - **input_gain_offset_quiet_db**: Set between -0.5dB and -2.5dB to ensure the drop "explodes."
-   - **width_boost_drop_percent**: The drop must feel wider. Set to 110% - 125%.
-   - **width_offset_quiet_percent**: Focus the energy in intros. Set to 90% - 100%.
+5. MACRO-DYNAMICS (DYNAMIC AUTOMATION) — WORLD STANDARD, NO COMPROMISE:
+   - **input_gain_offset_quiet_db**: -0.5 to -2.5 dB. Intro/breakdown/build-up are quieter; drop explodes. Never 0 (that = static = amateur).
+   - **width_boost_drop_percent**: 110–125%. Drop must feel wider than quiet sections.
+   - **width_offset_quiet_percent**: 90–100%. Tighter before drop.
+   - **transition_time_sec**: 1.0–2.5 s. Smooth ramps. Musical.
+   - If you output input_gain_offset_quiet_db=0 and width_boost_drop_percent=100, you have failed. Dynamic automation is mandatory.
 
 # OUTPUT
 Valid JSON only. No commentary.

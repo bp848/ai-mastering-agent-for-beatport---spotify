@@ -32,19 +32,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ consumed: false, code: 'auth_failed' });
   }
 
-  const { data: adminRow } = await supabaseAuth
-    .from('admin_emails')
-    .select('email')
-    .eq('email', user.email ?? '')
-    .maybeSingle();
-  if (adminRow) {
-    return res.status(200).json({ consumed: false, allowed: true, admin: true, remaining: null });
-  }
-
   if (!supabaseServiceKey) {
     return res.status(500).json({ consumed: false, code: 'server_config' });
   }
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+
+  // 管理者チェック（Service Role で確実に取得）
+  const { data: adminRow } = await supabaseAdmin
+    .from('admin_emails')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle();
+
+  if (adminRow) {
+    return res.status(200).json({ consumed: false, allowed: true, admin: true, remaining: null });
+  }
 
   const { data: row, error: selectError } = await supabaseAdmin
     .from('download_tokens')

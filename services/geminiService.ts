@@ -87,11 +87,12 @@ const getMasteringParamsSchema = () => {
       width_amount: { type: Type.NUMBER, description: 'Stereo width multiplier for side signal.' },
       dynamic_automation: {
         type: Type.OBJECT,
+        description: 'REQUIRED. World-standard time-varying automation. Intro/breakdown/build-up vs drop must differ. Never flat.',
         properties: {
-          input_gain_offset_quiet_db: { type: Type.NUMBER, description: 'Input gain offset for quiet sections (e.g. -1.5).' },
-          width_offset_quiet_percent: { type: Type.NUMBER, description: 'Width offset for quiet sections (e.g. 100).' },
-          width_boost_drop_percent: { type: Type.NUMBER, description: 'Width boost for drop (e.g. 115).' },
-          transition_time_sec: { type: Type.NUMBER, description: 'Transition ramp duration (e.g. 1.5).' },
+          input_gain_offset_quiet_db: { type: Type.NUMBER, description: 'Gain offset for intro/breakdown/build-up (e.g. -1.5). Drop explodes relative to this.' },
+          width_offset_quiet_percent: { type: Type.NUMBER, description: 'Width for quiet sections (90-100). Tighter focus before drop.' },
+          width_boost_drop_percent: { type: Type.NUMBER, description: 'Width boost at drop (110-125). Explosive stereo impact.' },
+          transition_time_sec: { type: Type.NUMBER, description: 'Ramp duration (1.0-2.5). Musical, not abrupt.' },
         },
         required: ['input_gain_offset_quiet_db', 'width_offset_quiet_percent', 'width_boost_drop_percent', 'transition_time_sec'],
       },
@@ -118,7 +119,7 @@ export const getMasteringSuggestionsGemini = async (data: AudioAnalysisData, tar
     const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-1.5-flash-latest',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -169,9 +170,10 @@ ${langNote}
 Return ONLY a JSON array of strings, each string one post variation. Example: ["First post...", "Second post...", "Instagram caption..."]`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = (import.meta as unknown as { env?: { VITE_GEMINI_API_KEY?: string } }).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && (process as { env?: { API_KEY?: string; GEMINI_API_KEY?: string } }).env?.API_KEY) || (typeof process !== 'undefined' && (process as { env?: { GEMINI_API_KEY?: string } }).env?.GEMINI_API_KEY) || '';
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-1.5-flash-latest',
       contents: prompt,
       config: { responseMimeType: 'application/json' },
     });

@@ -37,21 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ allowed: false, code: 'auth_failed' });
   }
 
-  // 管理者チェック（anon で admin_emails を読む）
-  const { data: adminRow } = await supabaseAuth
-    .from('admin_emails')
-    .select('email')
-    .eq('email', user.email ?? '')
-    .maybeSingle();
-  if (adminRow) {
-    return res.status(200).json({ allowed: true, remaining: null, admin: true });
-  }
-
-  // 一般ユーザー: service role で download_tokens 件数を確認
+  // 一般ユーザー: service role でチェック
   if (!supabaseServiceKey) {
     return res.status(500).json({ allowed: false, code: 'server_config' });
   }
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+
+  // 管理者チェック（Service Role で確実に取得）
+  const { data: adminRow } = await supabaseAdmin
+    .from('admin_emails')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle();
+
+  if (adminRow) {
+    return res.status(200).json({ allowed: true, remaining: null, admin: true });
+  }
+
   const { count, error: tokenError } = await supabaseAdmin
     .from('download_tokens')
     .select('*', { count: 'exact', head: true })
@@ -59,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('paid', true);
   if (tokenError) {
     console.error('check-download-entitlement:', tokenError);
-    return res.status(403).json({ allowed: false, code: 'db_error' });
+    return res.status(200).json({ allowed: false, code: 'db_error' });
   }
   const remaining = count ?? 0;
   if (remaining > 0) {

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { AudioAnalysisData, MasteringTarget, MasteringParams } from '../types';
 import AnalysisDisplay from './AnalysisDisplay';
 import MasteringAgent from './MasteringAgent';
 import Console, { type ActionLog } from './Console';
+import ExportModal from './ExportModal';
 import { Spinner, DownloadIcon, CardIcon } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -58,6 +59,7 @@ export default function ResultsModal({
   const totalSlides = 2;
   const [openRawDiagnosis, setOpenRawDiagnosis] = React.useState(false);
   const [openRawAI, setOpenRawAI] = React.useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const contentScrollRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -232,6 +234,16 @@ export default function ResultsModal({
                 </p>
               </section>
 
+              {/* ビデオエクスポート */}
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors text-sm font-bold"
+              >
+                <span aria-hidden>🎬</span>
+                {t('export.video.button')}
+              </button>
+
               {/* YouTube Before/After → 30曲無料キャンペーン */}
               <a
                 href={`mailto:ishijima@b-p.co.jp?subject=${encodeURIComponent(language === 'ja' ? 'YouTube Before/After 30曲無料キャンペーン応募' : 'YouTube Before/After 30 tracks free - Application')}`}
@@ -325,6 +337,16 @@ export default function ResultsModal({
           </div>
         </div>
       </div>
+
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        audioBuffer={audioBuffer}
+        masteringParams={masteringParams}
+        analysisData={analysisData}
+        fileName={audioFile?.name}
+        language={language}
+      />
     </div>
   );
 }

@@ -179,32 +179,58 @@ export default function AppContent() {
     try {
       const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-      addActionLog('INIT', language === 'ja' ? '高純度音声解析シグナルチェイン開始。全サンプルの読込を実行。' : 'High-purity signal chain analysis started. Loading all samples.', undefined, 'info');
-      await delay(400);
-      addActionLog('INIT', language === 'ja' ? `対象: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)` : `Target Signal: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, undefined, 'info');
+      addActionLog('INIT', t('log.action.init'), undefined, 'info');
       await delay(600);
-      addActionLog('SCAN', language === 'ja' ? 'フルレンジ・スペクトラル・アナリシス: 楽曲構造をスキャン中...' : 'Full-Range Spectral Analysis: Scanning track structure...', 'find_loudest_section', 'info');
+      addActionLog('INIT', t('log.action.target_signal', { replacements: { name: file.name, size: (file.size / 1024 / 1024).toFixed(2) } }), undefined, 'info');
       await delay(800);
-      addActionLog('SEGMENT', language === 'ja' ? '高エネルギー・セクション（Drop）を検知中...' : 'Identifying High-Energy Section (Drop)...', 'Segment_Analysis', 'info');
+
+      // Granular Full-Scan Logs
+      addActionLog('SCAN', t('log.action.full_scan_progress', { replacements: { percent: 15, seconds: 8 } }), 'find_loudest_section', 'info');
+      await delay(1200);
+      addActionLog('SEGMENT', t('log.action.full_scan_progress', { replacements: { percent: 45, seconds: 5 } }), 'Segment_Analysis', 'info');
+      await delay(1500);
+      addActionLog('FFT', t('log.action.full_scan_progress', { replacements: { percent: 80, seconds: 2 } }), 'FFT_Deep_Scan', 'info');
       await delay(1000);
-      addActionLog('FFT', language === 'ja' ? 'マルチウィンドウ周波数解析 (Spectral Averaging)...' : 'Multi-window frequency analysis (Spectral Averaging)...', 'FFT_Deep_Scan', 'info');
+
       addLog(t('log.audio.analysis_start'));
 
-      // Actual processing starts here
+      const analysisStart = Date.now();
       const { analysisData: result, audioBuffer: buffer } = await analyzeAudioFile(file);
-      const targetLufs = target === 'beatport' ? -9.0 : -14.0;
+      const elapsed = Date.now() - analysisStart;
+
+      // 最低表示時間: フルスキャンの信頼感を保つため、早く終わっても最低20秒は進捗を表示
+      const MIN_ANALYSIS_DISPLAY_MS = 20000;
+      const remaining = Math.max(0, MIN_ANALYSIS_DISPLAY_MS - elapsed);
+      if (remaining > 0) {
+        const durationSec = buffer.duration;
+        const numChunks = Math.min(10, Math.max(3, Math.ceil(durationSec / 60)));
+        const interval = remaining / numChunks;
+        const formatSeg = (sec: number) => {
+          const m = Math.floor(sec / 60);
+          const s = Math.floor(sec % 60);
+          return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
+        for (let i = 0; i < numChunks; i++) {
+          await delay(interval);
+          const startSec = (i * durationSec) / numChunks;
+          const endSec = ((i + 1) * durationSec) / numChunks;
+          addActionLog('SCAN', t('log.action.scan_segment', { replacements: { start: formatSeg(startSec), end: formatSeg(endSec) } }), 'FullScan', 'info');
+        }
+      }
+
+      const targetLufs = target === 'beatport' ? -8.0 : -14.0;
       const lufsGap = targetLufs - result.lufs;
 
       const dropTime = result.loudestSectionStart ? `${Math.floor(result.loudestSectionStart / 60)}:${(result.loudestSectionStart % 60).toFixed(0).padStart(2, '0')}` : '0:00';
-      addActionLog('DROP', language === 'ja' ? `セクション解析完了: 開始点 ${dropTime} (平均 ${result.loudestSectionRms?.toFixed(1)} dB)` : `High-Energy Section location identified: Starts at ${dropTime} (Avg ${result.loudestSectionRms?.toFixed(1)} dB)`, undefined, 'success');
-      addActionLog('LUFS', language === 'ja' ? `統合ラウドネス: ${result.lufs.toFixed(2)} LUFS → 目標 ${targetLufs} まで ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB` : `Integrated Loudness: ${result.lufs.toFixed(2)} LUFS → ${lufsGap > 0 ? '+' : ''}${lufsGap.toFixed(1)} dB to target ${targetLufs}`, undefined, 'success');
-      addActionLog('PEAK', language === 'ja' ? `トゥルーピーク (インターサンプル最大): ${result.truePeak.toFixed(2)} dBTP` : `True Peak (Inter-sample max): ${result.truePeak.toFixed(2)} dBTP`, undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
-      addActionLog('PHASE', language === 'ja' ? `全帯域位相一貫性: ${result.phaseCorrelation.toFixed(3)}` : `Total Phase Coherence: ${result.phaseCorrelation.toFixed(3)}`, 'Phase_Detector', result.phaseCorrelation > 0.5 ? 'success' : 'warning');
+      addActionLog('DROP', t('log.action.drop_detected', { replacements: { time: dropTime, rms: result.loudestSectionRms?.toFixed(1) || '0' } }), undefined, 'success');
+      addActionLog('LUFS', t('log.action.lufs_report', { replacements: { lufs: result.lufs.toFixed(2), target: targetLufs, gap: (lufsGap > 0 ? '+' : '') + lufsGap.toFixed(1) } }), undefined, 'success');
+      addActionLog('PEAK', t('log.action.peak_report', { replacements: { peak: result.truePeak.toFixed(2) } }), undefined, result.truePeak <= -1.0 ? 'success' : 'warning');
+      addActionLog('PHASE', t('log.action.phase_report', { replacements: { value: result.phaseCorrelation.toFixed(3) } }), 'Phase_Detector', result.phaseCorrelation > 0.5 ? 'success' : 'warning');
       const lowPhase = result.phaseCorrelationLow ?? result.phaseCorrelation;
-      addActionLog('PHASE', language === 'ja' ? `低域位相 (Sub-Phase) 一貫性: ${lowPhase.toFixed(3)}` : `Sub-Phase Coherence: ${lowPhase.toFixed(3)}`, 'Sub_Phase_Detector', lowPhase > 0.7 ? 'success' : lowPhase > 0.3 ? 'warning' : 'error');
-      if (result.distortionPercent > 0.1) addActionLog('THD', language === 'ja' ? `全高調波歪(THD)リスク検出: ${result.distortionPercent.toFixed(2)}%` : `THD risk detected: ${result.distortionPercent.toFixed(2)}% (Harmonic Clipping)`, 'THD_Analyzer', 'warning');
-      addActionLog('NOISE', language === 'ja' ? `ノイズフロア計測: ${result.noiseFloorDb.toFixed(1)} dB` : `Noise floor measurement: ${result.noiseFloorDb.toFixed(1)} dB`, 'Noise_Gate', result.noiseFloorDb < -80 ? 'success' : 'warning');
-      addActionLog('DONE', language === 'ja' ? '全シグナル精密解析完了。ニューラル・マスタリング・プロトコルの準備。' : 'Signal analysis complete. Neural Mastering Protocol initialized.', undefined, 'success');
+      addActionLog('PHASE', t('log.action.sub_phase_report', { replacements: { value: lowPhase.toFixed(3) } }), 'Sub_Phase_Detector', lowPhase > 0.7 ? 'success' : lowPhase > 0.3 ? 'warning' : 'error');
+      if (result.distortionPercent > 0.1) addActionLog('THD', t('log.action.thd_warning', { replacements: { value: result.distortionPercent.toFixed(2) } }), 'THD_Analyzer', 'warning');
+      addActionLog('NOISE', t('log.action.noise_report', { replacements: { value: result.noiseFloorDb.toFixed(1) } }), 'Noise_Gate', result.noiseFloorDb < -80 ? 'success' : 'warning');
+      addActionLog('DONE', t('log.action.signal_done'), undefined, 'success');
       setAnalysisData(result);
       setAudioBuffer(buffer);
       trackEvent('analysis_complete', { target, lufs: result.lufs, true_peak: result.truePeak }, session?.user?.id ?? undefined);
@@ -223,40 +249,48 @@ export default function AppContent() {
     setIsMastering(true);
     setError('');
     try {
-      addActionLog('AI', language === 'ja' ? 'AIエージェント: Beatport top基準への最適化パラメータ算出中...' : 'AI Agent: Calculating optimization parameters...', 'getMasteringSuggestions', 'info');
+      addActionLog('AI', t('log.action.ai_calc'), 'getMasteringSuggestions', 'info');
       addLog(t('log.gemini.request'));
       const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
       setRawMasteringResponseText(rawResponseText);
       if (rawParams.eq_adjustments?.length) {
         rawParams.eq_adjustments.forEach((eq, i) => {
-          addActionLog('EQ', language === 'ja' ? `EQ ${i + 1}: ${eq.frequency}Hz ${eq.gain_db > 0 ? '+' : ''}${eq.gain_db.toFixed(1)} dB (Q:${eq.q.toFixed(2)})` : `EQ ${i + 1}: ${eq.frequency}Hz ${eq.gain_db > 0 ? '+' : ''}${eq.gain_db.toFixed(1)} dB (Q:${eq.q.toFixed(2)})`, 'Linear_Phase_EQ', 'info');
+          addActionLog('EQ', t('log.action.eq_adjust', { replacements: { index: i + 1, freq: eq.frequency, gain: (eq.gain_db > 0 ? '+' : '') + eq.gain_db.toFixed(1), q: eq.q.toFixed(2) } }), 'Linear_Phase_EQ', 'info');
         });
       }
-      addActionLog('SIG', language === 'ja' ? `Tube: ${rawParams.tube_drive_amount.toFixed(1)} / Exciter: ${rawParams.exciter_amount.toFixed(2)} / Contour: ${rawParams.low_contour_amount.toFixed(1)} / Width: ${rawParams.width_amount.toFixed(2)}` : `Tube: ${rawParams.tube_drive_amount.toFixed(1)} / Exciter: ${rawParams.exciter_amount.toFixed(2)} / Contour: ${rawParams.low_contour_amount.toFixed(1)} / Width: ${rawParams.width_amount.toFixed(2)}`, 'Signature_Sound', 'info');
-      addActionLog('LIM', language === 'ja' ? `リミッター: シーリング ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP` : `Limiter: ceiling ${rawParams.limiter_ceiling_db.toFixed(1)} dBTP`, 'Brickwall_Limiter', 'info');
-      const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
+      addActionLog('SIG', t('log.action.sig_sound', { replacements: { tube: rawParams.tube_drive_amount.toFixed(1), exciter: rawParams.exciter_amount.toFixed(2), contour: rawParams.low_contour_amount.toFixed(1), width: rawParams.width_amount.toFixed(2) } }), 'Signature_Sound', 'info');
+      addActionLog('LIM', t('log.action.limiter', { replacements: { ceiling: rawParams.limiter_ceiling_db.toFixed(1) } }), 'Brickwall_Limiter', 'info');
+      const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
-      addActionLog('CORR', language === 'ja' ? `自己補正: 目標 ${targetLufsValue} LUFS（サビ10秒シミュレーション → ゲイン自動補正）` : `Self-correction: target ${targetLufsValue} LUFS (10s simulation → gain auto-adjust)`, 'optimizeMasteringParams', 'info');
+      addActionLog('CORR', t('log.action.self_correction', { replacements: { target: targetLufsValue } }), 'optimizeMasteringParams', 'info');
 
       // Dynamic Mastering Logs
       if (rawParams.dynamic_automation) {
         const auto = rawParams.dynamic_automation;
-        addActionLog('DYNAMIC', language === 'ja' ? 'Dynamic Gain Riding (Macro-Dynamics) 適用中...' : 'Applying Dynamic Gain Riding (Macro-Dynamics)...', 'Macro_Dynamics', 'info');
-        addActionLog('DYNAMIC', language === 'ja' ? `イントロ補正: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / ドロップ拡幅: ${auto.width_boost_drop_percent.toFixed(0)}%` : `Intro offset: ${auto.input_gain_offset_quiet_db.toFixed(1)} dB / Drop expansion: ${auto.width_boost_drop_percent.toFixed(0)}%`, undefined, 'info');
+        addActionLog('DYNAMIC', t('log.action.dynamic_gain'), 'Macro_Dynamics', 'info');
+        addActionLog('DYNAMIC', t('log.action.dynamic_detail', { replacements: { offset: auto.input_gain_offset_quiet_db.toFixed(1), boost: auto.width_boost_drop_percent.toFixed(0) } }), undefined, 'info');
       }
 
+      addActionLog('MASTERING', t('log.action.mastering_progress', { replacements: { percent: 20 } }), 'Neural_Engine', 'info');
       const optimizeResult = await optimizeMasteringParams(audioBuffer, analysisData, rawParams);
+      addActionLog('MASTERING', t('log.action.mastering_progress', { replacements: { percent: 75 } }), 'Physical_Validation', 'info');
+
       const validatedParams = optimizeResult.params;
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
       const gainDelta = validatedParams.gain_adjustment_db - rawParams.gain_adjustment_db;
-      if (Math.abs(gainDelta) > 0.1) addActionLog('CORR', language === 'ja' ? `ゲイン補正: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB (Δ ${gainDelta > 0 ? '+' : ''}${gainDelta.toFixed(1)})` : `Gain corrected: ${rawParams.gain_adjustment_db.toFixed(1)} → ${validatedParams.gain_adjustment_db.toFixed(1)} dB (Δ ${gainDelta > 0 ? '+' : ''}${gainDelta.toFixed(1)})`, 'Auto_Correction', 'warning');
-      else addActionLog('CORR', language === 'ja' ? '補正不要 — AI提案値がLUFS±0.5dB以内' : 'No correction needed — AI proposal within ±0.5 dB', 'Auto_Correction', 'success');
-      addActionLog('NEURO', language === 'ja' ? 'Neuro-Drive Module: Parallel Hyper-Compression 起動 (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)' : 'Neuro-Drive Module: Parallel Hyper-Compression active (Threshold: -30dB, Ratio: 12:1, Attack: 5ms)', 'HyperCompressor', 'info');
-      addActionLog('NEURO', language === 'ja' ? 'Energy Filter: 250Hz HPF — キック/ベースの位相干渉を回避' : 'Energy Filter: 250Hz HPF — avoiding kick/bass phase interference', 'EnergyFilter', 'info');
-      addActionLog('NEURO', language === 'ja' ? 'Air Exciter: 12kHz+ High-Shelf +4.0dB — 超高域の覚醒刺激' : 'Air Exciter: 12kHz+ High-Shelf +4.0dB — hyper-high frequency stimulation', 'AirExciter', 'info');
-      addActionLog('NEURO', language === 'ja' ? 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active' : 'Neuro Injection: Density +35% (Parallel Mix) — Hyper-Saturation Active', 'NeuroMix', 'success');
+      if (Math.abs(gainDelta) > 0.1) addActionLog('CORR', t('log.action.gain_corrected', { replacements: { old: rawParams.gain_adjustment_db.toFixed(1), new: validatedParams.gain_adjustment_db.toFixed(1), delta: (gainDelta > 0 ? '+' : '') + gainDelta.toFixed(1) } }), 'Auto_Correction', 'warning');
+      else addActionLog('CORR', t('log.action.gain_no_correction'), 'Auto_Correction', 'success');
+
+      addActionLog('MASTERING', t('log.action.mastering_progress', { replacements: { percent: 95 } }), 'Finalizing', 'info');
+      await new Promise(r => setTimeout(r, 600));
+      addActionLog('FINISH', t('log.action.finishing'), undefined, 'info');
+
+      addActionLog('NEURO', t('log.action.neuro_drive'), 'HyperCompressor', 'info');
+      addActionLog('NEURO', t('log.action.energy_filter'), 'EnergyFilter', 'info');
+      addActionLog('NEURO', t('log.action.air_exciter'), 'AirExciter', 'info');
+      addActionLog('NEURO', t('log.action.neuro_mix'), 'NeuroMix', 'success');
       setMasteringParams(validatedParams);
-      addActionLog('DONE', language === 'ja' ? '最適化完了: Beatport top 基準に物理適合' : 'Optimization complete: physically validated', undefined, 'success');
+      addActionLog('DONE', t('log.action.optimize_done'), undefined, 'success');
       addLog(t('log.gemini.success'));
       setShowResultsModal(true);
     } catch (err) {
@@ -273,15 +307,15 @@ export default function AppContent() {
     setIsMastering(true);
     setError('');
     try {
-      addActionLog('AI', language === 'ja' ? 'AI再計算: OpenAI でパラメータを再取得中...' : 'Re-calculating with OpenAI...', 'getMasteringSuggestions', 'info');
+      addActionLog('AI', t('log.action.recalc_openai'), 'getMasteringSuggestions', 'info');
       const { params: rawParams, rawResponseText } = await getMasteringSuggestions(analysisData, masteringTarget, language);
       setRawMasteringResponseText(rawResponseText);
-      const targetLufsValue = masteringTarget === 'beatport' ? -9.0 : -14.0;
+      const targetLufsValue = masteringTarget === 'beatport' ? -8.0 : -14.0;
       rawParams.target_lufs = targetLufsValue;
       const optimizeResult = await optimizeMasteringParams(audioBuffer, analysisData, rawParams);
       setMasteringParams(optimizeResult.params);
       setMasterMetrics({ lufs: optimizeResult.measuredLufs, peakDb: optimizeResult.measuredPeakDb });
-      addActionLog('DONE', language === 'ja' ? 'OpenAI で再計算完了' : 'Re-calc done with OpenAI', undefined, 'success');
+      addActionLog('DONE', t('log.action.recalc_done'), undefined, 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'error.audio.analysis';
       addActionLog('ERROR', t(msg, { default: t('error.audio.analysis') }), undefined, 'error');
@@ -298,7 +332,7 @@ export default function AppContent() {
 
   const handleDownload = useCallback(async () => {
     if (!masteringParams || !audioBuffer || !audioFile) {
-      setError(language === 'ja' ? 'ダウンロードの準備が完了していません。もう一度マスタリングを実行してください。' : 'The download is not ready yet. Please run mastering again.');
+      setError(t('error.download.not_ready'));
       return;
     }
     if (!session?.user) { setShowDownloadGate(true); return; }
@@ -312,12 +346,12 @@ export default function AppContent() {
       if (!res.ok || entitlement?.allowed !== true) {
         setShowPaywall(true);
         const remaining = typeof entitlement?.remaining === 'number' ? entitlement.remaining : 0;
-        setError(language === 'ja' ? `ダウンロード可能回数が不足しています（残り: ${remaining}回）。` : `You do not have enough download credits (remaining: ${remaining}).`);
+        setError(t('error.download.no_entitlement', { replacements: { count: remaining } }));
         return;
       }
     } catch (_) {
       setShowPaywall(true);
-      setError(language === 'ja' ? 'ダウンロード権限の確認に失敗しました。しばらくしてから再試行してください。' : 'Failed to verify your download entitlement. Please try again shortly.');
+      setError(t('error.download.verify_fail'));
       return;
     }
 
@@ -330,7 +364,7 @@ export default function AppContent() {
       if (!consumeRes.ok || (consumeData.consumed === false && consumeData.admin !== true)) {
         setShowPaywall(true);
         const remaining = typeof consumeData?.remaining === 'number' ? consumeData.remaining : 0;
-        setError(language === 'ja' ? `ダウンロード回数が足りません（残り: ${remaining}回）。` : `Not enough download credits (remaining: ${remaining}).`);
+        setError(t('error.download.no_entitlement', { replacements: { count: remaining } }));
         return;
       }
       const baseName = audioFile.name.replace(/\.[^/.]+$/, '') || 'mastered';
@@ -350,7 +384,7 @@ export default function AppContent() {
       setSection('mypage');
       window.location.hash = 'mypage';
     } catch (e) {
-      setError(language === 'ja' ? '保存に失敗しました。もう一度お試しください。' : 'Failed to save. Please try again.');
+      setError(t('error.save.fail'));
     } finally {
       setIsExporting(false);
     }
@@ -395,7 +429,7 @@ export default function AppContent() {
             <p className="text-sm text-primary-foreground/90">{t('flow.post_login_banner')}</p>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => { window.location.hash = ''; setShowPostLoginBanner(false); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:brightness-110 transition-colors">{t('flow.post_login_cta')}</button>
-              <button type="button" onClick={() => setShowPostLoginBanner(false)} className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground" aria-label={language === 'ja' ? '閉じる' : 'Dismiss'}>×</button>
+              <button type="button" onClick={() => setShowPostLoginBanner(false)} className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground" aria-label={t('common.close', { default: 'Dismiss' })}>×</button>
             </div>
           </div>
         )}
@@ -403,7 +437,7 @@ export default function AppContent() {
         {section === 'mypage' && (
           <>
             <header className="shrink-0 flex items-center gap-2 mb-2 py-2 border-b border-border/50">
-              <button type="button" onClick={() => { window.location.hash = ''; setSection('mastering'); }} className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground">← {language === 'ja' ? 'トップへ' : 'Back'}</button>
+              <button type="button" onClick={() => { window.location.hash = ''; setSection('mastering'); }} className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground">← {t('common.back_to_top', { default: 'Back' })}</button>
               <div className="flex-1" />
               <LanguageSwitcher />
             </header>
@@ -416,7 +450,7 @@ export default function AppContent() {
         {section === 'pricing' && (
           <>
             <header className="shrink-0 flex items-center gap-2 mb-2 py-2 border-b border-border/50">
-              <button type="button" onClick={() => { window.location.hash = ''; setSection('mastering'); }} className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground">← {language === 'ja' ? 'トップへ' : 'Back'}</button>
+              <button type="button" onClick={() => { window.location.hash = ''; setSection('mastering'); }} className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground">← {t('common.back_to_top', { default: 'Back' })}</button>
               <div className="flex-1" />
               <LanguageSwitcher />
             </header>
@@ -428,7 +462,7 @@ export default function AppContent() {
 
         {(section === 'mastering' || section === 'library' || section === 'checklist' || section === 'email' || section === 'sns' || section === 'admin') && (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-touch">
-            <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading…</div>}>
+            <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">{t('common.loading', { default: 'Loading…' })}</div>}>
               <DownloadGateModal open={showDownloadGate} onClose={() => setShowDownloadGate(false)} onSignInWithGoogle={signInWithGoogle} />
               <PaywallModal open={showPaywall} onClose={() => setShowPaywall(false)} onGoToPricing={() => { window.location.hash = 'pricing'; setSection('pricing'); }} />
               {analysisData && masteringParams && (

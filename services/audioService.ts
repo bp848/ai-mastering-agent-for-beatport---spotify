@@ -2,6 +2,57 @@
 import type { AudioAnalysisData, MasteringParams } from '../types';
 
 // Helper function to convert AudioBuffer to a WAV file (Blob)
+// --- Audio Engine Internal Utilities ---
+class KWeightingFilter {
+  private b0_1 = 0; private b1_1 = 0; private b2_1 = 0; private a1_1 = 0; private a2_1 = 0;
+  private b0_2 = 0; private b1_2 = 0; private b2_2 = 0; private a1_2 = 0; private a2_2 = 0;
+  private x1_1 = 0; private x2_1 = 0; private y1_1 = 0; private y2_1 = 0;
+  private x1_2 = 0; private x2_2 = 0; private y1_2 = 0; private y2_2 = 0;
+
+  constructor(sampleRate: number) {
+    // Stage 1: Pre-filter (High Shelf)
+    const f1 = 1681.3; const G1 = 3.99984385; const Q1 = 0.7071752369554193;
+    const w1 = 2 * Math.PI * f1 / sampleRate;
+    const alpha1 = Math.sin(w1) / (2 * Q1);
+    const A1 = Math.pow(10, G1 / 40);
+    const sqrtA1_2alpha1 = 2 * Math.sqrt(A1) * alpha1;
+
+    this.b0_1 = A1 * ((A1 + 1) + (A1 - 1) * Math.cos(w1) + sqrtA1_2alpha1);
+    this.b1_1 = -2 * A1 * ((A1 - 1) + (A1 + 1) * Math.cos(w1));
+    this.b2_1 = A1 * ((A1 + 1) + (A1 - 1) * Math.cos(w1) - sqrtA1_2alpha1);
+    const a0_1 = (A1 + 1) - (A1 - 1) * Math.cos(w1) + sqrtA1_2alpha1;
+    this.a1_1 = 2 * ((A1 - 1) - (A1 + 1) * Math.cos(w1));
+    this.a2_1 = (A1 + 1) - (A1 - 1) * Math.cos(w1) - sqrtA1_2alpha1;
+
+    this.b0_1 /= a0_1; this.b1_1 /= a0_1; this.b2_1 /= a0_1; this.a1_1 /= a0_1; this.a2_1 /= a0_1;
+
+    // Stage 2: RLB-filter (High Pass)
+    const f2 = 38.1; const Q2 = 0.5;
+    const w2 = 2 * Math.PI * f2 / sampleRate;
+    const alpha2 = Math.sin(w2) / (2 * Q2);
+    const cosw2 = Math.cos(w2);
+
+    this.b0_2 = (1 + cosw2) / 2;
+    this.b1_2 = -(1 + cosw2);
+    this.b2_2 = (1 + cosw2) / 2;
+    const a0_2 = 1 + alpha2;
+    this.a1_2 = -2 * cosw2;
+    this.a2_2 = 1 - alpha2;
+
+    this.b0_2 /= a0_2; this.b1_2 /= a0_2; this.b2_2 /= a0_2; this.a1_2 /= a0_2; this.a2_2 /= a0_2;
+  }
+
+  process(sample: number): number {
+    // Stage 1
+    const y_1 = this.b0_1 * sample + this.b1_1 * this.x1_1 + this.b2_1 * this.x2_1 - this.a1_1 * this.y1_1 - this.a2_1 * this.y2_1;
+    this.x2_1 = this.x1_1; this.x1_1 = sample; this.y2_1 = this.y1_1; this.y1_1 = y_1;
+    // Stage 2
+    const y_2 = this.b0_2 * y_1 + this.b1_2 * this.x1_2 + this.b2_2 * this.x2_2 - this.a1_2 * this.y1_2 - this.a2_2 * this.y2_2;
+    this.x2_2 = this.x1_2; this.x1_2 = y_1; this.y2_2 = this.y1_2; this.y1_2 = y_2;
+    return y_2;
+  }
+}
+
 const bufferToWave = (buffer: AudioBuffer): Blob => {
   const numOfChan = buffer.numberOfChannels;
   const length = buffer.length * numOfChan * 2 + 44;
@@ -384,8 +435,11 @@ export const analyzeAudioFile = async (file: File): Promise<{ analysisData: Audi
     return { analysisData, audioBuffer };
 
   } catch (e) {
-    console.error("Python audio analysis failed:", e);
-    throw new Error("error.pyodide.analysis_failed");
+    console.error("Python audio analysis failed. Original error:", e);
+    // If e is an error object with a message, pass it along.
+    // Pyodide errors often have useful details in their string representation.
+    const errorMessage = e instanceof Error ? e.toString() : "error.pyodide.analysis_failed";
+    throw new Error(errorMessage);
   }
 };
 
@@ -909,17 +963,31 @@ export const optimizeMasteringParams = async (
   // [1] Self-Correction Loop — 本番と同一オーバーサンプリング経路でレンダリングし、分析時と最終書き出しの音質差をなくす。
   const renderedBuffer = await renderMasteredBuffer(chunkBuffer, optimizedParams, analysisData);
 
-  // --- 400ms ブロック積分で LUFS を推定（単一 RMS より精度が高い）---
-  const data = renderedBuffer.getChannelData(0);
+  // --- Accurate LUFS Estimation with K-Weighting & Multi-Channel Support ---
   const sr = renderedBuffer.sampleRate;
+  const numChans = renderedBuffer.numberOfChannels;
+  const kFilters = Array.from({ length: numChans }, () => new KWeightingFilter(sr));
+
   const blockSamples = Math.max(1, Math.floor(0.4 * sr));
   const blocks: number[] = [];
-  for (let i = 0; i + blockSamples <= data.length; i += blockSamples) {
-    let sumSq = 0;
-    for (let j = 0; j < blockSamples; j++) sumSq += data[i + j] * data[i + j];
-    const meanSq = sumSq / blockSamples;
-    if (meanSq > 1e-20) blocks.push(-0.691 + 10 * Math.log10(meanSq));
+
+  for (let i = 0; i + blockSamples <= renderedBuffer.length; i += blockSamples) {
+    let sumMeanSq = 0;
+    for (let ch = 0; ch < numChans; ch++) {
+      const channelData = renderedBuffer.getChannelData(ch);
+      let channelSumSq = 0;
+      for (let j = 0; j < blockSamples; j++) {
+        const weighted = kFilters[ch].process(channelData[i + j]);
+        channelSumSq += weighted * weighted;
+      }
+      sumMeanSq += channelSumSq / blockSamples;
+    }
+    // Gated Loudness (Absolute threshold -70 LUFS)
+    const meanSq = sumMeanSq / numChans; // Average across channels
+    const lk = -0.691 + 10 * Math.log10(meanSq + 1e-20);
+    if (lk > -70) blocks.push(lk);
   }
+
   const measuredLUFS =
     blocks.length === 0
       ? -60
@@ -936,24 +1004,35 @@ export const optimizeMasteringParams = async (
   }
   const measuredPeakDb = maxSample <= 1e-10 ? -100 : 20 * Math.log10(maxSample);
 
-  // --- Self-Correction: CAPS REMOVED - AI gain values respected ---
-  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 1.0;
+  // --- Self-Correction: Accuracy & Safety Priority ---
+  const LUFS_THRESHOLD = aiParams.self_correction_lufs_tolerance_db ?? 0.3; // Tighter tolerance
   const MAX_PEAK_CUT_STEP_DB = aiParams.self_correction_max_peak_cut_db ?? 6;
   const GAIN_RESOLUTION = 100;
+
+  // Re-introducing Safety Caps to prevent extreme overshoot/AI errors
+  const GAIN_CAP_DB = 6.0;
+  const GAIN_FLOOR_DB = -12.0;
 
   const diff = TARGET_LUFS - measuredLUFS;
   let newGain = optimizedParams.gain_adjustment_db;
 
-  // Apply full LUFS correction without arbitrary step/boost limits
+  // Apply LUFS correction
   if (Math.abs(diff) > LUFS_THRESHOLD) {
-    newGain += diff; // Full correction, not capped to 0.8dB steps or +1.5dB boost
+    newGain += diff;
+  }
+
+  // Final Safety Check: Bound gain between -12 and +6 dB regardless of AI/Loop logic
+  const originalNewGain = newGain;
+  newGain = Math.max(GAIN_FLOOR_DB, Math.min(GAIN_CAP_DB, newGain));
+  if (Math.abs(newGain - originalNewGain) > 0.1) {
+    console.warn(`[Self-Correction] Safety Cap Engaged: Requested ${originalNewGain.toFixed(1)}dB, Capped to ${newGain.toFixed(1)}dB`);
   }
 
   // 実測ピークに「提案差分」を加えた予測値で先にピーク安全性を判定する。
-  // これにより「LUFS を上げるために newGain を増やした直後の割れ」を防ぐ。
+  const gainChange = newGain - (aiParams.gain_adjustment_db ?? 0);
   const predictedPeakDb = predictPostGainPeakDb(
     measuredPeakDb,
-    optimizedParams.gain_adjustment_db ?? 0,
+    aiParams.gain_adjustment_db ?? 0,
     newGain,
   );
 
@@ -961,7 +1040,7 @@ export const optimizeMasteringParams = async (
   newGain = computePeakSafeGain(predictedPeakDb, TARGET_TRUE_PEAK_DB, newGain, {
     maxCutDb: MAX_PEAK_CUT_STEP_DB,
   });
-  // GAIN_CAP_DB and GAIN_FLOOR_DB removed - no arbitrary limits on AI gain
+
   optimizedParams.gain_adjustment_db = Math.round(newGain * GAIN_RESOLUTION) / GAIN_RESOLUTION;
   if (optimizedParams.gain_adjustment_db !== aiParams.gain_adjustment_db) {
     console.log(
@@ -969,10 +1048,12 @@ export const optimizeMasteringParams = async (
     );
   }
 
+  const finalGainDelta = optimizedParams.gain_adjustment_db - (aiParams.gain_adjustment_db ?? 0);
+
   return {
     params: optimizedParams,
-    measuredLufs: measuredLUFS,
-    measuredPeakDb: measuredPeakDb,
+    measuredLufs: measuredLUFS + finalGainDelta,
+    measuredPeakDb: measuredPeakDb + finalGainDelta,
   };
 };
 
